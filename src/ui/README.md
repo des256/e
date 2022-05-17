@@ -22,7 +22,7 @@ Use Tokio.
 
 re-use elements when updating the tree
 
-#### Widgets
+#### Widgets -> Configs
 
 describes configuration of an element
 
@@ -31,14 +31,14 @@ offer public API
 
 Padding: hold onto child and amount of padding
 
-#### Elements
+#### Elements -> Views
 
 instantiation of widgets, manages the lifecycle
 
 holds spot in UI hierarchy
 manage parent/child relationship
 
-#### Render Objects
+#### Render Objects -> Primitives
 
 handles size, layout and painting
 
