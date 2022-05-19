@@ -1,3 +1,7 @@
+use {
+    crate::*,
+};
+
 pub trait Primitive {
-    // access to primitive tree aspects
+    fn layout(&self,constraints: Constraints);
 }
