@@ -3,9 +3,9 @@ use {
 };
 
 pub struct Border {
-    top: u32,
-    bottom: u32,
-    left: u32,
-    right: u32,
-    dimensions: EdgeInsets,
+    pub top: u32,
+    pub bottom: u32,
+    pub left: u32,
+    pub right: u32,
+    pub dimensions: EdgeInsets,
 }

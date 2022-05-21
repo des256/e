@@ -77,5 +77,8 @@ pub use primitive::*;
 mod widget;
 pub use widget::*;
 
+mod container;
+pub use container::*;
+
 mod flex;
 pub use flex::*;
