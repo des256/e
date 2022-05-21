@@ -3,12 +3,12 @@ use {
 };
 
 pub struct EdgeInsets {
-    topLeft: Offset,
+    _top_left: Offset,
     pub top: i32,
-    topRight: Offset,
+    _top_right: Offset,
     pub left: i32,
     pub right: i32,
-    bottomLeft: Offset,
+    _bottom_left: Offset,
     pub bottom: i32,
-    bottomRight: Offset,
+    _bottom_right: Offset,
 }

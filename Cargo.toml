@@ -4,8 +4,28 @@ version = "0.1.0"
 authors = ["Desmond Germans <desmond@germansmedia.nl>"]
 edition = "2018"
 
+[profile.dev]
+opt-level = 0
+debug = true
+lto = true
+codegen-units = 28
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = "fat"
+codegen-units = 1
+
+[lib]
+name = "e"
+crate-type = ["rlib"]
+
 [features]
+default = ["system_linux","gpu_vulkan","debug_output"]
+debug_output = []
+system_linux = ["sys-sys/system_linux"]
+gpu_vulkan = ["sys-sys/gpu_vulkan"]
 
 [dependencies]
-
-[dev-dependencies]
+libc = "*"
+sys-sys = { version = "*", path = "sys-sys" }
