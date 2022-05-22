@@ -1,11 +1,11 @@
 use {
     crate::*,
+    std::{
+        rc::{
+            Rc,
+        },
+    },
 };
-
-pub enum BlendMode {
-    Src,
-    Dst,
-}
 
 pub type Position = Vec2<i32>;
 pub type Size = Vec2<u32>;
@@ -16,69 +16,42 @@ pub enum Axis {
     Vertical,
 }
 
-pub enum BlurStyle {
-    Inner,
-    Normal,
-    Outer,
-    Solid,
+pub struct Constraints {
+    pub min: Size,
+    pub max: Size,
 }
 
-pub enum MainAxisAlignment {
-    Start,
-    End,
-    Center,
-    SpaceAround,
-    SpaceBetween,
-    SpaceEvenly,
+pub struct Context<'a> {
+    pub parent: &'a Primitive,
+    pub index: usize,
 }
 
-pub enum CrossAxisAlignment {
-    Start,
-    End,
-    Center,
-    Baseline,
-    Stretch,
+impl<'a> Context<'a> {
+    fn new(parent: &'a Primitive,index: usize) -> Context<'a> {
+        Context {
+            parent: parent,
+            index: index,
+        }
+    }
+
+    fn update(&self) {
+        self.parent.update(self.index);
+    }
 }
 
-pub type Alignment = Vec2<i32>;
-impl Alignment {
-    pub const TOP_LEFT: Self = Self { x: -1,y: -1, };
-    pub const TOP_CENTER: Self = Self { x: 0,y: -1, };
-    pub const TOP_RIGHT: Self = Self { x: 1,y: -1, };
-    pub const CENTER_LEFT: Self = Self { x: -1,y: 0, };
-    pub const CENTER: Self = Self { x: 0,y: 0, };
-    pub const CENTER_RIGHT: Self = Self { x: 1,y: 0, };
-    pub const BOTTOM_LEFT: Self = Self { x: -1,y: 1, };
-    pub const BOTTOM_CENTER: Self = Self { x: 0,y: 1, };
-    pub const BOTTOM_RIGHT: Self = Self { x: 1,y: 1, };
+pub trait Widget {
+    // create new primitive according to the current state of the widget
+    fn realize(&mut self,context: Context) -> Primitive;
 }
-
-mod color;
-pub use color::*;
-
-mod constraints;
-pub use constraints::*;
-
-mod edgeinsets;
-pub use edgeinsets::*;
-
-mod border;
-pub use border::*;
-
-mod borderradius;
-pub use borderradius::*;
-
-mod boxdecoration;
-pub use boxdecoration::*;
 
 mod primitive;
 pub use primitive::*;
 
-mod widget;
-pub use widget::*;
+mod text;
+pub use text::*;
 
 mod container;
 pub use container::*;
 
-mod flex;
-pub use flex::*;
+mod button;
+pub use button::*;

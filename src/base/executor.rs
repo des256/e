@@ -1,27 +1,106 @@
+// dump of rust-lang.github.io/async-book, as a starting point
+// aspirations:
+// - integrate smartly with event queues and I/O for various platforms, starting with Linux
+// - smooth multithreaded executor
+// - the ability to spawn to specific threads
+
 use {
-    crate::*,
     std::{
         sync::{
+            mpsc::{
+                sync_channel,
+                Receiver,
+                SyncSender,
+            },
             Arc,
             Mutex,
         },
+        boxed,
         future::Future,
+        task::{
+            Context,
+            Waker,
+            RawWaker,
+            RawWakerVTable,
+        },
+        mem::{
+            ManuallyDrop,
+        },
         pin::Pin,
+        marker::PhantomData,
+        ops::Deref,
     },
 };
 
-struct Executor {
+type BoxFuture<'a,T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+
+pub struct WakerRef<'a> {
+    waker: ManuallyDrop<Waker>,
+    _marker: PhantomData<&'a ()>,
+}
+
+impl<'a> WakerRef<'a> {
+    pub fn new(waker: &'a Waker) -> Self {
+        let waker = ManuallyDrop::new(unsafe { std::ptr::read(waker) });
+        Self { waker, _marker: PhantomData }
+    }
+
+    pub fn new_unowned(waker: ManuallyDrop<Waker>) -> Self {
+        Self { waker, _marker: PhantomData }
+    }
+}
+
+unsafe fn increase_refcount<T: ArcWake>(data: *const ()) {
+    let arc = ManuallyDrop::new(Arc::<T>::from_raw(data.cast::<T>()));
+    let _arc_clone: ManuallyDrop<_> = arc.clone();
+}
+
+unsafe fn clone_arc_raw<T: ArcWake>(data: *const ()) -> RawWaker {
+    increase_refcount::<T>(data);
+    RawWaker::new(data, waker_vtable::<T>())
+}
+
+unsafe fn wake_arc_raw<T: ArcWake>(data: *const ()) {
+    let arc: Arc<T> = Arc::from_raw(data.cast::<T>());
+    ArcWake::wake(arc);
+}
+
+unsafe fn wake_by_ref_arc_raw<T: ArcWake>(data: *const ()) {
+    let arc = ManuallyDrop::new(Arc::<T>::from_raw(data.cast::<T>()));
+    ArcWake::wake_by_ref(&arc);
+}
+
+unsafe fn drop_arc_raw<T: ArcWake>(data: *const ()) {
+    drop(Arc::<T>::from_raw(data.cast::<T>()))
+}
+
+fn waker_vtable<W: ArcWake>() -> &'static RawWakerVTable {
+    &RawWakerVTable::new(
+        clone_arc_raw::<W>,
+        wake_arc_raw::<W>,
+        wake_by_ref_arc_raw::<W>,
+        drop_arc_raw::<W>,
+    )
+}
+
+impl Deref for WakerRef<'_> {
+    type Target = Waker;
+    fn deref(&self) -> &Waker {
+        &self.waker
+    }
+}
+
+pub struct Executor {
     ready_queue: Receiver<Arc<Task>>,
 }
 
 impl Executor {
-    fn run(&self) {
+    pub fn run(&self) {
         while let Ok(task) = self.ready_queue.recv() {
-            // Take the future, and if it has not yet completed (is still Some),
-            // poll it in an attempt to complete it.
             let mut future_slot = task.future.lock().unwrap();
             if let Some(mut future) = future_slot.take() {
-                let waker = waker_ref(&task);
+                let ptr = Arc::as_ptr(&task).cast::<()>();
+                let waker = WakerRef::new_unowned(ManuallyDrop::new(unsafe { Waker::from_raw(RawWaker::new(ptr,waker_vtable::<Task>())) }));
                 let context = &mut Context::from_waker(&*waker);
                 if future.as_mut().poll(context).is_pending() {
                     *future_slot = Some(future);
@@ -31,13 +110,13 @@ impl Executor {
     }
 }
 
-struct Spawner {
+pub struct Spawner {
     task_sender: SyncSender<Arc<Task>>,
 }
 
 impl Spawner {
-    fn spawn(&self, future: impl Future<Output = ()> + 'static + Send) {
-        let future = future.boxed();
+    pub fn spawn(&self, future: impl Future<Output = ()> + 'static + Send) {
+        let future = boxed::Box::pin(future);
         let task = Arc::new(Task {
             future: Mutex::new(Some(future)),
             task_sender: self.task_sender.clone(),
@@ -47,11 +126,11 @@ impl Spawner {
 }
 
 struct Task {
-    future: Mutex<Option<Pin<Box<dyn Future<Output=()>>>>>,
+    future: Mutex<Option<BoxFuture<'static,()>>>,
     task_sender: SyncSender<Arc<Task>>,
 }
 
-fn new_executor_and_spawner() -> (Executor, Spawner) {
+pub fn new_executor_and_spawner() -> (Executor, Spawner) {
     const MAX_QUEUED_TASKS: usize = 10000;
     let (task_sender,ready_queue) = sync_channel(MAX_QUEUED_TASKS);
     (Executor { ready_queue }, Spawner { task_sender })
@@ -59,16 +138,17 @@ fn new_executor_and_spawner() -> (Executor, Spawner) {
 
 pub trait ArcWake: Send + Sync {
     fn wake_by_ref(arc_self: &Arc<Self>);
+    fn wake(arc_self: Arc<Self>);
 }
 
 impl ArcWake for Task {
     fn wake_by_ref(arc_self: &Arc<Self>) {
-        // Implement `wake` by sending this task back onto the task channel
-        // so that it will be polled again by the executor.
         let cloned = arc_self.clone();
-        arc_self
-            .task_sender
-            .send(cloned)
-            .expect("too many tasks queued");
+        arc_self.task_sender.send(cloned).expect("too many tasks queued");
+    }
+
+    fn wake(arc_self: Arc<Self>) {
+        let cloned = arc_self.clone();
+        arc_self.task_sender.send(cloned).expect("too many tasks queued");
     }
 }
