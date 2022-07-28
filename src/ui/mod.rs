@@ -7,9 +7,9 @@ use {
     },
 };
 
-pub type Position = Vec2<i32>;
-pub type Size = Vec2<u32>;
-pub type Offset = Vec2<i32>;
+pub type Position = Vec2<f32>;
+pub type Size = Vec2<f32>;
+pub type Offset = Vec2<f32>;
 
 pub enum Axis {
     Horizontal,
@@ -21,7 +21,7 @@ pub struct Constraints {
     pub max: Size,
 }
 
-pub struct Context<'a> {
+/*pub struct Context<'a> {
     pub parent: &'a Primitive,
     pub index: usize,
 }
@@ -37,11 +37,11 @@ impl<'a> Context<'a> {
     fn update(&self) {
         self.parent.update(self.index);
     }
-}
+}*/
 
 pub trait Widget {
-    // create new primitive according to the current state of the widget
-    fn realize(&mut self,context: Context) -> Primitive;
+    // create a completely new primitive according to the current state of the widget
+    fn realize(&self) -> Primitive;
 }
 
 mod primitive;
@@ -55,3 +55,11 @@ pub use container::*;
 
 mod button;
 pub use button::*;
+
+pub async fn run_ui_loop(ui: Rc<dyn Widget>) {
+    let _prims = ui.realize();
+    loop {
+        // TODO: get event
+        // TODO: execute event
+    }
+}

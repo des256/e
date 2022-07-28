@@ -3,21 +3,22 @@ use {
 };
 
 pub struct Text {
-    pub text: String,
-    pub primitives: Vec<Primitive>,
+    text: String,
 }
 
 impl Text {
     pub fn new(text: &str) -> Text {
         Text {
             text: text.to_owned(),
-            primitives: Vec::new(),
         }
     }
 }
 
 impl Widget for Text {
-    fn realize(&mut self,context: &Context) -> Primitive {
-        Primitive::new()
+    fn realize(&self) -> Primitive {
+        Primitive {
+            text: String::from(&self.text),
+            children: Vec::new(),
+        }
     }
 }

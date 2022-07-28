@@ -132,7 +132,7 @@ macro_rules! scalar_multivec2_mul {
 scalar_multivec2_mul!(f32);
 scalar_multivec2_mul!(f64);
 
-impl<T: Mul<T,Output=T>> Mul<T> for MultiVec2<T> {
+impl<T: Copy + Mul<T,Output=T>> Mul<T> for MultiVec2<T> {
     type Output = MultiVec2<T>;
     fn mul(self,other: T) -> Self {
         MultiVec2 {
@@ -143,7 +143,7 @@ impl<T: Mul<T,Output=T>> Mul<T> for MultiVec2<T> {
     }
 }
 
-impl<T: MulAssign<T>> MulAssign<T> for MultiVec2<T> {
+impl<T: Copy + MulAssign<T>> MulAssign<T> for MultiVec2<T> {
     fn mul_assign(&mut self,other: T) {
         self.r *= other;
         self.x *= other; self.y *= other;
@@ -151,7 +151,7 @@ impl<T: MulAssign<T>> MulAssign<T> for MultiVec2<T> {
     }
 }
 
-impl<T: Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> Mul<MultiVec2<T>> for MultiVec2<T> {
+impl<T: Copy + Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> Mul<MultiVec2<T>> for MultiVec2<T> {
     type Output = MultiVec2<T>;
     fn mul(self,other: MultiVec2<T>) -> Self {
         MultiVec2 {
@@ -163,7 +163,7 @@ impl<T: Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> Mul<MultiVec2<T>> f
     }
 }
 
-impl<T: Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> MulAssign<MultiVec2<T>> for MultiVec2<T> {
+impl<T: Copy + Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> MulAssign<MultiVec2<T>> for MultiVec2<T> {
     fn mul_assign(&mut self,other: MultiVec2<T>) {
         let r = self.r * other.r - self.x * other.x - self.y * other.y - self.xy * other.xy;
         let x = self.r * other.x + self.x * other.r + self.y * other.xy - self.xy * other.y;
@@ -175,7 +175,7 @@ impl<T: Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> MulAssign<MultiVec2
     }
 }
 
-impl<T: Div<T,Output=T>> Div<T> for MultiVec2<T> {
+impl<T: Copy + Div<T,Output=T>> Div<T> for MultiVec2<T> {
     type Output = MultiVec2<T>;
     fn div(self,other: T) -> Self {
         MultiVec2 {
@@ -186,7 +186,7 @@ impl<T: Div<T,Output=T>> Div<T> for MultiVec2<T> {
     }
 }
 
-impl<T: DivAssign<T>> DivAssign<T> for MultiVec2<T> {
+impl<T: Copy + DivAssign<T>> DivAssign<T> for MultiVec2<T> {
     fn div_assign(&mut self,other: T) {
         self.r /= other;
         self.x /= other; self.y /= other;

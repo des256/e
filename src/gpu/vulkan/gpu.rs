@@ -18,7 +18,7 @@ pub struct QueueFamily {
     pub sparse: bool,
 }
 
-pub struct GPU {
+pub struct Gpu {
     pub system: Rc<System>,
     pub name: String,
     pub queue_families: Vec<(QueueFamily,usize)>,
@@ -27,7 +27,7 @@ pub struct GPU {
 
 impl System {
 
-    pub fn find_gpus(self: &Rc<Self>) -> Vec<Rc<GPU>> {
+    pub fn find_gpus(self: &Rc<Self>) -> Vec<Rc<Gpu>> {
 
         let vk_physical_devices = {
             let mut count = 0u32;
@@ -42,7 +42,7 @@ impl System {
             devices
         };
 
-        let mut gpus = Vec::<Rc<GPU>>::new();
+        let mut gpus = Vec::<Rc<Gpu>>::new();
         for vk_physical_device in &vk_physical_devices {
 
             // get GPU properties
@@ -79,7 +79,7 @@ impl System {
                 }
             }
 
-            gpus.push(Rc::new(GPU {
+            gpus.push(Rc::new(Gpu {
                 system: Rc::clone(self),
                 name: name.to_string(),
                 queue_families: queue_families,

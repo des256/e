@@ -12,14 +12,14 @@ use {
 };
 
 pub struct Session {
-    pub gpu: Rc<GPU>,
+    pub gpu: Rc<Gpu>,
     pub(crate) vk_device: VkDevice,
     pub(crate) vk_command_pools: Vec<VkCommandPool>,
 }
 
-impl GPU {
+impl Gpu {
     
-    pub fn create_session(self: &Rc<GPU>,queues: Vec<(QueueFamilyID,usize)>) -> Option<Rc<Session>> {
+    pub fn create_session(self: &Rc<Gpu>,queues: Vec<(QueueFamilyID,usize)>) -> Option<Rc<Session>> {
 
         let mut queue_create_infos = Vec::<VkDeviceQueueCreateInfo>::new();
         let mut prioritiesies = Vec::<Vec<f32>>::new();

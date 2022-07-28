@@ -1,0 +1,11 @@
+[package]
+name = "mkfnt"
+version = "0.1.0"
+authors = ["Desmond Germans <desmond@germansmedia.nl>"]
+edition = "2018"
+
+[features]
+
+[dependencies]
+e = { path = "../.." }
+freetype-rs = "*"

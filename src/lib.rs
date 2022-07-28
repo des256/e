@@ -10,5 +10,8 @@ pub use system::*;
 mod gpu;
 pub use gpu::*;
 
+mod codecs;
+pub use codecs::*;
+
 mod ui;
 pub use ui::*;

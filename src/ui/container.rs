@@ -5,22 +5,23 @@ use {
     },
 };
 
-struct Container {
-    child: Rc<dyn Widget>,
-    primitives: Vec<Primitive>,
+pub struct Container {
+    _child: Rc<dyn Widget>,
 }
 
 impl Container {
     pub fn new(child: Rc<dyn Widget>) -> Container {
         Container {
-            child: child,
-            primitives: Vec::new(),
+            _child: child,
         }
     }
 }
 
 impl Widget for Container {
-    fn realize(&mut self,context: &Context) -> Primitive {
-        Primitive::new()
+    fn realize(&self) -> Primitive {
+        Primitive {
+            text: String::new(),
+            children: Vec::new(),
+        }
     }
 }

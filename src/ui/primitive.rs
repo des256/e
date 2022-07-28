@@ -1,12 +1,3 @@
-use {
-    crate::*,
-    std::{
-        rc::{
-            Rc,
-        },
-    },
-};
-
 /*
 My take on this...
 
@@ -20,19 +11,12 @@ Is the Primitive going to be Rc<RefCell<>> hell?
 
 */
 
+// attempt: make all primitives identical
 pub struct Primitive {
-    widget: Rc<dyn Widget>,
-    children: Vec<Rc<Primitive>>,
+    pub text: String,
+    pub children: Vec<Primitive>,
 }
-
-impl Primitive {
-    pub fn new(widget: Rc<dyn Widget>) -> Primitive {
-        Primitive {
-            widget: widget,
-            children: Vec::new(),
-        }
-    }
-
+/*
     pub fn update(&self,index: usize) {
         // rebuild slot
         self.children[index] = Rc::new(self.children[index].widget.realize(&Context { parent: &self,index: index, }));
@@ -44,4 +28,4 @@ impl Primitive {
 
     pub fn render(&self,position: Position) {
     }
-}
+}*/

@@ -23,9 +23,6 @@ pub use mat::*;
 mod ten;
 pub use ten::*;
 
-mod complex;
-pub use complex::*;
-
 mod vec2;
 pub use vec2::*;
 
@@ -35,9 +32,6 @@ pub use vec3::*;
 mod vec4;
 pub use vec4::*;
 
-mod quat;
-pub use quat::*;
-
 mod rect;
 pub use rect::*;
 
@@ -46,3 +40,6 @@ pub use executor::*;
 
 mod timer;
 pub use timer::*;
+
+mod pixel;
+pub use pixel::*;

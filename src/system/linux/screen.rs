@@ -10,7 +10,7 @@ use {
 
 pub struct Screen {
     pub system: Rc<System>,
-    pub gpu: Rc<GPU>,
+    pub gpu: Rc<Gpu>,
     pub name: String,
     pub graphics_queue_id: QueueFamilyID,
     pub present_queue_id: QueueFamilyID,
@@ -20,7 +20,7 @@ pub struct Screen {
 impl System {
 
 #[cfg(feature="gpu_vulkan")]
-    fn find_gpu_window_queue_families(&self,gpu: &GPU,xcb_window: xcb_window_t) -> Option<(QueueFamilyID,QueueFamilyID)> {
+    fn find_gpu_window_queue_families(&self,gpu: &Gpu,xcb_window: xcb_window_t) -> Option<(QueueFamilyID,QueueFamilyID)> {
 
         // create surface for the window
         let info = VkXcbSurfaceCreateInfoKHR {
@@ -72,7 +72,7 @@ impl System {
         Some((vk_graphics_queue_id.unwrap(),vk_present_queue_id.unwrap()))
     }
 
-    pub fn find_screens(self: &Rc<Self>,gpus: &Vec<Rc<GPU>>) -> Vec<Rc<Screen>> {
+    pub fn find_screens(self: &Rc<Self>,gpus: &Vec<Rc<Gpu>>) -> Vec<Rc<Screen>> {
 
         // TODO: somehow enumerate all attached screens
 
@@ -123,7 +123,7 @@ impl System {
             }
 
             // find best matching GPU
-            let mut best_gpu: Option<Rc<GPU>> = None;
+            let mut best_gpu: Option<Rc<Gpu>> = None;
             let mut vk_graphics_queue_id = 0;
             let mut vk_present_queue_id = 0;
             for gpu in gpus {

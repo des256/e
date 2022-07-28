@@ -210,7 +210,7 @@ macro_rules! scalar_multivec4_mul {
 scalar_multivec4_mul!(f32);
 scalar_multivec4_mul!(f64);
 
-impl<T: Mul<T,Output=T>> Mul<T> for MultiVec4<T> {
+impl<T: Copy + Mul<T,Output=T>> Mul<T> for MultiVec4<T> {
     type Output = MultiVec4<T>;
     fn mul(self,other: T) -> Self {
         MultiVec4 {
@@ -223,7 +223,7 @@ impl<T: Mul<T,Output=T>> Mul<T> for MultiVec4<T> {
     }
 }
 
-impl<T: MulAssign<T>> MulAssign<T> for MultiVec4<T> {
+impl<T: Copy + MulAssign<T>> MulAssign<T> for MultiVec4<T> {
     fn mul_assign(&mut self,other: T) {
         self.r *= other;
         self.x *= other; self.y *= other; self.z *= other; self.w *= other;
@@ -233,7 +233,7 @@ impl<T: MulAssign<T>> MulAssign<T> for MultiVec4<T> {
     }
 }
 
-impl<T: Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> Mul<MultiVec4<T>> for MultiVec4<T> {
+impl<T: Copy + Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> Mul<MultiVec4<T>> for MultiVec4<T> {
     type Output = MultiVec4<T>;
     fn mul(self,other: MultiVec4<T>) -> Self {
         MultiVec4 {
@@ -257,7 +257,7 @@ impl<T: Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> Mul<MultiVec4<T>> f
     }
 }
 
-impl<T: Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> MulAssign<MultiVec4<T>> for MultiVec4<T> {
+impl<T: Copy + Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> MulAssign<MultiVec4<T>> for MultiVec4<T> {
     fn mul_assign(&mut self,other: MultiVec4<T>) {
         let r = self.r * other.r + self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w - self.xy * other.xy - self.xz * other.xz - self.xw * other.xw - self.yz * other.yz - self.yw * other.yw - self.zw * other.zw - self.xyz * other.xyz - self.xyw * other.xyw - self.xzw * other.xzw - self.yzw * other.yzw + self.xyzw * other.xyzw;
         let x = self.r * other.x + self.x * other.r - self.y * other.xy - self.z * other.xz - self.w * other.xw + self.xy * other.y + self.xz * other.z + self.xw * other.w - self.yz * other.xyz - self.yw * other.xyw - self.zw * other.xzw - self.xyz * other.yz - self.xyw * other.yw - self.xzw * other.zw + self.yzw * other.xyzw - self.xyzw * other.yzw;
@@ -283,7 +283,7 @@ impl<T: Mul<T,Output=T> + Add<T,Output=T> + Sub<T,Output=T>> MulAssign<MultiVec4
     }
 }
 
-impl<T: Div<T,Output=T>> Div<T> for MultiVec4<T> {
+impl<T: Copy + Div<T,Output=T>> Div<T> for MultiVec4<T> {
     type Output = MultiVec4<T>;
     fn div(self,other: T) -> Self {
         MultiVec4 {
@@ -296,7 +296,7 @@ impl<T: Div<T,Output=T>> Div<T> for MultiVec4<T> {
     }
 }
 
-impl<T: DivAssign<T>> DivAssign<T> for MultiVec4<T> {
+impl<T: Copy + DivAssign<T>> DivAssign<T> for MultiVec4<T> {
     fn div_assign(&mut self,other: T) {
         self.r /= other;
         self.x /= other; self.y /= other; self.z /= other; self.w /= other;
