@@ -4,6 +4,11 @@ version = "0.1.0"
 authors = ["Desmond Germans <desmond@germansmedia.nl>"]
 edition = "2018"
 
+[features]
+default = ["gpu_vulkan"]
+gpu_vulkan = []
+#opengl = []
+
 [profile.dev]
 opt-level = 0
 debug = true
@@ -20,12 +25,5 @@ codegen-units = 1
 name = "e"
 crate-type = ["rlib"]
 
-[features]
-default = ["system_linux","gpu_vulkan","debug_output"]
-debug_output = []
-system_linux = ["sys-sys/system_linux"]
-gpu_vulkan = ["sys-sys/gpu_vulkan"]
-
 [dependencies]
 libc = "*"
-sys-sys = { version = "*", path = "sys-sys" }

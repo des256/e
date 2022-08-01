@@ -8,5 +8,5 @@ use {
 
 fn main() {
     let ui = Rc::new(Container::new(Rc::new(Text::new("Hello!"))));
-    run_ui_loop(ui);
+    //run_ui_loop(ui);
 }

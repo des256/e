@@ -3,110 +3,149 @@ use {
     std::{
         ptr::null_mut,
         mem::MaybeUninit,
-        rc::Rc,
     },
-    sys_sys::*,
 };
 
-pub struct CommandBuffer {
-    pub session: Rc<Session>,
-    pub(crate) vk_command_pool: VkCommandPool,
-    pub(crate) vk_command_buffer: VkCommandBuffer,
+pub struct CommandBuffer<'system,'gpu,'screen> {
+    pub screen: &'screen Screen<'system,'gpu>,
+    pub(crate) vk_command_pool: sys::VkCommandPool,
+    pub(crate) vk_command_buffer: sys::VkCommandBuffer,
 }
 
-impl Session {
+impl<'system,'gpu> Screen<'system,'gpu> {
 
-    pub fn create_commandbuffer(self: &Rc<Self>,queue_family: QueueFamilyID) -> Option<Rc<CommandBuffer>> {
+    pub fn create_graphics_commandbuffer(&self) -> Option<CommandBuffer> {
 
-        let info = VkCommandBufferAllocateInfo {
-            sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        let info = sys::VkCommandBufferAllocateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             pNext: null_mut(),
-            commandPool: self.vk_command_pools[queue_family as usize],
-            level: VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            commandPool: self.vk_graphics_command_pool,
+            level: sys::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             commandBufferCount: 1,
         };
         let mut vk_command_buffer = MaybeUninit::uninit();
-        match unsafe { vkAllocateCommandBuffers(self.vk_device,&info,vk_command_buffer.as_mut_ptr()) } {
-            VK_SUCCESS => { },
-            code => {
-#[cfg(feature="debug_output")]
-                println!("Unable to create Vulkan command buffer (error {})",code);
-                return None;
-            }
+        if unsafe { sys::vkAllocateCommandBuffers(self.vk_device,&info,vk_command_buffer.as_mut_ptr()) } == sys::VK_SUCCESS {
+            Some(CommandBuffer {
+                screen: &self,
+                vk_command_pool: self.vk_graphics_command_pool,
+                vk_command_buffer: unsafe { vk_command_buffer.assume_init() },
+            })
         }
-        Some(Rc::new(CommandBuffer {
-            session: Rc::clone(self),
-            vk_command_pool: self.vk_command_pools[queue_family as usize],
-            vk_command_buffer: unsafe { vk_command_buffer.assume_init() },
-        }))
+        else {
+            None
+        }
+    }
+
+    pub fn create_transfer_commandbuffer(&self) -> Option<CommandBuffer> {
+
+        let info = sys::VkCommandBufferAllocateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            pNext: null_mut(),
+            commandPool: self.vk_transfer_command_pool,
+            level: sys::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            commandBufferCount: 1,
+        };
+        let mut vk_command_buffer = MaybeUninit::uninit();
+        if unsafe { sys::vkAllocateCommandBuffers(self.vk_device,&info,vk_command_buffer.as_mut_ptr()) } == sys::VK_SUCCESS {
+            Some(CommandBuffer {
+                screen: &self,
+                vk_command_pool: self.vk_transfer_command_pool,
+                vk_command_buffer: unsafe { vk_command_buffer.assume_init() },
+            })
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn create_compute_commandbuffer(&self) -> Option<CommandBuffer> {
+
+        let info = sys::VkCommandBufferAllocateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            pNext: null_mut(),
+            commandPool: self.vk_compute_command_pool,
+            level: sys::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            commandBufferCount: 1,
+        };
+        let mut vk_command_buffer = MaybeUninit::uninit();
+        if unsafe { sys::vkAllocateCommandBuffers(self.vk_device,&info,vk_command_buffer.as_mut_ptr()) } == sys::VK_SUCCESS {
+            Some(CommandBuffer {
+                screen: &self,
+                vk_command_pool: self.vk_compute_command_pool,
+                vk_command_buffer: unsafe { vk_command_buffer.assume_init() },
+            })
+        }
+        else {
+            None
+        }
     }
 }
 
-impl CommandBuffer {
+impl<'system,'gpu,'screen> CommandBuffer<'system,'gpu,'screen> {
 
     pub fn begin(&self) -> bool {
-        let info = VkCommandBufferBeginInfo {
-            sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        let info = sys::VkCommandBufferBeginInfo {
+            sType: sys::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             pNext: null_mut(),
             flags: 0,
             pInheritanceInfo: null_mut(),
         };
-        match unsafe { vkBeginCommandBuffer(self.vk_command_buffer,&info) } {
-            VK_SUCCESS => { },
+        match unsafe { sys::vkBeginCommandBuffer(self.vk_command_buffer,&info) } {
+            sys::VK_SUCCESS => true,
             code => {
-#[cfg(feature="debug_output")]
-                println!("Unable to begin Vulkan command buffer (error {})",code);
-                return false;
-            },
+                println!("Unable to begin command buffer (error {})",code);
+                false
+            }
         }
-        true
     }
 
     pub fn end(&self) -> bool {
-        match unsafe { vkEndCommandBuffer(self.vk_command_buffer) } {
-            VK_SUCCESS => { },
+        match unsafe { sys::vkEndCommandBuffer(self.vk_command_buffer) } {
+            sys::VK_SUCCESS => true,
             code => {
-#[cfg(feature="debug_output")]
-                println!("Unable to end Vulkan command buffer (error {})",code);
-                return false;
+                println!("Unable to end command buffer (error {})",code);
+                false
             },
         }
-        true
     }
 
+    /*
     pub fn begin_render_pass(&self,render_pass: &RenderPass,framebuffer: &Framebuffer) {
-        let clear_color = VkClearValue {
-            color: VkClearColorValue {
+        let clear_color = sys::VkClearValue {
+            color: sys::VkClearColorValue {
                 float32: [0.0,0.0,0.0,1.0]
             }
         };
-        let info = VkRenderPassBeginInfo {
-            sType: VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        let info = sys::VkRenderPassBeginInfo {
+            sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             pNext: null_mut(),
             renderPass: render_pass.vk_render_pass,
             framebuffer: framebuffer.vk_framebuffer,
-            renderArea: VkRect2D { offset: VkOffset2D { x: 0,y: 0 },extent: VkExtent2D { width: framebuffer.size.x as u32,height: framebuffer.size.y as u32 } },
+            renderArea: sys::VkRect2D { offset: sys::VkOffset2D { x: 0,y: 0 },extent: sys::VkExtent2D { width: framebuffer.size.x as u32,height: framebuffer.size.y as u32 } },
             clearValueCount: 1,
             pClearValues: &clear_color,
         };
-        unsafe { vkCmdBeginRenderPass(self.vk_command_buffer,&info,VK_SUBPASS_CONTENTS_INLINE) }
+        unsafe { sys::vkCmdBeginRenderPass(self.vk_command_buffer,&info,sys::VK_SUBPASS_CONTENTS_INLINE) }
     }
+    */
 
     pub fn end_render_pass(&self) {
-        unsafe { vkCmdEndRenderPass(self.vk_command_buffer) };
+        unsafe { sys::vkCmdEndRenderPass(self.vk_command_buffer) };
     }
 
+    /*
     pub fn bind_pipeline(&self,pipeline: &GraphicsPipeline) {
-        unsafe { vkCmdBindPipeline(self.vk_command_buffer,VK_PIPELINE_BIND_POINT_GRAPHICS,pipeline.vk_graphics_pipeline) };
+        unsafe { sys::vkCmdBindPipeline(self.vk_command_buffer,sys::VK_PIPELINE_BIND_POINT_GRAPHICS,pipeline.vk_graphics_pipeline) };
     }
+    */
 
     pub fn draw(&self,vertex_count: usize,instance_count: usize,first_vertex: usize, first_instance: usize) {
-        unsafe { vkCmdDraw(self.vk_command_buffer,vertex_count as u32,instance_count as u32,first_vertex as u32,first_instance as u32) };
+        unsafe { sys::vkCmdDraw(self.vk_command_buffer,vertex_count as u32,instance_count as u32,first_vertex as u32,first_instance as u32) };
     }
 }
 
-impl Drop for CommandBuffer {
+impl<'system,'gpu,'screen> Drop for CommandBuffer<'system,'gpu,'screen> {
     fn drop(&mut self) {
-        unsafe { vkFreeCommandBuffers(self.session.vk_device,self.vk_command_pool,1,&self.vk_command_buffer) };
+        unsafe { sys::vkFreeCommandBuffers(self.screen.vk_device,self.vk_command_pool,1,&self.vk_command_buffer) };
     }
 }

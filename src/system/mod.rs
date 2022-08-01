@@ -9,6 +9,8 @@ use {
     },
 };
 
+pub type WindowId = u64;
+
 #[derive(Copy,Clone,Debug)]
 pub enum MouseButton {
     Left,
@@ -92,7 +94,12 @@ impl Display for Event {
     }
 }
 
-#[cfg(feature="system_linux")]
-mod linux;
-#[cfg(feature="system_linux")]
-pub use linux::*;
+#[cfg(target_family="unix")]
+mod unix;
+#[cfg(target_family="unix")]
+pub use unix::*;
+
+#[cfg(target_family="wasm")]
+mod wasm;
+#[cfg(target_family="wasm")]
+pub use wasm::*;

@@ -1,10 +1,5 @@
 use {
     crate::*,
-    std::{
-        rc::{
-            Rc,
-        },
-    },
 };
 
 pub type Position = Vec2<f32>;
@@ -56,10 +51,12 @@ pub use container::*;
 mod button;
 pub use button::*;
 
-pub async fn run_ui_loop(ui: Rc<dyn Widget>) {
-    let _prims = ui.realize();
-    loop {
-        // TODO: get event
-        // TODO: execute event
-    }
+impl System {
+    /*pub async fn run_ui_loop(system: Rc<System>,ui: Rc<dyn Widget>) {
+        let _prims = ui.realize();
+        loop {
+            // TODO: get event
+            // TODO: execute event
+        }
+    }*/   
 }

@@ -6,43 +6,40 @@ use {
     std::{
         ptr::null_mut,
         mem::MaybeUninit,
-        rc::Rc,
     },
-    sys_sys::*,
 };
 
-pub struct Semaphore {
-    pub session: Rc<Session>,
-    pub(crate) vk_semaphore: VkSemaphore,
+pub struct Semaphore<'system,'gpu,'screen,'session> {
+    pub session: &'session Session<'system,'gpu,'screen>,
+    pub(crate) vk_semaphore: sys::VkSemaphore,
 }
 
-impl Session {
+impl<'system,'gpu,'screen> Session<'system,'gpu,'screen> {
 
-    pub fn create_semaphore(self: &Rc<Self>) -> Option<Rc<Semaphore>> {
+    pub fn create_semaphore(&self) -> Option<Semaphore> {
 
-        let info = VkSemaphoreCreateInfo {
-            sType: VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        let info = sys::VkSemaphoreCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             pNext: null_mut(),
             flags: 0,
         };
         let mut vk_semaphore = MaybeUninit::uninit();
-        match unsafe { vkCreateSemaphore(self.vk_device,&info,null_mut(),vk_semaphore.as_mut_ptr()) } {
-            VK_SUCCESS => { },
+        match unsafe { sys::vkCreateSemaphore(self.vk_device,&info,null_mut(),vk_semaphore.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
             code => {
-#[cfg(feature="debug_output")]
                 println!("Unable to create semaphore (error {}).",code);
                 return None;
             },
         }
-        Some(Rc::new(Semaphore {
-            session: Rc::clone(self),
+        Some(Semaphore {
+            session: &self,
             vk_semaphore: unsafe { vk_semaphore.assume_init() },
-        }))
+        })
     }
 }
 
-impl Drop for Semaphore {
+impl<'system,'gpu,'screen,'session> Drop for Semaphore<'system,'gpu,'screen,'session> {
     fn drop(&mut self) {
-        unsafe { vkDestroySemaphore(self.session.vk_device,self.vk_semaphore,null_mut()) };
+        unsafe { sys::vkDestroySemaphore(self.session.vk_device,self.vk_semaphore,null_mut()) };
     }
 }

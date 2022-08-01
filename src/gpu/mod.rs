@@ -22,3 +22,8 @@ pub enum BlendMode {
 mod vulkan;
 #[cfg(feature="gpu_vulkan")]
 pub use vulkan::*;
+
+#[cfg(feature="gpu_opengl")]
+mod opengl;
+#[cfg(feature="gpu_opengl")]
+pub use opengl::*;
