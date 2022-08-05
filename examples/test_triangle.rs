@@ -1,63 +1,87 @@
 use {
     e::*,
+    std::{
+        fs::File,
+        io::prelude::*,
+    },
 };
 
 fn main() {
 
-    let system = open_system().expect("Unable to access system.");
-    let gpus = system.enumerate_gpus();
-    println!("GPUs:");
-    for i in 0..gpus.len() {
-        println!("    {}: {}",i,gpus[i]);
-    }
-    /*
-    let window = screen.create_frame(rect!(50,50,640,480),"test window").expect("Unable to create window.");
-    let mut f = File::open("test-triangle-vert.spv").expect("Unable to open vertex shader.");
+    // create frame window
+    let system = open_system().expect("unable to access system");
+    let mut window = system.create_frame_window(rect!(50,50,640,350),"test triangle").expect("unable to create frame window");
+
+    // read vertex shader
+    let mut f = File::open("test-triangle-vert.spv").expect("unable to open vertex shader");
     let mut b = Vec::<u8>::new();
-    f.read_to_end(&mut b).expect("Unable to read vertex shader.");
-    let vertex_shader = screen.create_shader(&b).expect("Unable to create vertex shader.");
-    let mut f = File::open("test-triangle-frag.spv").expect("Unable to open fragment shader.");
+    f.read_to_end(&mut b).expect("unable to read vertex shader.");
+    let vertex_shader = system.create_shader(&b).expect("unable to create vertex shader");
+
+    // read fragment shader
+    let mut f = File::open("test-triangle-frag.spv").expect("unable to open fragment shader");
     let mut b = Vec::<u8>::new();
-    f.read_to_end(&mut b).expect("Unable to read fragment shader.");
-    let fragment_shader = screen.create_shader(&b).expect("Unable to create fragment shader.");
-    let pipeline_layout = screen.create_pipeline_layout().expect("Unable to create pipeline layout.");
-    let render_pass = screen.create_render_pass().expect("Unable to create render pass.");
-    let graphics_pipeline = screen.create_graphics_pipeline(&pipeline_layout,&render_pass,&vertex_shader,&fragment_shader).expect("Unable to create graphics pipeline.");
-    let swapchain = session.create_swapchain(&window).expect("Unable to create swap chain.");
-    let images = swapchain.get_images();
-    let mut framebuffers = Vec::<Rc<Framebuffer>>::new();
-    for image in &images {
-        let image_view = image.get_view().expect("Unable to create image view.");
-        let framebuffer = image_view.create_framebuffer(swapchain.extent,&render_pass).expect("Unable to create framebuffer.");
-        framebuffers.push(framebuffer);
-    }
-    let mut command_buffers = Vec::<Rc<CommandBuffer>>::new();
-    for framebuffer in &framebuffers {
-        let command_buffer = session.create_commandbuffer(screen.graphics_queue_id).expect("Unable to create command buffer.");
+    f.read_to_end(&mut b).expect("unable to read fragment shader");
+    let fragment_shader = system.create_shader(&b).expect("unable to create fragment shader");
+
+    // create pipeline layout
+    let pipeline_layout = system.create_pipeline_layout().expect("unable to create pipeline layout");
+
+    // create graphics pipeline for the window using the pipeline layout
+    let graphics_pipeline = system.create_graphics_pipeline(&pipeline_layout,&window,&vertex_shader,&fragment_shader).expect("Unable to create graphics pipeline.");
+    
+    // create command buffers, one for each framebuffer
+    let mut command_buffers = Vec::<CommandBuffer>::new();
+
+    // fill the command buffers with render commands
+    for framebuffer in &window.get_framebuffers() {
+        let command_buffer = system.create_commandbuffer().expect("unable to create command buffer");
         if command_buffer.begin() {
             command_buffer.bind_pipeline(&graphics_pipeline);
-            command_buffer.begin_render_pass(&render_pass,framebuffer);
+            command_buffer.begin_render_pass(&window,framebuffer);
             command_buffer.draw(3,1,0,0);
             command_buffer.end_render_pass();
             if !command_buffer.end() {
-                println!("Unable to end command buffer.");
+                println!("unable to end command buffer");
             }
         }
         else {
-            println!("Unable to begin command buffer.");
+            println!("unable to begin command buffer");
         }
         command_buffers.push(command_buffer);
     }
-    let image_available = session.create_semaphore().expect("Unable to create image available semaphore.");
-    let render_finished = session.create_semaphore().expect("Unable to create render finished semaphore.");
-    while running.get() {
-        let index = swapchain.next(&image_available);
-        if !graphics_queue.submit(&command_buffers[index],&image_available,&render_finished) {
-            println!("Unable to submit command buffer.");
+
+    // create the semaphores
+    let image_available = system.create_semaphore().expect("Unable to create image available semaphore.");
+    let render_finished = system.create_semaphore().expect("Unable to create render finished semaphore.");
+
+    // and go
+    let mut running = true;
+    while running {
+        dprintln!("acquiring next frame...");
+        let index = window.acquire_next(&image_available);
+
+        dprintln!("submitting graphics to frame {}...",index);
+        if !system.submit_graphics(&command_buffers[index],&image_available,&render_finished) {
+             println!("unable to submit command buffer");
         }
-        present_queue.present(&swapchain,index,&render_finished);    
-        system.wait();
-        system.flush();
+
+        dprintln!("presenting...");
+        window.present(index,&render_finished);
+
+        //system.wait();
+
+        dprintln!("flushing system queue...");
+        let events = system.flush();
+        for (id,event) in events {
+            if id == window.id() {
+                if let Event::Configure(r) = event {
+                    window.update_configure(r);
+                }
+                if let Event::Close = event {
+                    running = false;
+                }
+            }
+        }
     }
-    */
 }

@@ -18,12 +18,12 @@ pub enum BlendMode {
     _Over,
 }
 
-#[cfg(feature="gpu_vulkan")]
+#[cfg(gpu="vulkan")]
 mod vulkan;
-#[cfg(feature="gpu_vulkan")]
+#[cfg(gpu="vulkan")]
 pub use vulkan::*;
 
-#[cfg(feature="gpu_opengl")]
+#[cfg(gpu="opengl")]
 mod opengl;
-#[cfg(feature="gpu_opengl")]
+#[cfg(gpu="opengl")]
 pub use opengl::*;

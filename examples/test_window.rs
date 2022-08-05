@@ -3,29 +3,18 @@ use e::*;
 fn main() {
 
     let system = open_system().expect("Unable to access system.");
-    let gpus = system.enumerate_gpus();
-    println!("GPUs:");
-    for gpu in &gpus {
-        println!("    {}",gpu);
-    }
-    //let screens = gpus[0].enumerate_screens();
-    //let screen = &screens[0];
-    //let window = screen.create_frame(rect!(50,50,640,350),"Test Window").expect("Unable to create window.");
-    /*
-    window.set_handler(move |event| {
-        match event {
-            Event::Close => {
-                window_running.set(false);
-            },
-            _ => {
-                println!("{}",event);
-            },
-        }
-    });
-
-    while running.get() {
+    let window = system.create_frame_window(rect!(50,50,640,350),"Test Window").expect("Unable to create window.");
+    let mut running = true;
+    while running {
         system.wait();
-        system.flush();
+        let events = system.flush();
+        for (id,event) in events {
+            if id == window.id() {
+                dprintln!("{}",event);
+                if let Event::Close = event {
+                    running = false;
+                }
+            }
+        }
     }
-    */
 }

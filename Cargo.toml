@@ -4,11 +4,6 @@ version = "0.1.0"
 authors = ["Desmond Germans <desmond@germansmedia.nl>"]
 edition = "2018"
 
-[features]
-default = ["gpu_vulkan"]
-gpu_vulkan = []
-#opengl = []
-
 [profile.dev]
 opt-level = 0
 debug = true
@@ -24,6 +19,3 @@ codegen-units = 1
 [lib]
 name = "e"
 crate-type = ["rlib"]
-
-[dependencies]
-libc = "*"

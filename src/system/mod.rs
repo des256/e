@@ -74,7 +74,7 @@ pub enum Event {
     MouseWheel(MouseWheel),
     MouseMove(Vec2<i32>),
     Configure(Rect<i32>),
-    Render,
+    Expose,
     Close,
 }
 
@@ -88,18 +88,18 @@ impl Display for Event {
             Event::MouseWheel(w) => { write!(f,"MouseWheel({})",w) },
             Event::MouseMove(p) => { write!(f,"MouseMove({})",p) },
             Event::Configure(r) => { write!(f,"Configure({})",r) },
-            Event::Render => { write!(f,"Render") },
+            Event::Expose => { write!(f,"Expose") },
             Event::Close => { write!(f,"Close") },
         }
     }
 }
 
-#[cfg(target_family="unix")]
-mod unix;
-#[cfg(target_family="unix")]
-pub use unix::*;
+#[cfg(system="linux")]
+mod linux;
+#[cfg(system="linux")]
+pub use linux::*;
 
-#[cfg(target_family="wasm")]
-mod wasm;
-#[cfg(target_family="wasm")]
-pub use wasm::*;
+#[cfg(system="web")]
+mod web;
+#[cfg(system="web")]
+pub use web::*;

@@ -1,12 +1,9 @@
 use {
     e::*,
-    std::{
-        rc::Rc,
-        time::Duration,
-    },
+    std::rc::Rc,
 };
 
 fn main() {
-    let ui = Rc::new(Container::new(Rc::new(Text::new("Hello!"))));
+    let _ui = Rc::new(Container::new(Rc::new(Text::new("Hello!"))));
     //run_ui_loop(ui);
 }

@@ -6,6 +6,18 @@ mod sys {
     include!(concat!(env!("OUT_DIR"),"/sys.rs"));
 }
 
+#[cfg(build="debug")]
+#[macro_export]
+macro_rules! dprintln {
+    ($($arg:tt)*) => { println!("DEBUG: {}",std::format_args!($($arg)*)) };
+}
+
+#[cfg(build="release")]
+#[macro_export]
+macro_rules! dprintln {
+    ($($arg:tt)*) => { };
+}
+
 mod base;
 pub use base::*;
 
