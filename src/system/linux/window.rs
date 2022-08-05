@@ -77,7 +77,7 @@ impl<'system> Window<'system> {
             pImageIndices: &image_index,
             pResults: null_mut(),
         };
-        unsafe { sys::vkQueuePresentKHR(self.system.vk_present_queue,&info) };
+        unsafe { sys::vkQueuePresentKHR(self.system.vk_queue,&info) };
     }
 
 #[cfg(gpu="vulkan")]
@@ -97,7 +97,6 @@ impl<'system> Window<'system> {
             if r.s != self.r.s {
                 self.destroy_swapchain();
                 if let Some((vk_extent,vk_swapchain,vk_imageviews,vk_framebuffers)) = self.system.create_swapchain(self.vk_surface,self.vk_renderpass,r) {
-
                     self.r = r;
                     self.vk_extent = vk_extent;
                     self.vk_swapchain = vk_swapchain;

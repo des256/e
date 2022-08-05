@@ -34,13 +34,7 @@ pub struct System {
 #[cfg(gpu="vulkan")]
     pub(crate) vk_device: sys::VkDevice,
 #[cfg(gpu="vulkan")]
-    pub(crate) vk_present_queue: sys::VkQueue,
-#[cfg(gpu="vulkan")]
-    pub(crate) vk_graphics_queue: sys::VkQueue,
-#[cfg(gpu="vulkan")]
-    pub(crate) vk_transfer_queue: sys::VkQueue,
-#[cfg(gpu="vulkan")]
-    pub(crate) vk_compute_queue: sys::VkQueue,
+    pub(crate) vk_queue: sys::VkQueue,
 #[cfg(gpu="vulkan")]
     pub(crate) vk_command_pool: sys::VkCommandPool,
 }
@@ -224,18 +218,10 @@ pub fn open_system() -> Option<System> {
             }
             return None;
         }
-        if vk_queue_family.queueCount < 4 {
-            println!("unable to allocate at least 4 queues on this GPU");
-            unsafe {
-                sys::vkDestroyInstance(vk_instance,null_mut());
-                sys::XCloseDisplay(xdisplay);
-            }
-            return None;
-        }
 
         // assume that presentation is done on the same family as graphics
 
-        // create logical device with 4 queues of queue family 0
+        // create logical device with one queue of queue family 0
         let mut queue_create_infos = Vec::<sys::VkDeviceQueueCreateInfo>::new();
         let priority = 1f32;
         queue_create_infos.push(sys::VkDeviceQueueCreateInfo {
@@ -243,7 +229,7 @@ pub fn open_system() -> Option<System> {
             pNext: null_mut(),
             flags: 0,
             queueFamilyIndex: 0,
-            queueCount: 4,
+            queueCount: 1,
             pQueuePriorities: &priority as *const f32,
         });
         let extension_names = [
@@ -328,15 +314,9 @@ pub fn open_system() -> Option<System> {
         }
         let vk_device = unsafe { vk_device.assume_init() };
 
-        // obtain requested queues, all from queue family 0
-        let mut vk_present_queue: sys::VkQueue = null_mut();
-        unsafe { sys::vkGetDeviceQueue(vk_device,0,0,&mut vk_present_queue) };
-        let mut vk_graphics_queue: sys::VkQueue = null_mut();
-        unsafe { sys::vkGetDeviceQueue(vk_device,0,1,&mut vk_graphics_queue) };
-        let mut vk_transfer_queue: sys::VkQueue = null_mut();
-        unsafe { sys::vkGetDeviceQueue(vk_device,0,2,&mut vk_transfer_queue) };
-        let mut vk_compute_queue: sys::VkQueue = null_mut();
-        unsafe { sys::vkGetDeviceQueue(vk_device,0,3,&mut vk_compute_queue) };
+        // obtain the queue from queue family 0
+        let mut vk_queue: sys::VkQueue = null_mut();
+        unsafe { sys::vkGetDeviceQueue(vk_device,0,0,&mut vk_queue) };
 
         // create command pool for queue family 0
         let create_info = sys::VkCommandPoolCreateInfo {
@@ -374,10 +354,7 @@ pub fn open_system() -> Option<System> {
             vk_instance: vk_instance,
             vk_physical_device: vk_physical_device,
             vk_device: vk_device,
-            vk_present_queue: vk_present_queue,
-            vk_graphics_queue: vk_graphics_queue,
-            vk_transfer_queue: vk_transfer_queue,
-            vk_compute_queue: vk_compute_queue,
+            vk_queue: vk_queue,
             vk_command_pool: vk_command_pool,
         })
     }
@@ -392,10 +369,12 @@ impl<'system> System {
     pub(crate) fn create_swapchain(&self,vk_surface: sys::VkSurfaceKHR,vk_renderpass: sys::VkRenderPass,r: Rect<i32>) -> Option<(sys::VkExtent2D,sys::VkSwapchainKHR,Vec<sys::VkImageView>,Vec<sys::VkFramebuffer>)> {
 
         // get surface capabilities to calculate the extent and image count
+        dprintln!("obtaining surface capabilities...");
         let mut capabilities = MaybeUninit::uninit();
         unsafe { sys::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(self.vk_physical_device,vk_surface,capabilities.as_mut_ptr()) };
         let capabilities = unsafe { capabilities.assume_init() };
         let vk_extent = if capabilities.currentExtent.width != 0xFFFFFFFF {
+            dprintln!("fixed extent = {} x {}",capabilities.currentExtent.width,capabilities.currentExtent.height);
             capabilities.currentExtent
         }
         else {
@@ -412,14 +391,14 @@ impl<'system> System {
             if vk_extent.height > capabilities.maxImageExtent.height {
                 vk_extent.height = capabilities.maxImageExtent.height;
             }
+            dprintln!("specified extent = {} x {}",vk_extent.width,vk_extent.height);
             vk_extent
         };
-        dprintln!("extent = {},{}",vk_extent.width,vk_extent.height);    
         let mut image_count = capabilities.minImageCount + 1;
         if (capabilities.maxImageCount != 0) && (image_count > capabilities.maxImageCount) {
             image_count = capabilities.maxImageCount;
         }
-        dprintln!("image_count = {}",image_count);
+        dprintln!("image count = {}",image_count);
 
         // make sure VK_FORMAT_B8G8R8A8_SRGB is supported (BGRA8UN)
         let mut count = 0u32;
@@ -455,6 +434,7 @@ impl<'system> System {
         }
                 
         // create swap chain for this window
+        dprintln!("creating swap chain...");
         let info = sys::VkSwapchainCreateInfoKHR {
             sType: sys::VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
             pNext: null_mut(),
@@ -486,6 +466,7 @@ impl<'system> System {
         let vk_swapchain = unsafe { vk_swapchain.assume_init() };
 
         // get swapchain images
+        dprintln!("getting swap chain images...");
         let mut count = 0u32;
         match unsafe { sys::vkGetSwapchainImagesKHR(self.vk_device,vk_swapchain,&mut count,null_mut()) } {
             sys::VK_SUCCESS => { },
@@ -506,6 +487,7 @@ impl<'system> System {
         }
 
         // create image views for the swapchain images
+        dprintln!("creating image views onto swap chain images...");
         let mut vk_imageviews = Vec::<sys::VkImageView>::new();
         for vk_image in &vk_images {
 
@@ -543,6 +525,7 @@ impl<'system> System {
         }
 
         // create framebuffers for the image views
+        dprintln!("creating frame buffers for the image views...");
         let mut vk_framebuffers = Vec::<sys::VkFramebuffer>::new();
         for vk_imageview in &vk_imageviews {
 
@@ -569,11 +552,80 @@ impl<'system> System {
             vk_framebuffers.push(unsafe { vk_framebuffer.assume_init() });
         }
 
+        dprintln!("success.");
+
         Some((vk_extent,vk_swapchain,vk_imageviews,vk_framebuffers))
     }
 
+    /// Create render pass.
+    pub fn create_render_pass(&self) -> Option<RenderPass> {
+
+#[cfg(gpu="vulkan")]
+        {
+            let info = sys::VkRenderPassCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                attachmentCount: 1,
+                pAttachments: &sys::VkAttachmentDescription {
+                    flags: 0,
+                    format: sys::VK_FORMAT_B8G8R8A8_SRGB,
+                    samples: sys::VK_SAMPLE_COUNT_1_BIT,
+                    loadOp: sys::VK_ATTACHMENT_LOAD_OP_CLEAR,
+                    storeOp: sys::VK_ATTACHMENT_STORE_OP_STORE,
+                    stencilLoadOp: sys::VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                    stencilStoreOp: sys::VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                    initialLayout: sys::VK_IMAGE_LAYOUT_UNDEFINED,
+                    finalLayout: sys::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                },
+                subpassCount: 1,
+                pSubpasses: &sys::VkSubpassDescription {
+                    flags: 0,
+                    pipelineBindPoint: sys::VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    inputAttachmentCount: 0,
+                    pInputAttachments: null_mut(),
+                    colorAttachmentCount: 1,
+                    pColorAttachments: &sys::VkAttachmentReference {
+                        attachment: 0,
+                        layout: sys::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                    },
+                    pResolveAttachments: null_mut(),
+                    pDepthStencilAttachment: null_mut(),
+                    preserveAttachmentCount: 0,
+                    pPreserveAttachments: null_mut(),
+                },
+                dependencyCount: 1,
+                pDependencies: &sys::VkSubpassDependency {
+                    srcSubpass: sys::VK_SUBPASS_EXTERNAL as u32,
+                    dstSubpass: 0,
+                    srcStageMask: sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                    dstStageMask: sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                    srcAccessMask: 0,
+                    dstAccessMask: sys::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                    dependencyFlags: 0,
+                },
+            };
+            let mut vk_renderpass = MaybeUninit::uninit();
+            match unsafe { sys::vkCreateRenderPass(self.vk_device,&info,null_mut(),vk_renderpass.as_mut_ptr()) } {
+                sys::VK_SUCCESS => { },
+                code => {
+                    println!("unable to create render pass (error {})",code);
+                    // TODO: unwind
+                    return None;
+                }
+            }
+            Some(RenderPass {
+                system: &self,
+                vk_renderpass: unsafe { vk_renderpass.assume_init() },
+            })
+        }
+
+#[cfg(not(gpu="vulkan"))]
+        None
+    }
+
     // create basic window, decorations are handled in the public create_frame and create_popup
-    fn create_window(&self,r: Rect<i32>,_absolute: bool) -> Option<Window> {
+    fn create_window(&self,r: Rect<i32>,render_pass: &RenderPass,_absolute: bool) -> Option<Window> {
 
         // create window
         let xcb_window = unsafe { sys::xcb_generate_id(self.xcb_connection) };
@@ -631,70 +683,15 @@ impl<'system> System {
             }
             let vk_surface = unsafe { vk_surface.assume_init() };
 
-            // create renderpass
-            let info = sys::VkRenderPassCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                attachmentCount: 1,
-                pAttachments: &sys::VkAttachmentDescription {
-                    flags: 0,
-                    format: sys::VK_FORMAT_B8G8R8A8_SRGB,
-                    samples: sys::VK_SAMPLE_COUNT_1_BIT,
-                    loadOp: sys::VK_ATTACHMENT_LOAD_OP_CLEAR,
-                    storeOp: sys::VK_ATTACHMENT_STORE_OP_STORE,
-                    stencilLoadOp: sys::VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                    stencilStoreOp: sys::VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                    initialLayout: sys::VK_IMAGE_LAYOUT_UNDEFINED,
-                    finalLayout: sys::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                },
-                subpassCount: 1,
-                pSubpasses: &sys::VkSubpassDescription {
-                    flags: 0,
-                    pipelineBindPoint: sys::VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    inputAttachmentCount: 0,
-                    pInputAttachments: null_mut(),
-                    colorAttachmentCount: 1,
-                    pColorAttachments: &sys::VkAttachmentReference {
-                        attachment: 0,
-                        layout: sys::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                    },
-                    pResolveAttachments: null_mut(),
-                    pDepthStencilAttachment: null_mut(),
-                    preserveAttachmentCount: 0,
-                    pPreserveAttachments: null_mut(),
-                },
-                dependencyCount: 1,
-                pDependencies: &sys::VkSubpassDependency {
-                    srcSubpass: sys::VK_SUBPASS_EXTERNAL as u32,
-                    dstSubpass: 0,
-                    srcStageMask: sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    dstStageMask: sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    srcAccessMask: 0,
-                    dstAccessMask: sys::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                    dependencyFlags: 0,
-                },
-            };
-            let mut vk_renderpass = MaybeUninit::uninit();
-            match unsafe { sys::vkCreateRenderPass(self.vk_device,&info,null_mut(),vk_renderpass.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    println!("unable to create render pass (error {})",code);
-                    // TODO: unwind
-                    return None;
-                }
-            }
-            let vk_renderpass = unsafe { vk_renderpass.assume_init() };
-
             // create swapchain for this window and render pass
-            if let Some((vk_extent,vk_swapchain,vk_imageviews,vk_framebuffers)) = self.create_swapchain(vk_surface,vk_renderpass,r) {
+            if let Some((vk_extent,vk_swapchain,vk_imageviews,vk_framebuffers)) = self.create_swapchain(vk_surface,render_pass.vk_renderpass,r) {
 
                 Some(Window {
                     system: &self,
                     r: r,
                     xcb_window: xcb_window,
                     vk_surface: vk_surface,
-                    vk_renderpass: vk_renderpass,
+                    vk_renderpass: render_pass.vk_renderpass,
                     vk_extent: vk_extent,
                     vk_swapchain: vk_swapchain,
                     vk_imageviews: vk_imageviews,
@@ -712,8 +709,8 @@ impl<'system> System {
     }
 
     /// Create application frame window.
-    pub fn create_frame_window(&self,r: Rect<i32>,title: &str) -> Option<Window> {
-        let window = self.create_window(r,false)?;
+    pub fn create_frame_window(&self,r: Rect<i32>,render_pass: &RenderPass,title: &str) -> Option<Window> {
+        let window = self.create_window(r,render_pass,false)?;
         let protocol_set = [self.wm_delete_window];
         let protocol_set_void = protocol_set.as_ptr() as *const std::os::raw::c_void;
         unsafe { sys::xcb_change_property(
@@ -741,8 +738,8 @@ impl<'system> System {
     }
 
     /// Create standalone popup window.
-    pub fn create_popup_window(&self,r: Rect<i32>) -> Option<Window> {
-        let window = self.create_window(r,true)?;
+    pub fn create_popup_window(&self,r: Rect<i32>,render_pass: &RenderPass) -> Option<Window> {
+        let window = self.create_window(r,render_pass,true)?;
         let net_state = [self.wm_net_state_above];
         unsafe { sys::xcb_change_property(
             self.xcb_connection,
@@ -935,22 +932,9 @@ impl<'system> System {
                     pNext: null_mut(),
                     flags: 0,
                     viewportCount: 1,
-                    pViewports: &sys::VkViewport {
-                        x: 0.0,
-                        y: 0.0,
-                        width: window.vk_extent.width as f32,
-                        height: window.vk_extent.height as f32,
-                        minDepth: 0.0,
-                        maxDepth: 1.0,
-                    },
+                    pViewports: null_mut(),
                     scissorCount: 1,
-                    pScissors: &sys::VkRect2D {
-                        offset: sys::VkOffset2D {
-                            x: 0,
-                            y: 0,
-                        },
-                        extent: window.vk_extent,
-                    },
+                    pScissors: null_mut(),
                 },
                 pRasterizationState: &sys::VkPipelineRasterizationStateCreateInfo {
                     sType: sys::VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
@@ -1001,7 +985,16 @@ impl<'system> System {
                     },
                     blendConstants: [0.0,0.0,0.0,0.0],
                 },
-                pDynamicState: null_mut(),
+                pDynamicState: &sys::VkPipelineDynamicStateCreateInfo {
+                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                    pNext: null_mut(),
+                    flags: 0,
+                    pDynamicStates: [
+                        sys::VK_DYNAMIC_STATE_VIEWPORT,
+                        sys::VK_DYNAMIC_STATE_SCISSOR,
+                    ].as_ptr(),
+                    dynamicStateCount: 2,
+                },
                 layout: pipeline_layout.vk_pipeline_layout,
                 renderPass: window.vk_renderpass,
                 subpass: 0,
@@ -1027,42 +1020,33 @@ impl<'system> System {
         None
     }
 
-#[doc(hidden)]
-    fn submit(&self,vk_queue: sys::VkQueue,command_buffer: &CommandBuffer,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
-        let wait_stage = sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        let info = sys::VkSubmitInfo {
-            sType: sys::VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            pNext: null_mut(),
-            waitSemaphoreCount: 1,
-            pWaitSemaphores: &wait_semaphore.vk_semaphore,
-            pWaitDstStageMask: &wait_stage,
-            commandBufferCount: 1,
-            pCommandBuffers: &command_buffer.vk_command_buffer,
-            signalSemaphoreCount: 1,
-            pSignalSemaphores: &signal_semaphore.vk_semaphore,
-        };
-        match unsafe { sys::vkQueueSubmit(vk_queue,1,&info,null_mut()) } {
-            sys::VK_SUCCESS => true,
-            code => {
-                println!("unable to submit to graphics queue (error {})",code);
-                false
-            },
+    /// Submit command buffer.
+    pub fn submit(&self,command_buffer: &CommandBuffer,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
+#[cfg(gpu="vulkan")]
+        {
+            let wait_stage = sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            let info = sys::VkSubmitInfo {
+                sType: sys::VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                pNext: null_mut(),
+                waitSemaphoreCount: 1,
+                pWaitSemaphores: &wait_semaphore.vk_semaphore,
+                pWaitDstStageMask: &wait_stage,
+                commandBufferCount: 1,
+                pCommandBuffers: &command_buffer.vk_command_buffer,
+                signalSemaphoreCount: 1,
+                pSignalSemaphores: &signal_semaphore.vk_semaphore,
+            };
+            match unsafe { sys::vkQueueSubmit(self.vk_queue,1,&info,null_mut()) } {
+                sys::VK_SUCCESS => true,
+                code => {
+                    println!("unable to submit to graphics queue (error {})",code);
+                    false
+                },
+            }
         }
-    }
 
-    /// Submit command buffer to graphics queue.
-    pub fn submit_graphics(&self,command_buffer: &CommandBuffer,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
-        self.submit(self.vk_graphics_queue,command_buffer,wait_semaphore,signal_semaphore)
-    }
-
-    // Submit command buffer to transfer queue.
-    pub fn submit_transfer(&self,command_buffer: &CommandBuffer,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
-        self.submit(self.vk_transfer_queue,command_buffer,wait_semaphore,signal_semaphore)
-    }
-
-    // Submit command buffer to compute queue.
-    pub fn submit_compute(&self,command_buffer: &CommandBuffer,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
-        self.submit(self.vk_compute_queue,command_buffer,wait_semaphore,signal_semaphore)
+#[cfg(not(gpu="vulkan"))]
+        false
     }
 
 #[doc(hidden)]

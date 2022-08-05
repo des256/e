@@ -10,7 +10,11 @@ fn main() {
 
     // create frame window
     let system = open_system().expect("unable to access system");
-    let mut window = system.create_frame_window(rect!(50,50,640,350),"test triangle").expect("unable to create frame window");
+    let mut r: Rect<i32> = rect!(0,0,640,480);
+
+    let render_pass = system.create_render_pass().expect("unable to create render pass");
+
+    let mut window = system.create_frame_window(rect!(100,100,r.s.x,r.s.y),&render_pass,"test triangle").expect("unable to create frame window");
 
     // read vertex shader
     let mut f = File::open("test-triangle-vert.spv").expect("unable to open vertex shader");
@@ -33,21 +37,9 @@ fn main() {
     // create command buffers, one for each framebuffer
     let mut command_buffers = Vec::<CommandBuffer>::new();
 
-    // fill the command buffers with render commands
-    for framebuffer in &window.get_framebuffers() {
+    // create a command buffer for each frame buffer
+    for _framebuffer in &window.get_framebuffers() {
         let command_buffer = system.create_commandbuffer().expect("unable to create command buffer");
-        if command_buffer.begin() {
-            command_buffer.bind_pipeline(&graphics_pipeline);
-            command_buffer.begin_render_pass(&window,framebuffer);
-            command_buffer.draw(3,1,0,0);
-            command_buffer.end_render_pass();
-            if !command_buffer.end() {
-                println!("unable to end command buffer");
-            }
-        }
-        else {
-            println!("unable to begin command buffer");
-        }
         command_buffers.push(command_buffer);
     }
 
@@ -58,24 +50,38 @@ fn main() {
     // and go
     let mut running = true;
     while running {
-        dprintln!("acquiring next frame...");
         let index = window.acquire_next(&image_available);
 
-        dprintln!("submitting graphics to frame {}...",index);
-        if !system.submit_graphics(&command_buffers[index],&image_available,&render_finished) {
+        if command_buffers[index].begin() {
+            let framebuffers = window.get_framebuffers();
+            command_buffers[index].set_viewport(hyper!(0.0,0.0,0.0,r.s.x as f32,r.s.y as f32,1.0));
+            command_buffers[index].set_scissor(rect!(0,0,r.s.x,r.s.y));
+            command_buffers[index].bind_pipeline(&graphics_pipeline);
+            command_buffers[index].begin_render_pass(&window,&framebuffers[index]);
+            command_buffers[index].draw(3,1,0,0);
+            command_buffers[index].end_render_pass();
+            if !command_buffers[index].end() {
+                println!("unable to end command buffer");
+            }
+        }
+        else {
+            println!("unable to begin command buffer");
+        }
+
+        if !system.submit(&command_buffers[index],&image_available,&render_finished) {
              println!("unable to submit command buffer");
         }
 
-        dprintln!("presenting...");
         window.present(index,&render_finished);
 
-        //system.wait();
+        system.wait();
 
-        dprintln!("flushing system queue...");
         let events = system.flush();
         for (id,event) in events {
+            dprintln!("event: {} ({})",event,id);
             if id == window.id() {
-                if let Event::Configure(r) = event {
+                if let Event::Configure(new_r) = event {
+                    r = new_r;
                     window.update_configure(r);
                 }
                 if let Event::Close = event {

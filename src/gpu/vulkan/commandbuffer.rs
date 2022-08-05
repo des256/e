@@ -43,7 +43,7 @@ impl<'system> CommandBuffer<'system> {
             }
         };
         let info = sys::VkRenderPassBeginInfo {
-            sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             pNext: null_mut(),
             renderPass: window.vk_renderpass,
             framebuffer: framebuffer.vk_framebuffer,
@@ -59,11 +59,55 @@ impl<'system> CommandBuffer<'system> {
     }
 
     pub fn bind_pipeline(&self,pipeline: &GraphicsPipeline) {
-        unsafe { sys::vkCmdBindPipeline(self.vk_command_buffer,sys::VK_PIPELINE_BIND_POINT_GRAPHICS,pipeline.vk_graphics_pipeline) };
+        unsafe { sys::vkCmdBindPipeline(
+            self.vk_command_buffer,
+            sys::VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipeline.vk_graphics_pipeline,
+        ) };
     }
 
     pub fn draw(&self,vertex_count: usize,instance_count: usize,first_vertex: usize, first_instance: usize) {
-        unsafe { sys::vkCmdDraw(self.vk_command_buffer,vertex_count as u32,instance_count as u32,first_vertex as u32,first_instance as u32) };
+        unsafe { sys::vkCmdDraw(
+            self.vk_command_buffer,
+            vertex_count as u32,
+            instance_count as u32,
+            first_vertex as u32,
+            first_instance as u32,
+        ) };
+    }
+
+    pub fn set_viewport(&self,r: Hyper<f32>) {
+        unsafe { sys::vkCmdSetViewport(
+            self.vk_command_buffer,
+            0,
+            1,
+            &sys::VkViewport {
+                x: r.o.x,
+                y: r.o.y,
+                width: r.s.x,
+                height: r.s.y,
+                minDepth: r.o.z,
+                maxDepth: r.o.z + r.s.z,
+            },
+        ) };
+    }
+
+    pub fn set_scissor(&self,r: Rect<i32>) {
+        unsafe { sys::vkCmdSetScissor(
+            self.vk_command_buffer,
+            0,
+            1,
+            &sys::VkRect2D {
+                offset: sys::VkOffset2D {
+                    x: r.o.x,
+                    y: r.o.y,
+                },
+                extent: sys::VkExtent2D {
+                    width: r.s.x as u32,
+                    height: r.s.y as u32,
+                },
+            },
+        ) };
     }
 }
 

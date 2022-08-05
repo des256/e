@@ -35,6 +35,9 @@ pub use vec4::*;
 mod rect;
 pub use rect::*;
 
+mod hyper;
+pub use hyper::*;
+
 mod executor;
 pub use executor::*;
 

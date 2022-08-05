@@ -1,3 +1,6 @@
+mod renderpass;
+pub use renderpass::*;
+
 mod commandbuffer;
 pub use commandbuffer::*;
 
