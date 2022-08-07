@@ -115,4 +115,7 @@ fn main() {
             .status()
             .expect("unable to generate system FFI bindings");
     }
+
+    // and indicate to rerun only if changed
+    println!("cargo:rerun-if-changed=build.rs");
 }

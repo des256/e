@@ -3,12 +3,13 @@ use {
     std::ptr::null_mut,
 };
 
-pub struct CommandBuffer<'system> {
-    pub system: &'system System,
+pub struct CommandBuffer {
+    pub(crate) vk_device: sys::VkDevice,
+    pub(crate) vk_command_pool: sys::VkCommandPool,
     pub(crate) vk_command_buffer: sys::VkCommandBuffer,
 }
 
-impl<'system> CommandBuffer<'system> {
+impl CommandBuffer {
 
     pub fn begin(&self) -> bool {
         let info = sys::VkCommandBufferBeginInfo {
@@ -36,7 +37,7 @@ impl<'system> CommandBuffer<'system> {
         }
     }
 
-    pub fn begin_render_pass(&self,window: &Window,framebuffer: &Framebuffer) {
+    pub fn begin_render_pass(&self,render_pass: &RenderPass,framebuffer: &Framebuffer,r: Rect<i32>) {
         let clear_color = sys::VkClearValue {
             color: sys::VkClearColorValue {
                 float32: [0.0,0.0,0.0,1.0]
@@ -45,9 +46,18 @@ impl<'system> CommandBuffer<'system> {
         let info = sys::VkRenderPassBeginInfo {
         sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             pNext: null_mut(),
-            renderPass: window.vk_renderpass,
+            renderPass: render_pass.vk_renderpass,
             framebuffer: framebuffer.vk_framebuffer,
-            renderArea: sys::VkRect2D { offset: sys::VkOffset2D { x: 0,y: 0 },extent: window.vk_extent, },
+            renderArea: sys::VkRect2D {
+                offset: sys::VkOffset2D {
+                    x: r.o.x,
+                    y: r.o.y,
+                },
+                extent: sys::VkExtent2D {
+                    width: r.s.x as u32,
+                    height: r.s.y as u32,
+                },
+            },
             clearValueCount: 1,
             pClearValues: &clear_color,
         };
@@ -111,8 +121,8 @@ impl<'system> CommandBuffer<'system> {
     }
 }
 
-impl<'system> Drop for CommandBuffer<'system> {
+impl Drop for CommandBuffer {
     fn drop(&mut self) {
-        unsafe { sys::vkFreeCommandBuffers(self.system.vk_device,self.system.vk_command_pool,1,&self.vk_command_buffer) };
+        unsafe { sys::vkFreeCommandBuffers(self.vk_device,self.vk_command_pool,1,&self.vk_command_buffer) };
     }
 }

@@ -3,13 +3,13 @@ use {
     std::ptr::null_mut,
 };
 
-pub struct Semaphore<'system> {
-    pub system: &'system System,
+pub struct Semaphore {
+    pub(crate) vk_device: sys::VkDevice,
     pub(crate) vk_semaphore: sys::VkSemaphore,
 }
 
-impl<'system> Drop for Semaphore<'system> {
+impl Drop for Semaphore {
     fn drop(&mut self) {
-        unsafe { sys::vkDestroySemaphore(self.system.vk_device,self.vk_semaphore,null_mut()) };
+        unsafe { sys::vkDestroySemaphore(self.vk_device,self.vk_semaphore,null_mut()) };
     }
 }

@@ -6,6 +6,7 @@ use {
     std::{
         os::raw::c_int,
         ptr::null_mut,
+        cell::RefCell,
     },
 };
 
@@ -365,267 +366,8 @@ pub fn open_system() -> Option<System> {
 
 impl<'system> System {
 
-#[cfg(gpu="vulkan")]
-    pub(crate) fn create_swapchain(&self,vk_surface: sys::VkSurfaceKHR,vk_renderpass: sys::VkRenderPass,r: Rect<i32>) -> Option<(sys::VkExtent2D,sys::VkSwapchainKHR,Vec<sys::VkImageView>,Vec<sys::VkFramebuffer>)> {
-
-        // get surface capabilities to calculate the extent and image count
-        dprintln!("obtaining surface capabilities...");
-        let mut capabilities = MaybeUninit::uninit();
-        unsafe { sys::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(self.vk_physical_device,vk_surface,capabilities.as_mut_ptr()) };
-        let capabilities = unsafe { capabilities.assume_init() };
-        let vk_extent = if capabilities.currentExtent.width != 0xFFFFFFFF {
-            dprintln!("fixed extent = {} x {}",capabilities.currentExtent.width,capabilities.currentExtent.height);
-            capabilities.currentExtent
-        }
-        else {
-            let mut vk_extent = sys::VkExtent2D { width: r.s.x as u32,height: r.s.y as u32 };
-            if vk_extent.width < capabilities.minImageExtent.width {
-                vk_extent.width = capabilities.minImageExtent.width;
-            }
-            if vk_extent.height < capabilities.minImageExtent.height {
-                vk_extent.height = capabilities.minImageExtent.height;
-            }
-            if vk_extent.width > capabilities.maxImageExtent.width {
-                vk_extent.width = capabilities.maxImageExtent.width;
-            }
-            if vk_extent.height > capabilities.maxImageExtent.height {
-                vk_extent.height = capabilities.maxImageExtent.height;
-            }
-            dprintln!("specified extent = {} x {}",vk_extent.width,vk_extent.height);
-            vk_extent
-        };
-        let mut image_count = capabilities.minImageCount + 1;
-        if (capabilities.maxImageCount != 0) && (image_count > capabilities.maxImageCount) {
-            image_count = capabilities.maxImageCount;
-        }
-        dprintln!("image count = {}",image_count);
-
-        // make sure VK_FORMAT_B8G8R8A8_SRGB is supported (BGRA8UN)
-        let mut count = 0u32;
-        unsafe { sys::vkGetPhysicalDeviceSurfaceFormatsKHR(self.vk_physical_device,vk_surface,&mut count,null_mut()) };
-        if count == 0 {
-            println!("no formats supported");
-            return None;
-        }
-        let mut formats = vec![sys::VkSurfaceFormatKHR {
-            format: 0,
-            colorSpace: 0,
-        }; count as usize];
-        unsafe { sys::vkGetPhysicalDeviceSurfaceFormatsKHR(self.vk_physical_device,vk_surface,&mut count,formats.as_mut_ptr()) };
-        let mut format_supported = false;
-        for i in 0..formats.len() {
-            if (formats[i].format == sys::VK_FORMAT_B8G8R8A8_SRGB) && 
-                (formats[i].colorSpace == sys::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-                format_supported = true;
-            }
-        }
-        if !format_supported {
-            println!("window does not support ARGB8UN");
-            return None;
-        }
-        dprintln!("format = {}",sys::VK_FORMAT_B8G8R8A8_SRGB);
-
-        // select VK_PRESENT_MODE_MAILBOX_KHR, or otherwise VK_PRESENT_MODE_FIFO_KHR
-        let mut count = 0u32;
-        unsafe { sys::vkGetPhysicalDeviceSurfacePresentModesKHR(self.vk_physical_device,vk_surface,&mut count,null_mut()) };
-        if count == 0 {
-            println!("unable to select present mode");
-            return None;
-        }
-                
-        // create swap chain for this window
-        dprintln!("creating swap chain...");
-        let info = sys::VkSwapchainCreateInfoKHR {
-            sType: sys::VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-            pNext: null_mut(),
-            flags: 0,
-            surface: vk_surface,
-            minImageCount: image_count,
-            imageFormat: sys::VK_FORMAT_B8G8R8A8_SRGB,
-            imageColorSpace: sys::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
-            imageExtent: vk_extent,
-            imageArrayLayers: 1,
-            imageUsage: sys::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-            imageSharingMode: sys::VK_SHARING_MODE_EXCLUSIVE,
-            queueFamilyIndexCount: 0,
-            pQueueFamilyIndices: null_mut(),
-            preTransform: capabilities.currentTransform,
-            compositeAlpha: sys::VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-            presentMode: sys::VK_PRESENT_MODE_IMMEDIATE_KHR,
-            clipped: sys::VK_TRUE,
-            oldSwapchain: null_mut(),
-        };
-        let mut vk_swapchain = MaybeUninit::uninit();
-        match unsafe { sys::vkCreateSwapchainKHR(self.vk_device,&info,null_mut(),vk_swapchain.as_mut_ptr()) } {
-            sys::VK_SUCCESS => { },
-            code => {
-                println!("unable to create swap chain (error {})",code);
-                return None;
-            },
-        }
-        let vk_swapchain = unsafe { vk_swapchain.assume_init() };
-
-        // get swapchain images
-        dprintln!("getting swap chain images...");
-        let mut count = 0u32;
-        match unsafe { sys::vkGetSwapchainImagesKHR(self.vk_device,vk_swapchain,&mut count,null_mut()) } {
-            sys::VK_SUCCESS => { },
-            code => {
-                println!("unable to get swap chain image count (error {})",code);
-                // TODO: unwind
-                return None;
-            }
-        }
-        let mut vk_images = vec![null_mut() as sys::VkImage; count as usize];
-        match unsafe { sys::vkGetSwapchainImagesKHR(self.vk_device,vk_swapchain,&mut count,vk_images.as_mut_ptr()) } {
-            sys::VK_SUCCESS => { },
-            code => {
-                println!("unable to get swap chain images (error {})",code);
-                // TODO: unwind
-                return None;
-            },
-        }
-
-        // create image views for the swapchain images
-        dprintln!("creating image views onto swap chain images...");
-        let mut vk_imageviews = Vec::<sys::VkImageView>::new();
-        for vk_image in &vk_images {
-
-            let info = sys::VkImageViewCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                image: *vk_image,
-                viewType: sys::VK_IMAGE_VIEW_TYPE_2D,
-                format: sys::VK_FORMAT_B8G8R8A8_SRGB,
-                components: sys::VkComponentMapping {
-                    r: sys::VK_COMPONENT_SWIZZLE_IDENTITY,
-                    g: sys::VK_COMPONENT_SWIZZLE_IDENTITY,
-                    b: sys::VK_COMPONENT_SWIZZLE_IDENTITY,
-                    a: sys::VK_COMPONENT_SWIZZLE_IDENTITY,
-                },
-                subresourceRange: sys::VkImageSubresourceRange {
-                    aspectMask: sys::VK_IMAGE_ASPECT_COLOR_BIT,
-                    baseMipLevel: 0,
-                    levelCount: 1,
-                    baseArrayLayer: 0,
-                    layerCount: 1,
-                },
-            };
-            let mut vk_imageview = MaybeUninit::uninit();
-            match unsafe { sys::vkCreateImageView(self.vk_device,&info,null_mut(),vk_imageview.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    println!("unable to create image view (error {})",code);
-                    // TODO: unwind
-                    return None;
-                }
-            }
-            vk_imageviews.push(unsafe { vk_imageview.assume_init() });
-        }
-
-        // create framebuffers for the image views
-        dprintln!("creating frame buffers for the image views...");
-        let mut vk_framebuffers = Vec::<sys::VkFramebuffer>::new();
-        for vk_imageview in &vk_imageviews {
-
-            let info = sys::VkFramebufferCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                renderPass: vk_renderpass,
-                attachmentCount: 1,
-                pAttachments: &*vk_imageview,
-                width: vk_extent.width,
-                height: vk_extent.height,
-                layers: 1,
-            };
-            let mut vk_framebuffer = MaybeUninit::uninit();
-            match unsafe { sys::vkCreateFramebuffer(self.vk_device,&info,null_mut(),vk_framebuffer.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    println!("unable to create framebuffer (error {})",code);
-                    // TODO: unwind
-                    return None;
-                }
-            }
-            vk_framebuffers.push(unsafe { vk_framebuffer.assume_init() });
-        }
-
-        dprintln!("success.");
-
-        Some((vk_extent,vk_swapchain,vk_imageviews,vk_framebuffers))
-    }
-
-    /// Create render pass.
-    pub fn create_render_pass(&self) -> Option<RenderPass> {
-
-#[cfg(gpu="vulkan")]
-        {
-            let info = sys::VkRenderPassCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                attachmentCount: 1,
-                pAttachments: &sys::VkAttachmentDescription {
-                    flags: 0,
-                    format: sys::VK_FORMAT_B8G8R8A8_SRGB,
-                    samples: sys::VK_SAMPLE_COUNT_1_BIT,
-                    loadOp: sys::VK_ATTACHMENT_LOAD_OP_CLEAR,
-                    storeOp: sys::VK_ATTACHMENT_STORE_OP_STORE,
-                    stencilLoadOp: sys::VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                    stencilStoreOp: sys::VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                    initialLayout: sys::VK_IMAGE_LAYOUT_UNDEFINED,
-                    finalLayout: sys::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                },
-                subpassCount: 1,
-                pSubpasses: &sys::VkSubpassDescription {
-                    flags: 0,
-                    pipelineBindPoint: sys::VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    inputAttachmentCount: 0,
-                    pInputAttachments: null_mut(),
-                    colorAttachmentCount: 1,
-                    pColorAttachments: &sys::VkAttachmentReference {
-                        attachment: 0,
-                        layout: sys::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                    },
-                    pResolveAttachments: null_mut(),
-                    pDepthStencilAttachment: null_mut(),
-                    preserveAttachmentCount: 0,
-                    pPreserveAttachments: null_mut(),
-                },
-                dependencyCount: 1,
-                pDependencies: &sys::VkSubpassDependency {
-                    srcSubpass: sys::VK_SUBPASS_EXTERNAL as u32,
-                    dstSubpass: 0,
-                    srcStageMask: sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    dstStageMask: sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    srcAccessMask: 0,
-                    dstAccessMask: sys::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                    dependencyFlags: 0,
-                },
-            };
-            let mut vk_renderpass = MaybeUninit::uninit();
-            match unsafe { sys::vkCreateRenderPass(self.vk_device,&info,null_mut(),vk_renderpass.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    println!("unable to create render pass (error {})",code);
-                    // TODO: unwind
-                    return None;
-                }
-            }
-            Some(RenderPass {
-                system: &self,
-                vk_renderpass: unsafe { vk_renderpass.assume_init() },
-            })
-        }
-
-#[cfg(not(gpu="vulkan"))]
-        None
-    }
-
     // create basic window, decorations are handled in the public create_frame and create_popup
-    fn create_window(&self,r: Rect<i32>,render_pass: &RenderPass,_absolute: bool) -> Option<Window> {
+    fn create_window(&self,r: Rect<i32>,_absolute: bool) -> Option<Window> {
 
         // create window
         let xcb_window = unsafe { sys::xcb_generate_id(self.xcb_connection) };
@@ -683,19 +425,73 @@ impl<'system> System {
             }
             let vk_surface = unsafe { vk_surface.assume_init() };
 
-            // create swapchain for this window and render pass
-            if let Some((vk_extent,vk_swapchain,vk_imageviews,vk_framebuffers)) = self.create_swapchain(vk_surface,render_pass.vk_renderpass,r) {
+            // create render pass
+            let info = sys::VkRenderPassCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                attachmentCount: 1,
+                pAttachments: &sys::VkAttachmentDescription {
+                    flags: 0,
+                    format: sys::VK_FORMAT_B8G8R8A8_SRGB,
+                    samples: sys::VK_SAMPLE_COUNT_1_BIT,
+                    loadOp: sys::VK_ATTACHMENT_LOAD_OP_CLEAR,
+                    storeOp: sys::VK_ATTACHMENT_STORE_OP_STORE,
+                    stencilLoadOp: sys::VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                    stencilStoreOp: sys::VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                    initialLayout: sys::VK_IMAGE_LAYOUT_UNDEFINED,
+                    finalLayout: sys::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                },
+                subpassCount: 1,
+                pSubpasses: &sys::VkSubpassDescription {
+                    flags: 0,
+                    pipelineBindPoint: sys::VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    inputAttachmentCount: 0,
+                    pInputAttachments: null_mut(),
+                    colorAttachmentCount: 1,
+                    pColorAttachments: &sys::VkAttachmentReference {
+                        attachment: 0,
+                        layout: sys::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                    },
+                    pResolveAttachments: null_mut(),
+                    pDepthStencilAttachment: null_mut(),
+                    preserveAttachmentCount: 0,
+                    pPreserveAttachments: null_mut(),
+                },
+                dependencyCount: 1,
+                pDependencies: &sys::VkSubpassDependency {
+                    srcSubpass: sys::VK_SUBPASS_EXTERNAL as u32,
+                    dstSubpass: 0,
+                    srcStageMask: sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                    dstStageMask: sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                    srcAccessMask: 0,
+                    dstAccessMask: sys::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                    dependencyFlags: 0,
+                },
+            };
+            let mut vk_renderpass = MaybeUninit::uninit();
+            match unsafe { sys::vkCreateRenderPass(self.vk_device,&info,null_mut(),vk_renderpass.as_mut_ptr()) } {
+                sys::VK_SUCCESS => { },
+                code => {
+                    println!("unable to create render pass (error {})",code);
+                    // TODO: unwind
+                    return None;
+                }
+            }
+            let vk_renderpass = unsafe { vk_renderpass.assume_init() };
+
+            // create swapchain
+            if let Some(resources) = create_window_resources(self.vk_physical_device,self.vk_device,vk_surface,vk_renderpass,r) {
 
                 Some(Window {
-                    system: &self,
-                    r: r,
+                    xcb_connection: self.xcb_connection,
+                    vk_instance: self.vk_instance,
+                    vk_physical_device: self.vk_physical_device,
+                    vk_device: self.vk_device,
+                    vk_queue: self.vk_queue,
                     xcb_window: xcb_window,
                     vk_surface: vk_surface,
-                    vk_renderpass: render_pass.vk_renderpass,
-                    vk_extent: vk_extent,
-                    vk_swapchain: vk_swapchain,
-                    vk_imageviews: vk_imageviews,
-                    vk_framebuffers: vk_framebuffers,
+                    resources: RefCell::new(resources),
                 })
             }
             else {
@@ -709,8 +505,8 @@ impl<'system> System {
     }
 
     /// Create application frame window.
-    pub fn create_frame_window(&self,r: Rect<i32>,render_pass: &RenderPass,title: &str) -> Option<Window> {
-        let window = self.create_window(r,render_pass,false)?;
+    pub fn create_frame_window(&self,r: Rect<i32>,title: &str) -> Option<Window> {
+        let window = self.create_window(r,false)?;
         let protocol_set = [self.wm_delete_window];
         let protocol_set_void = protocol_set.as_ptr() as *const std::os::raw::c_void;
         unsafe { sys::xcb_change_property(
@@ -738,8 +534,8 @@ impl<'system> System {
     }
 
     /// Create standalone popup window.
-    pub fn create_popup_window(&self,r: Rect<i32>,render_pass: &RenderPass) -> Option<Window> {
-        let window = self.create_window(r,render_pass,true)?;
+    pub fn create_popup_window(&self,r: Rect<i32>) -> Option<Window> {
+        let window = self.create_window(r,true)?;
         let net_state = [self.wm_net_state_above];
         unsafe { sys::xcb_change_property(
             self.xcb_connection,
@@ -782,7 +578,8 @@ impl<'system> System {
                 return None;
             }
             Some(CommandBuffer {
-                system: &self,
+                vk_device: self.vk_device,
+                vk_command_pool: self.vk_command_pool,
                 vk_command_buffer: unsafe { vk_command_buffer.assume_init() },
             })
         }
@@ -808,7 +605,7 @@ impl<'system> System {
             },
         }
         Some(Semaphore {
-            system: &self,
+            vk_device: self.vk_device,
             vk_semaphore: unsafe { vk_semaphore.assume_init() },
         })
     }
@@ -836,7 +633,7 @@ impl<'system> System {
                 },
             }
             Some(PipelineLayout {
-                system: &self,
+                vk_device: self.vk_device,
                 vk_pipeline_layout: unsafe { vk_pipeline_layout.assume_init() },
             })
         }
@@ -866,153 +663,8 @@ impl<'system> System {
             let vk_shader_module = unsafe { vk_shader_module.assume_init() };
 
             Some(Shader {
-                system: &self,
+                vk_device: self.vk_device,
                 vk_shader_module: vk_shader_module,
-            })
-        }
-
-#[cfg(not(gpu="vulkan"))]
-        None
-    }
-
-    /// Create a graphics pipeline.
-    pub fn create_graphics_pipeline(&self,pipeline_layout: &PipelineLayout,window: &Window,vertex_shader: &Shader,fragment_shader: &Shader) -> Option<GraphicsPipeline> {
-
-#[cfg(gpu="vulkan")]
-        {
-            let create_info = sys::VkGraphicsPipelineCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                stageCount: 2,
-                pStages: [
-                    sys::VkPipelineShaderStageCreateInfo {
-                        sType: sys::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                        pNext: null_mut(),
-                        flags: 0,
-                        stage: sys::VK_SHADER_STAGE_VERTEX_BIT,
-                        module: vertex_shader.vk_shader_module,
-                        pName: b"main\0".as_ptr() as *const i8,
-                        pSpecializationInfo: null_mut(),
-                    },
-                    sys::VkPipelineShaderStageCreateInfo {
-                        sType: sys::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                        pNext: null_mut(),
-                        flags: 0,
-                        stage: sys::VK_SHADER_STAGE_FRAGMENT_BIT,
-                        module: fragment_shader.vk_shader_module,
-                        pName: b"main\0".as_ptr() as *const i8,
-                        pSpecializationInfo: null_mut(),
-                    }
-                ].as_ptr(),
-                pVertexInputState: &sys::VkPipelineVertexInputStateCreateInfo {
-                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-                    pNext: null_mut(),
-                    flags: 0,
-                    vertexBindingDescriptionCount: 0,
-                    pVertexBindingDescriptions: null_mut(),
-                    vertexAttributeDescriptionCount: 0,
-                    pVertexAttributeDescriptions: null_mut(),
-                },
-                pInputAssemblyState: &sys::VkPipelineInputAssemblyStateCreateInfo {
-                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-                    pNext: null_mut(),
-                    flags: 0,
-                    topology: sys::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-                    primitiveRestartEnable: sys::VK_FALSE,
-                },
-                pTessellationState: &sys::VkPipelineTessellationStateCreateInfo {
-                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
-                    pNext: null_mut(),
-                    flags: 0,
-                    patchControlPoints: 1,
-                },
-                pViewportState: &sys::VkPipelineViewportStateCreateInfo {
-                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-                    pNext: null_mut(),
-                    flags: 0,
-                    viewportCount: 1,
-                    pViewports: null_mut(),
-                    scissorCount: 1,
-                    pScissors: null_mut(),
-                },
-                pRasterizationState: &sys::VkPipelineRasterizationStateCreateInfo {
-                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-                    pNext: null_mut(),
-                    flags: 0,
-                    depthClampEnable: sys::VK_FALSE,
-                    rasterizerDiscardEnable: sys::VK_FALSE,
-                    polygonMode: sys::VK_POLYGON_MODE_FILL,
-                    cullMode: sys::VK_CULL_MODE_BACK_BIT,
-                    frontFace: sys::VK_FRONT_FACE_CLOCKWISE,
-                    depthBiasEnable: sys::VK_FALSE,
-                    depthBiasConstantFactor: 0.0,
-                    depthBiasClamp: 0.0,
-                    depthBiasSlopeFactor: 0.0,
-                    lineWidth: 1.0,
-                },
-                pMultisampleState: &sys::VkPipelineMultisampleStateCreateInfo {
-                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-                    pNext: null_mut(),
-                    flags: 0,
-                    rasterizationSamples: sys::VK_SAMPLE_COUNT_1_BIT,
-                    sampleShadingEnable: sys::VK_FALSE,
-                    minSampleShading: 1.0,
-                    pSampleMask: null_mut(),
-                    alphaToCoverageEnable: sys::VK_FALSE,
-                    alphaToOneEnable: sys::VK_FALSE,
-                },
-                pDepthStencilState: null_mut(),
-                pColorBlendState: &sys::VkPipelineColorBlendStateCreateInfo {
-                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-                    pNext: null_mut(),
-                    flags: 0,
-                    logicOpEnable: sys::VK_FALSE,
-                    logicOp: sys::VK_LOGIC_OP_COPY,
-                    attachmentCount: 1,
-                    pAttachments: &sys::VkPipelineColorBlendAttachmentState {
-                        blendEnable: sys::VK_FALSE,
-                        srcColorBlendFactor: sys::VK_BLEND_FACTOR_ONE,
-                        dstColorBlendFactor: sys::VK_BLEND_FACTOR_ZERO,
-                        colorBlendOp: sys::VK_BLEND_OP_ADD,
-                        srcAlphaBlendFactor: sys::VK_BLEND_FACTOR_ONE,
-                        dstAlphaBlendFactor: sys::VK_BLEND_FACTOR_ZERO,
-                        alphaBlendOp: sys::VK_BLEND_OP_ADD,
-                        colorWriteMask: sys::VK_COLOR_COMPONENT_R_BIT |
-                            sys::VK_COLOR_COMPONENT_G_BIT |
-                            sys::VK_COLOR_COMPONENT_B_BIT |
-                            sys::VK_COLOR_COMPONENT_A_BIT,
-                    },
-                    blendConstants: [0.0,0.0,0.0,0.0],
-                },
-                pDynamicState: &sys::VkPipelineDynamicStateCreateInfo {
-                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-                    pNext: null_mut(),
-                    flags: 0,
-                    pDynamicStates: [
-                        sys::VK_DYNAMIC_STATE_VIEWPORT,
-                        sys::VK_DYNAMIC_STATE_SCISSOR,
-                    ].as_ptr(),
-                    dynamicStateCount: 2,
-                },
-                layout: pipeline_layout.vk_pipeline_layout,
-                renderPass: window.vk_renderpass,
-                subpass: 0,
-                basePipelineHandle: null_mut(),
-                basePipelineIndex: -1,
-            };
-            let mut vk_graphics_pipeline = MaybeUninit::uninit();
-            match unsafe { sys::vkCreateGraphicsPipelines(self.vk_device,null_mut(),1,&create_info,null_mut(),vk_graphics_pipeline.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    println!("unable to create Vulkan graphics pipeline (error {})",code);
-                    return None;
-                },
-            }
-
-            Some(GraphicsPipeline {
-                system: &self,
-                vk_graphics_pipeline: unsafe { vk_graphics_pipeline.assume_init() },
             })
         }
 

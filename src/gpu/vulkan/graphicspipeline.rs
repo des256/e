@@ -3,14 +3,14 @@ use {
     std::ptr::null_mut,
 };
 
-pub struct GraphicsPipeline<'system> {
-    pub system: &'system System,
+pub struct GraphicsPipeline {
+    pub(crate) vk_device: sys::VkDevice,
     pub(crate) vk_graphics_pipeline: sys::VkPipeline,
 }
 
-impl<'system> Drop for GraphicsPipeline<'system> {
+impl Drop for GraphicsPipeline {
 
     fn drop(&mut self) {
-        unsafe { sys::vkDestroyPipeline(self.system.vk_device,self.vk_graphics_pipeline,null_mut()) };
+        unsafe { sys::vkDestroyPipeline(self.vk_device,self.vk_graphics_pipeline,null_mut()) };
     }
 }

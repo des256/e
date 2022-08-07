@@ -1,1 +1,1 @@
-- divorce renderpass from window
+- objects might not need to store &System if they can store the vk_device or vk_whatever they need for the drop

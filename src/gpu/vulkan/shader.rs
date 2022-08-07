@@ -6,14 +6,14 @@ use {
     std::ptr::null_mut,
 };
 
-pub struct Shader<'system> {
-    pub system: &'system System,
+pub struct Shader {
+    pub(crate) vk_device: sys::VkDevice,
     pub(crate) vk_shader_module: sys::VkShaderModule,
 }
 
-impl<'system> Drop for Shader<'system> {
+impl Drop for Shader {
 
     fn drop(&mut self) {
-        unsafe { sys::vkDestroyShaderModule(self.system.vk_device,self.vk_shader_module,null_mut()) };
+        unsafe { sys::vkDestroyShaderModule(self.vk_device,self.vk_shader_module,null_mut()) };
     }
 }

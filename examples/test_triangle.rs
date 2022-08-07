@@ -12,9 +12,7 @@ fn main() {
     let system = open_system().expect("unable to access system");
     let mut r: Rect<i32> = rect!(0,0,640,480);
 
-    let render_pass = system.create_render_pass().expect("unable to create render pass");
-
-    let mut window = system.create_frame_window(rect!(100,100,r.s.x,r.s.y),&render_pass,"test triangle").expect("unable to create frame window");
+    let mut window = system.create_frame_window(rect!(100,100,r.s.x,r.s.y),"test triangle").expect("unable to create frame window");
 
     // read vertex shader
     let mut f = File::open("test-triangle-vert.spv").expect("unable to open vertex shader");
@@ -28,11 +26,14 @@ fn main() {
     f.read_to_end(&mut b).expect("unable to read fragment shader");
     let fragment_shader = system.create_shader(&b).expect("unable to create fragment shader");
 
+    // get the window's render pass
+    let render_pass = window.get_render_pass();
+
     // create pipeline layout
     let pipeline_layout = system.create_pipeline_layout().expect("unable to create pipeline layout");
-
-    // create graphics pipeline for the window using the pipeline layout
-    let graphics_pipeline = system.create_graphics_pipeline(&pipeline_layout,&window,&vertex_shader,&fragment_shader).expect("Unable to create graphics pipeline.");
+    
+    // create graphics pipeline with this layout
+    let graphics_pipeline = render_pass.create_graphics_pipeline(&pipeline_layout,&vertex_shader,&fragment_shader).expect("Unable to create graphics pipeline.");
     
     // create command buffers, one for each framebuffer
     let mut command_buffers = Vec::<CommandBuffer>::new();
@@ -57,7 +58,7 @@ fn main() {
             command_buffers[index].set_viewport(hyper!(0.0,0.0,0.0,r.s.x as f32,r.s.y as f32,1.0));
             command_buffers[index].set_scissor(rect!(0,0,r.s.x,r.s.y));
             command_buffers[index].bind_pipeline(&graphics_pipeline);
-            command_buffers[index].begin_render_pass(&window,&framebuffers[index]);
+            command_buffers[index].begin_render_pass(&window.get_render_pass(),&framebuffers[index],rect!(0,0,r.s.x,r.s.y));
             command_buffers[index].draw(3,1,0,0);
             command_buffers[index].end_render_pass();
             if !command_buffers[index].end() {
