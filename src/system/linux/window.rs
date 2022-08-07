@@ -295,9 +295,9 @@ impl Window {
     pub fn acquire_next(&self,semaphore: &Semaphore) -> usize {
 #[cfg(gpu="vulkan")]        
         {
-            let mut image_index = 0u32;
-            unsafe { sys::vkAcquireNextImageKHR(self.vk_device,self.resources.borrow().vk_swapchain,0xFFFFFFFFFFFFFFFF,semaphore.vk_semaphore,null_mut(),&mut image_index) };
-            image_index as usize
+            let mut index = 0u32;
+            unsafe { sys::vkAcquireNextImageKHR(self.vk_device,self.resources.borrow().vk_swapchain,0xFFFFFFFFFFFFFFFF,semaphore.vk_semaphore,null_mut(),&mut index) };
+            index as usize
         }
 
 #[cfg(not(gpu="vulkan"))]
@@ -319,12 +319,12 @@ impl Window {
         unsafe { sys::vkQueuePresentKHR(self.vk_queue,&info) };
     }
 
-    pub fn update_configure(&mut self,r: Rect<i32>) {
+    pub fn rebuild_resources(&mut self,r: Rect<i32>) {
 
 #[cfg(gpu="vulkan")]
         {
-            let vk_penderpass = self.resources.borrow().vk_renderpass;
-            if let Some(resources) = create_window_resources(self.vk_physical_device,self.vk_device,self.vk_surface,vk_penderpass,r) {
+            let vk_renderpass = self.resources.borrow().vk_renderpass;
+            if let Some(resources) = create_window_resources(self.vk_physical_device,self.vk_device,self.vk_surface,vk_renderpass,r) {
                 self.resources.replace(resources);
             }
         }

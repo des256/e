@@ -94,6 +94,10 @@ impl Display for Event {
     }
 }
 
+pub trait Vertex {
+    const SIZE: usize;
+}
+
 #[cfg(system="linux")]
 mod linux;
 #[cfg(system="linux")]

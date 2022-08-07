@@ -76,6 +76,16 @@ impl CommandBuffer {
         ) };
     }
 
+    pub fn bind_vertex_buffer(&self,vertex_buffer: &VertexBuffer) {
+        unsafe { sys::vkCmdBindVertexBuffers(
+            self.vk_command_buffer,
+            0,
+            1,
+            &vertex_buffer.vk_buffer,
+            null_mut(),
+        ) };
+    }
+
     pub fn draw(&self,vertex_count: usize,instance_count: usize,first_vertex: usize, first_instance: usize) {
         unsafe { sys::vkCmdDraw(
             self.vk_command_buffer,

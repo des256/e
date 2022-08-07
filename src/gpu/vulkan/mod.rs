@@ -18,3 +18,6 @@ pub use framebuffer::*;
 
 mod semaphore;
 pub use semaphore::*;
+
+mod vertexbuffer;
+pub use vertexbuffer::*;

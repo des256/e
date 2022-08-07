@@ -562,6 +562,145 @@ impl<'system> System {
         Some(window)
     }
 
+    /// Create a graphics pipeline.
+    pub fn create_graphics_pipeline(&self,render_pass: &RenderPass,pipeline_layout: &PipelineLayout,vertex_shader: &Shader,fragment_shader: &Shader) -> Option<GraphicsPipeline> {
+
+        let create_info = sys::VkGraphicsPipelineCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            stageCount: 2,
+            pStages: [
+                sys::VkPipelineShaderStageCreateInfo {
+                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                    pNext: null_mut(),
+                    flags: 0,
+                    stage: sys::VK_SHADER_STAGE_VERTEX_BIT,
+                    module: vertex_shader.vk_shader_module,
+                    pName: b"main\0".as_ptr() as *const i8,
+                    pSpecializationInfo: null_mut(),
+                },
+                sys::VkPipelineShaderStageCreateInfo {
+                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                    pNext: null_mut(),
+                    flags: 0,
+                    stage: sys::VK_SHADER_STAGE_FRAGMENT_BIT,
+                    module: fragment_shader.vk_shader_module,
+                    pName: b"main\0".as_ptr() as *const i8,
+                    pSpecializationInfo: null_mut(),
+                }
+            ].as_ptr(),
+            pVertexInputState: &sys::VkPipelineVertexInputStateCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                vertexBindingDescriptionCount: 0,
+                pVertexBindingDescriptions: null_mut(),
+                vertexAttributeDescriptionCount: 0,
+                pVertexAttributeDescriptions: null_mut(),
+            },
+            pInputAssemblyState: &sys::VkPipelineInputAssemblyStateCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                topology: sys::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+                primitiveRestartEnable: sys::VK_FALSE,
+            },
+            pTessellationState: &sys::VkPipelineTessellationStateCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                patchControlPoints: 1,
+            },
+            pViewportState: &sys::VkPipelineViewportStateCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                viewportCount: 1,
+                pViewports: null_mut(),
+                scissorCount: 1,
+                pScissors: null_mut(),
+            },
+            pRasterizationState: &sys::VkPipelineRasterizationStateCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                depthClampEnable: sys::VK_FALSE,
+                rasterizerDiscardEnable: sys::VK_FALSE,
+                polygonMode: sys::VK_POLYGON_MODE_FILL,
+                cullMode: sys::VK_CULL_MODE_BACK_BIT,
+                frontFace: sys::VK_FRONT_FACE_CLOCKWISE,
+                depthBiasEnable: sys::VK_FALSE,
+                depthBiasConstantFactor: 0.0,
+                depthBiasClamp: 0.0,
+                depthBiasSlopeFactor: 0.0,
+                lineWidth: 1.0,
+            },
+            pMultisampleState: &sys::VkPipelineMultisampleStateCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                rasterizationSamples: sys::VK_SAMPLE_COUNT_1_BIT,
+                sampleShadingEnable: sys::VK_FALSE,
+                minSampleShading: 1.0,
+                pSampleMask: null_mut(),
+                alphaToCoverageEnable: sys::VK_FALSE,
+                alphaToOneEnable: sys::VK_FALSE,
+            },
+            pDepthStencilState: null_mut(),
+            pColorBlendState: &sys::VkPipelineColorBlendStateCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                logicOpEnable: sys::VK_FALSE,
+                logicOp: sys::VK_LOGIC_OP_COPY,
+                attachmentCount: 1,
+                pAttachments: &sys::VkPipelineColorBlendAttachmentState {
+                    blendEnable: sys::VK_FALSE,
+                    srcColorBlendFactor: sys::VK_BLEND_FACTOR_ONE,
+                    dstColorBlendFactor: sys::VK_BLEND_FACTOR_ZERO,
+                    colorBlendOp: sys::VK_BLEND_OP_ADD,
+                    srcAlphaBlendFactor: sys::VK_BLEND_FACTOR_ONE,
+                    dstAlphaBlendFactor: sys::VK_BLEND_FACTOR_ZERO,
+                    alphaBlendOp: sys::VK_BLEND_OP_ADD,
+                    colorWriteMask: sys::VK_COLOR_COMPONENT_R_BIT |
+                        sys::VK_COLOR_COMPONENT_G_BIT |
+                        sys::VK_COLOR_COMPONENT_B_BIT |
+                        sys::VK_COLOR_COMPONENT_A_BIT,
+                },
+                blendConstants: [0.0,0.0,0.0,0.0],
+            },
+            pDynamicState: &sys::VkPipelineDynamicStateCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                pDynamicStates: [
+                    sys::VK_DYNAMIC_STATE_VIEWPORT,
+                    sys::VK_DYNAMIC_STATE_SCISSOR,
+                ].as_ptr(),
+                dynamicStateCount: 2,
+            },
+            layout: pipeline_layout.vk_pipeline_layout,
+            renderPass: render_pass.vk_renderpass,
+            subpass: 0,
+            basePipelineHandle: null_mut(),
+            basePipelineIndex: -1,
+        };
+        let mut vk_graphics_pipeline = MaybeUninit::uninit();
+        match unsafe { sys::vkCreateGraphicsPipelines(self.vk_device,null_mut(),1,&create_info,null_mut(),vk_graphics_pipeline.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to create Vulkan graphics pipeline (error {})",code);
+                return None;
+            },
+        }
+
+        Some(GraphicsPipeline {
+            vk_device: self.vk_device,
+            vk_graphics_pipeline: unsafe { vk_graphics_pipeline.assume_init() },
+        })
+    }
+
     /// Create a command buffer.
     pub fn create_commandbuffer(&self) -> Option<CommandBuffer> {
 #[cfg(gpu="vulkan")]
@@ -656,7 +795,7 @@ impl<'system> System {
             match unsafe { sys::vkCreateShaderModule(self.vk_device,&create_info,null_mut(),vk_shader_module.as_mut_ptr()) } {
                 sys::VK_SUCCESS => { },
                 code => {
-                    println!("unable to create Vulkan shader module (error {})",code);
+                    println!("unable to create shader (error {})",code);
                     return None;
                 },
             }
@@ -670,6 +809,88 @@ impl<'system> System {
 
 #[cfg(not(gpu="vulkan"))]
         None
+    }
+
+    /// create a vertex buffer.
+    pub fn create_vertex_buffer<T: Vertex>(&self,vertices: &Vec<T>) -> Option<VertexBuffer> {
+
+        // create vertex buffer
+        let info = sys::VkBufferCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            size: (vertices.len() * T::SIZE) as u64,
+            usage: sys::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            sharingMode: sys::VK_SHARING_MODE_EXCLUSIVE,
+            queueFamilyIndexCount: 0,
+            pQueueFamilyIndices: null_mut(),
+        };
+        let mut vk_buffer = MaybeUninit::uninit();
+        match unsafe { sys::vkCreateBuffer(self.vk_device, &info, null_mut(), vk_buffer.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to create vertex buffer (error {})",code);
+                return None;
+            }
+        }
+        let vk_buffer = unsafe { vk_buffer.assume_init() };
+
+        // get buffer memory requirements
+        let mut vk_buffer_memory_requirements = MaybeUninit::uninit();
+        unsafe { sys::vkGetBufferMemoryRequirements(
+            self.vk_device,
+            vk_buffer,
+            vk_buffer_memory_requirements.as_mut_ptr()
+        ) };
+        let vk_buffer_memory_requirements = unsafe { vk_buffer_memory_requirements.assume_init() };
+
+        // allocate shared memory
+        let info = sys::VkMemoryAllocateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            pNext: null_mut(),
+            allocationSize: (vertices.len() * T::SIZE) as u64,
+            memoryTypeIndex: vk_buffer_memory_requirements.memoryTypeBits | sys::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | sys::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        };
+        let mut vk_memory = MaybeUninit::uninit();
+        match unsafe { sys::vkAllocateMemory(self.vk_device,&info,null_mut(),vk_memory.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to allocate memory (error {})",code);
+                return None;
+            }
+        }
+        let vk_memory = unsafe { vk_memory.assume_init() };
+        let mut data_ptr = MaybeUninit::uninit();
+        match unsafe { sys::vkMapMemory(
+            self.vk_device,
+            vk_memory,
+            0,
+            (vertices.len() * T::SIZE) as u64,
+            0,
+            data_ptr.as_mut_ptr()
+        ) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to map memory (error {})",code);
+                return None;
+            }
+        }
+
+        // TODO: copy from the input vertices into data
+
+        unsafe { sys::vkUnmapMemory(self.vk_device,vk_memory) };
+        match unsafe { sys::vkBindBufferMemory(self.vk_device,vk_buffer,vk_memory,0) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to bind memory to vertex buffer (error {})",code);
+                return None;
+            }
+        }
+
+        Some(VertexBuffer {
+            vk_buffer: vk_buffer,
+            vk_memory: vk_memory,
+        })
     }
 
     /// Submit command buffer.
