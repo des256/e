@@ -1,12 +1,9 @@
-// E - Linux - System
-// Desmond Germans, 2020
-
 use {
     crate::*,
     std::{
         os::raw::c_int,
         ptr::null_mut,
-        cell::RefCell,
+        mem::transmute,
     },
 };
 
@@ -22,10 +19,10 @@ pub struct System {
     pub(crate) wm_protocols: u32,
     pub(crate) wm_delete_window: u32,
     pub(crate) wm_motif_hints: u32,
-    pub(crate) _wm_transient_for: u32,
-    pub(crate) _wm_net_type: u32,
-    pub(crate) _wm_net_type_utility: u32,
-    pub(crate) _wm_net_type_dropdown_menu: u32,
+    pub(crate) wm_transient_for: u32,
+    pub(crate) wm_net_type: u32,
+    pub(crate) wm_net_type_utility: u32,
+    pub(crate) wm_net_type_dropdown_menu: u32,
     pub(crate) wm_net_state: u32,
     pub(crate) wm_net_state_above: u32,
 #[cfg(gpu="vulkan")]
@@ -38,18 +35,23 @@ pub struct System {
     pub(crate) vk_queue: sys::VkQueue,
 #[cfg(gpu="vulkan")]
     pub(crate) vk_command_pool: sys::VkCommandPool,
+#[cfg(gpu="vulkan")]
+    pub(crate) vk_command_buffer: sys::VkCommandBuffer,
 }
 
-#[doc(hidden)]
-fn xcb_intern_atom(connection: *mut sys::xcb_connection_t,name: &str) -> sys::xcb_intern_atom_cookie_t {
+fn intern_atom_cookie(xcb_connection: *mut sys::xcb_connection_t,name: &str) -> sys::xcb_intern_atom_cookie_t {
     let i8_name = unsafe { std::mem::transmute::<_,&[i8]>(name.as_bytes()) };
-    unsafe { sys::xcb_intern_atom(connection,false as u8,name.len() as u16,i8_name.as_ptr()) }
+    unsafe { sys::xcb_intern_atom(xcb_connection,0,name.len() as u16,i8_name.as_ptr()) }
+}
+
+fn resolve_atom_cookie(xcb_connection: *mut sys::xcb_connection_t,cookie: sys::xcb_intern_atom_cookie_t) -> u32 {
+    unsafe { (*sys::xcb_intern_atom_reply(xcb_connection,cookie,null_mut())).atom }
 }
 
 /// Open the system interface.
 pub fn open_system() -> Option<System> {
 
-    // open X connection
+    // open X connection and get first screen
     let xdisplay = unsafe { sys::XOpenDisplay(null_mut()) };
     if xdisplay == null_mut() {
         println!("unable to connect to X server");
@@ -61,9 +63,13 @@ pub fn open_system() -> Option<System> {
         unsafe { sys::XCloseDisplay(xdisplay) };
         return None;
     }
-
-    // we want to use XCB (but might need X11)
     unsafe { sys::XSetEventQueueOwner(xdisplay,sys::XCBOwnsEventQueue) };
+    let xcb_setup = unsafe { sys::xcb_get_setup(xcb_connection) };
+    if xcb_setup == null_mut() {
+        println!("unable to obtain X server setup");
+        return None;
+    }
+    let xcb_screen = unsafe { sys::xcb_setup_roots_iterator(xcb_setup) }.data;
 
     // create epoll descriptor to be able to wait for UI events on a system level
     let fd = unsafe { sys::xcb_get_file_descriptor(xcb_connection) };
@@ -71,40 +77,31 @@ pub fn open_system() -> Option<System> {
     let mut epe = [sys::epoll_event { events: sys::EPOLLIN as u32,data: sys::epoll_data_t { u64_: 0, }, }];
     unsafe { sys::epoll_ctl(epfd,sys::EPOLL_CTL_ADD as i32,fd,epe.as_mut_ptr()) };
 
-    // assume the first screen is the one we want
-    let xcb_setup = unsafe { sys::xcb_get_setup(xcb_connection) };
-    if xcb_setup == null_mut() {
-        println!("unable to obtain X server setup");
-        // TODO: unwind
-        unsafe { sys::XCloseDisplay(xdisplay) };
-        return None;
-    }
-    let xcb_screen = unsafe { sys::xcb_setup_roots_iterator(xcb_setup) }.data;
-
     // get the atoms
-    let protocols_cookie = xcb_intern_atom(xcb_connection,"WM_PROTOCOLS");
-    let delete_window_cookie = xcb_intern_atom(xcb_connection,"WM_DELETE_WINDOW");
-    let motif_hints_cookie = xcb_intern_atom(xcb_connection,"_MOTIF_WM_HINTS");
-    let transient_for_cookie = xcb_intern_atom(xcb_connection,"WM_TRANSIENT_FOR");
-    let net_type_cookie = xcb_intern_atom(xcb_connection,"_NET_WM_TYPE");
-    let net_type_utility_cookie = xcb_intern_atom(xcb_connection,"_NET_WM_TYPE_UTILITY");
-    let net_type_dropdown_menu_cookie = xcb_intern_atom(xcb_connection,"_NET_WM_TYPE_DROPDOWN_MENU");
-    let net_state_cookie = xcb_intern_atom(xcb_connection,"_NET_WM_STATE");
-    let net_state_above_cookie = xcb_intern_atom(xcb_connection,"_NET_WM_STATE_ABOVE");
+    let protocols_cookie = intern_atom_cookie(xcb_connection,"WM_PROTOCOLS");
+    let delete_window_cookie = intern_atom_cookie(xcb_connection,"WM_DELETE_WINDOW");
+    let motif_hints_cookie = intern_atom_cookie(xcb_connection,"_MOTIF_WM_HINTS");
+    let transient_for_cookie = intern_atom_cookie(xcb_connection,"WM_TRANSIENT_FOR");
+    let net_type_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_TYPE");
+    let net_type_utility_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_TYPE_UTILITY");
+    let net_type_dropdown_menu_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_TYPE_DROPDOWN_MENU");
+    let net_state_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_STATE");
+    let net_state_above_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_STATE_ABOVE");
 
-    let wm_protocols = unsafe { (*sys::xcb_intern_atom_reply(xcb_connection,protocols_cookie,null_mut())).atom };
-    let wm_delete_window = unsafe { (*sys::xcb_intern_atom_reply(xcb_connection,delete_window_cookie,null_mut())).atom };
-    let wm_motif_hints = unsafe { (*sys::xcb_intern_atom_reply(xcb_connection,motif_hints_cookie,null_mut())).atom };
-    let wm_transient_for = unsafe { (*sys::xcb_intern_atom_reply(xcb_connection,transient_for_cookie,null_mut())).atom };
-    let wm_net_type = unsafe { (*sys::xcb_intern_atom_reply(xcb_connection,net_type_cookie,null_mut())).atom };
-    let wm_net_type_utility = unsafe { (*sys::xcb_intern_atom_reply(xcb_connection,net_type_utility_cookie,null_mut())).atom };
-    let wm_net_type_dropdown_menu = unsafe { (*sys::xcb_intern_atom_reply(xcb_connection,net_type_dropdown_menu_cookie,null_mut())).atom };
-    let wm_net_state = unsafe { (*sys::xcb_intern_atom_reply(xcb_connection,net_state_cookie,null_mut())).atom };
-    let wm_net_state_above = unsafe { (*sys::xcb_intern_atom_reply(xcb_connection,net_state_above_cookie,null_mut())).atom };
+    let wm_protocols = resolve_atom_cookie(xcb_connection,protocols_cookie);
+    let wm_delete_window = resolve_atom_cookie(xcb_connection,delete_window_cookie);
+    let wm_motif_hints = resolve_atom_cookie(xcb_connection,motif_hints_cookie);
+    let wm_transient_for = resolve_atom_cookie(xcb_connection,transient_for_cookie);
+    let wm_net_type = resolve_atom_cookie(xcb_connection,net_type_cookie);
+    let wm_net_type_utility = resolve_atom_cookie(xcb_connection,net_type_utility_cookie);
+    let wm_net_type_dropdown_menu = resolve_atom_cookie(xcb_connection,net_type_dropdown_menu_cookie);
+    let wm_net_state = resolve_atom_cookie(xcb_connection,net_state_cookie);
+    let wm_net_state_above = resolve_atom_cookie(xcb_connection,net_state_above_cookie);
 
     // GPU-specific stuff
 #[cfg(gpu="vulkan")]
-    {
+    let (vk_instance,vk_physical_device,vk_device,vk_queue,vk_command_pool,vk_command_buffer) = {
+
         // create instance
         let extension_names = [
             sys::VK_KHR_SURFACE_EXTENSION_NAME.as_ptr(),
@@ -129,29 +126,29 @@ pub fn open_system() -> Option<System> {
             pNext: null_mut(),
             ppEnabledLayerNames: null_mut(),
         };
-        let mut vk_instance: sys::VkInstance = null_mut();
-        let code = unsafe { sys::vkCreateInstance(&info,null_mut(),&mut vk_instance as *mut sys::VkInstance) };
-        if code != sys::VK_SUCCESS {
-            println!("unable to create VkInstance ({})",code);
-            unsafe { sys::XCloseDisplay(xdisplay) };
-            return None;
+        let mut vk_instance = MaybeUninit::<sys::VkInstance>::uninit();
+        match unsafe { sys::vkCreateInstance(&info,null_mut(),vk_instance.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { }
+            code => {
+                println!("unable to create VkInstance ({})",code);
+                return None;
+            },
         }
+        let vk_instance = unsafe { vk_instance.assume_init() };
 
         // enumerate physical devices
-        let mut count = 0u32;
-        unsafe { sys::vkEnumeratePhysicalDevices(vk_instance,&mut count,0 as *mut sys::VkPhysicalDevice) };
+        let mut count = MaybeUninit::<u32>::uninit();
+        unsafe { sys::vkEnumeratePhysicalDevices(vk_instance,count.as_mut_ptr(),null_mut()) };
+        let count = unsafe { count.assume_init() };
         if count == 0 {
             println!("unable to enumerate physical devices");
-            unsafe {
-                sys::vkDestroyInstance(vk_instance,null_mut());
-                sys::XCloseDisplay(xdisplay);
-            }
+            unsafe { sys::vkDestroyInstance(vk_instance,null_mut()) };
             return None;
         }
         let mut vk_physical_devices = vec![null_mut() as sys::VkPhysicalDevice; count as usize];
-        unsafe { sys::vkEnumeratePhysicalDevices(vk_instance,&mut count,vk_physical_devices.as_mut_ptr()) };
+        unsafe { sys::vkEnumeratePhysicalDevices(vk_instance,&count as *const u32 as *mut u32,vk_physical_devices.as_mut_ptr()) };
 
-        // assume the first device is the one we want
+        // get first physical device
         let vk_physical_device = vk_physical_devices[0];
 
         // DEBUG: show the name in debug build
@@ -161,33 +158,25 @@ pub fn open_system() -> Option<System> {
             unsafe { sys::vkGetPhysicalDeviceProperties(vk_physical_device,properties.as_mut_ptr()) };
             let properties = unsafe { properties.assume_init() };
             let slice: &[u8] = unsafe { &*(&properties.deviceName as *const [i8] as *const [u8]) };
-            let name = std::str::from_utf8(slice).unwrap();
-            dprintln!("physical device: {}",name);
+            dprintln!("physical device: {}",std::str::from_utf8(slice).unwrap());
         }
-        
+            
         // get supported queue families
-        let mut count = 0u32;
-        unsafe { sys::vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_device,&mut count,null_mut()) };
+        let mut count = MaybeUninit::<u32>::uninit();
+        unsafe { sys::vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_device,count.as_mut_ptr(),null_mut()) };
+        let count = unsafe { count.assume_init() };
         if count == 0 {
             println!("no queue families supported on this GPU");
-            unsafe {
-                sys::vkDestroyInstance(vk_instance,null_mut());
-                sys::XCloseDisplay(xdisplay);
-            }
+            unsafe { sys::vkDestroyInstance(vk_instance,null_mut()) };
             return None;
         }
-
-        let mut vk_queue_families = vec![sys::VkQueueFamilyProperties {
-            queueFlags: 0,
-            queueCount: 0,
-            timestampValidBits: 0,
-            minImageTransferGranularity: sys::VkExtent3D {
-                width: 0,
-                height: 0,
-                depth: 0,
-            },
-        }; count as usize];
-        unsafe { sys::vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_device,&mut count,vk_queue_families.as_mut_ptr()) };
+        let mut vk_queue_families = vec![MaybeUninit::<sys::VkQueueFamilyProperties>::uninit(); count as usize];
+        unsafe { sys::vkGetPhysicalDeviceQueueFamilyProperties(
+            vk_physical_device,
+            &count as *const u32 as *mut u32,
+            vk_queue_families.as_mut_ptr() as *mut sys::VkQueueFamilyProperties,
+        ) };
+        let vk_queue_families = unsafe { transmute::<_,Vec<sys::VkQueueFamilyProperties>>(vk_queue_families) };
 
         // DEBUG: display the number of queues and capabilities
 #[cfg(build="debug")]
@@ -213,16 +202,11 @@ pub fn open_system() -> Option<System> {
         let mask = sys::VK_QUEUE_GRAPHICS_BIT | sys::VK_QUEUE_TRANSFER_BIT | sys::VK_QUEUE_COMPUTE_BIT;
         if (vk_queue_family.queueFlags & mask) != mask {
             println!("queue family 0 of the GPU does not support graphics, transfer and compute operations");
-            unsafe {
-                sys::vkDestroyInstance(vk_instance,null_mut());
-                sys::XCloseDisplay(xdisplay);
-            }
+            unsafe { sys::vkDestroyInstance(vk_instance,null_mut()) };
             return None;
         }
 
-        // assume that presentation is done on the same family as graphics
-
-        // create logical device with one queue of queue family 0
+        // assume that presentation is done on the same family as graphics and create logical device with one queue of queue family 0
         let mut queue_create_infos = Vec::<sys::VkDeviceQueueCreateInfo>::new();
         let priority = 1f32;
         queue_create_infos.push(sys::VkDeviceQueueCreateInfo {
@@ -236,7 +220,7 @@ pub fn open_system() -> Option<System> {
         let extension_names = [
             sys::VK_KHR_SWAPCHAIN_EXTENSION_NAME.as_ptr(),
         ];
-        let create_info = sys::VkDeviceCreateInfo {
+        let info = sys::VkDeviceCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             pNext: null_mut(),
             flags: 0,
@@ -305,622 +289,89 @@ pub fn open_system() -> Option<System> {
             },
         };
         let mut vk_device = MaybeUninit::uninit();
-        if unsafe { sys::vkCreateDevice(vk_physical_device,&create_info,null_mut(),vk_device.as_mut_ptr()) } != sys::VK_SUCCESS {
+        if unsafe { sys::vkCreateDevice(vk_physical_device,&info,null_mut(),vk_device.as_mut_ptr()) } != sys::VK_SUCCESS {
             println!("unable to create VkDevice");
-            unsafe {
-                sys::vkDestroyInstance(vk_instance,null_mut());
-                sys::XCloseDisplay(xdisplay);
-            }
+            unsafe { sys::vkDestroyInstance(vk_instance,null_mut()) };
             return None;
         }
         let vk_device = unsafe { vk_device.assume_init() };
 
         // obtain the queue from queue family 0
-        let mut vk_queue: sys::VkQueue = null_mut();
-        unsafe { sys::vkGetDeviceQueue(vk_device,0,0,&mut vk_queue) };
+        let mut vk_queue = MaybeUninit::uninit();
+        unsafe { sys::vkGetDeviceQueue(vk_device,0,0,vk_queue.as_mut_ptr()) };
+        let vk_queue = unsafe { vk_queue.assume_init() };
 
-        // create command pool for queue family 0
-        let create_info = sys::VkCommandPoolCreateInfo {
+        // create command pool for this queue
+        let info = sys::VkCommandPoolCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             pNext: null_mut(),
             flags: 0,
             queueFamilyIndex: 0,
         };
         let mut vk_command_pool = MaybeUninit::uninit();
-        if unsafe { sys::vkCreateCommandPool(vk_device,&create_info,null_mut(),vk_command_pool.as_mut_ptr()) } != sys::VK_SUCCESS {
+        if unsafe { sys::vkCreateCommandPool(vk_device,&info,null_mut(),vk_command_pool.as_mut_ptr()) } != sys::VK_SUCCESS {
             println!("unable to create command pool");
-            unsafe {
+            unsafe { 
                 sys::vkDestroyDevice(vk_device,null_mut());
                 sys::vkDestroyInstance(vk_instance,null_mut());
-                sys::XCloseDisplay(xdisplay);
             }
             return None;
         }
         let vk_command_pool = unsafe { vk_command_pool.assume_init() };
 
-        Some(System {
-            xdisplay: xdisplay,
-            xcb_connection: xcb_connection,
-            xcb_screen: xcb_screen,
-            epfd: epfd,
-            wm_protocols: wm_protocols,
-            wm_delete_window: wm_delete_window,
-            wm_motif_hints: wm_motif_hints,
-            _wm_transient_for: wm_transient_for,
-            _wm_net_type: wm_net_type,
-            _wm_net_type_utility: wm_net_type_utility,
-            _wm_net_type_dropdown_menu: wm_net_type_dropdown_menu,
-            wm_net_state: wm_net_state,
-            wm_net_state_above: wm_net_state_above,
-            vk_instance: vk_instance,
-            vk_physical_device: vk_physical_device,
-            vk_device: vk_device,
-            vk_queue: vk_queue,
-            vk_command_pool: vk_command_pool,
-        })
-    }
+        // create command buffer
+        let info = sys::VkCommandBufferAllocateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            pNext: null_mut(),
+            commandPool: vk_command_pool,
+            level: sys::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            commandBufferCount: 1,
+        };
+        let mut vk_command_buffer = MaybeUninit::uninit();
+        if unsafe { sys::vkAllocateCommandBuffers(vk_device,&info,vk_command_buffer.as_mut_ptr()) } != sys::VK_SUCCESS {
+            println!("unable to create command buffer");
+            unsafe { 
+                sys::vkDestroyCommandPool(vk_device,vk_command_pool,null_mut());
+                sys::vkDestroyDevice(vk_device,null_mut());
+                sys::vkDestroyInstance(vk_instance,null_mut());
+            }
+            return None;
+        }
+        let vk_command_buffer = unsafe { vk_command_buffer.assume_init() };
 
-#[cfg(not(gpu="vulkan"))]
-    None
+        (vk_instance,vk_physical_device,vk_device,vk_queue,vk_command_pool,vk_command_buffer)
+    };
+
+    Some(System {
+        xdisplay,
+        xcb_connection,
+        xcb_screen,
+        epfd,
+        wm_protocols,
+        wm_delete_window,
+        wm_motif_hints,
+        wm_transient_for,
+        wm_net_type,
+        wm_net_type_utility,
+        wm_net_type_dropdown_menu,
+        wm_net_state,
+        wm_net_state_above,
+#[cfg(gpu="vulkan")]
+        vk_instance,
+#[cfg(gpu="vulkan")]
+        vk_physical_device,
+#[cfg(gpu="vulkan")]
+        vk_device,
+#[cfg(gpu="vulkan")]
+        vk_queue,
+#[cfg(gpu="vulkan")]
+        vk_command_pool,
+#[cfg(gpu="vulkan")]
+        vk_command_buffer,
+    })
 }
 
-impl<'system> System {
-
-    // create basic window, decorations are handled in the public create_frame and create_popup
-    fn create_window(&self,r: Rect<i32>,_absolute: bool) -> Option<Window> {
-
-        // create window
-        let xcb_window = unsafe { sys::xcb_generate_id(self.xcb_connection) };
-        let values = [sys::XCB_EVENT_MASK_EXPOSURE
-            | sys::XCB_EVENT_MASK_KEY_PRESS
-            | sys::XCB_EVENT_MASK_KEY_RELEASE
-            | sys::XCB_EVENT_MASK_BUTTON_PRESS
-            | sys::XCB_EVENT_MASK_BUTTON_RELEASE
-            | sys::XCB_EVENT_MASK_POINTER_MOTION
-            | sys::XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-            unsafe { *self.xcb_screen }.default_colormap,
-        ];
-        unsafe {
-            sys::xcb_create_window(
-                self.xcb_connection,
-                (*self.xcb_screen).root_depth as u8,
-                xcb_window as u32,
-                //if let Some(id) = parent { id as u32 } else { system.rootwindow as u32 },
-                (*self.xcb_screen).root as u32,
-                r.o.x as i16,
-                r.o.y as i16,
-                r.s.x as u16,
-                r.s.y as u16,
-                0,
-                sys::XCB_WINDOW_CLASS_INPUT_OUTPUT as u16,
-                (*self.xcb_screen).root_visual as u32,
-                sys::XCB_CW_EVENT_MASK | sys::XCB_CW_COLORMAP,
-                &values as *const u32 as *const std::os::raw::c_void
-            );
-            sys::xcb_map_window(self.xcb_connection,xcb_window as u32);
-            sys::xcb_flush(self.xcb_connection);
-        }
-
-#[cfg(gpu="vulkan")]
-        {
-            // create surface for this window
-            let info = sys::VkXcbSurfaceCreateInfoKHR {
-                sType: sys::VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
-                pNext: null_mut(),
-                flags: 0,
-                connection: self.xcb_connection as *mut sys::xcb_connection_t,
-                window: xcb_window,
-            };
-            let mut vk_surface = MaybeUninit::uninit();
-            match unsafe { sys::vkCreateXcbSurfaceKHR(self.vk_instance,&info,null_mut(),vk_surface.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    println!("Unable to create Vulkan XCB surface (error {})",code);
-                    unsafe {
-                        sys::xcb_unmap_window(self.xcb_connection,xcb_window as u32);
-                        sys::xcb_destroy_window(self.xcb_connection,xcb_window as u32);    
-                    }
-                    return None;
-                },
-            }
-            let vk_surface = unsafe { vk_surface.assume_init() };
-
-            // create render pass
-            let info = sys::VkRenderPassCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                attachmentCount: 1,
-                pAttachments: &sys::VkAttachmentDescription {
-                    flags: 0,
-                    format: sys::VK_FORMAT_B8G8R8A8_SRGB,
-                    samples: sys::VK_SAMPLE_COUNT_1_BIT,
-                    loadOp: sys::VK_ATTACHMENT_LOAD_OP_CLEAR,
-                    storeOp: sys::VK_ATTACHMENT_STORE_OP_STORE,
-                    stencilLoadOp: sys::VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                    stencilStoreOp: sys::VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                    initialLayout: sys::VK_IMAGE_LAYOUT_UNDEFINED,
-                    finalLayout: sys::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                },
-                subpassCount: 1,
-                pSubpasses: &sys::VkSubpassDescription {
-                    flags: 0,
-                    pipelineBindPoint: sys::VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    inputAttachmentCount: 0,
-                    pInputAttachments: null_mut(),
-                    colorAttachmentCount: 1,
-                    pColorAttachments: &sys::VkAttachmentReference {
-                        attachment: 0,
-                        layout: sys::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                    },
-                    pResolveAttachments: null_mut(),
-                    pDepthStencilAttachment: null_mut(),
-                    preserveAttachmentCount: 0,
-                    pPreserveAttachments: null_mut(),
-                },
-                dependencyCount: 1,
-                pDependencies: &sys::VkSubpassDependency {
-                    srcSubpass: sys::VK_SUBPASS_EXTERNAL as u32,
-                    dstSubpass: 0,
-                    srcStageMask: sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    dstStageMask: sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    srcAccessMask: 0,
-                    dstAccessMask: sys::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                    dependencyFlags: 0,
-                },
-            };
-            let mut vk_renderpass = MaybeUninit::uninit();
-            match unsafe { sys::vkCreateRenderPass(self.vk_device,&info,null_mut(),vk_renderpass.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    println!("unable to create render pass (error {})",code);
-                    // TODO: unwind
-                    return None;
-                }
-            }
-            let vk_renderpass = unsafe { vk_renderpass.assume_init() };
-
-            // create swapchain
-            if let Some(resources) = create_window_resources(self.vk_physical_device,self.vk_device,vk_surface,vk_renderpass,r) {
-
-                Some(Window {
-                    xcb_connection: self.xcb_connection,
-                    vk_instance: self.vk_instance,
-                    vk_physical_device: self.vk_physical_device,
-                    vk_device: self.vk_device,
-                    vk_queue: self.vk_queue,
-                    xcb_window: xcb_window,
-                    vk_surface: vk_surface,
-                    resources: RefCell::new(resources),
-                })
-            }
-            else {
-                // TODO: unwind
-                None
-            }
-        }
-
-#[cfg(not(gpu="vulkan"))]
-        None
-    }
-
-    /// Create application frame window.
-    pub fn create_frame_window(&self,r: Rect<i32>,title: &str) -> Option<Window> {
-        let window = self.create_window(r,false)?;
-        let protocol_set = [self.wm_delete_window];
-        let protocol_set_void = protocol_set.as_ptr() as *const std::os::raw::c_void;
-        unsafe { sys::xcb_change_property(
-            self.xcb_connection,
-            sys::XCB_PROP_MODE_REPLACE as u8,
-            window.xcb_window as u32,
-            self.wm_protocols,
-            sys::XCB_ATOM_ATOM,
-            32,
-            1,
-            protocol_set_void
-        ) };
-        unsafe { sys::xcb_change_property(
-            self.xcb_connection,
-            sys::XCB_PROP_MODE_REPLACE as u8,
-            window.xcb_window as u32,
-            sys::XCB_ATOM_WM_NAME,
-            sys::XCB_ATOM_STRING,
-            8,
-            title.len() as u32,
-            title.as_bytes().as_ptr() as *const std::os::raw::c_void
-        ) };
-        unsafe { sys::xcb_flush(self.xcb_connection) };
-        Some(window)
-    }
-
-    /// Create standalone popup window.
-    pub fn create_popup_window(&self,r: Rect<i32>) -> Option<Window> {
-        let window = self.create_window(r,true)?;
-        let net_state = [self.wm_net_state_above];
-        unsafe { sys::xcb_change_property(
-            self.xcb_connection,
-            sys::XCB_PROP_MODE_REPLACE as u8,
-            window.xcb_window as u32,
-            self.wm_net_state,
-            sys::XCB_ATOM_ATOM,
-            32,
-            1,
-            net_state.as_ptr() as *const std::os::raw::c_void
-        ) };
-        let hints = [2u32,0,0,0,0];
-        unsafe { sys::xcb_change_property(
-            self.xcb_connection,
-            sys::XCB_PROP_MODE_REPLACE as u8,
-            window.xcb_window as u32,
-            self.wm_motif_hints,
-            sys::XCB_ATOM_ATOM,
-            32,
-            5,
-            hints.as_ptr() as *const std::os::raw::c_void
-        ) };
-        unsafe { sys::xcb_flush(self.xcb_connection) };
-        Some(window)
-    }
-
-    /// Create a graphics pipeline.
-    pub fn create_graphics_pipeline(&self,render_pass: &RenderPass,pipeline_layout: &PipelineLayout,vertex_shader: &Shader,fragment_shader: &Shader) -> Option<GraphicsPipeline> {
-
-        let create_info = sys::VkGraphicsPipelineCreateInfo {
-            sType: sys::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-            pNext: null_mut(),
-            flags: 0,
-            stageCount: 2,
-            pStages: [
-                sys::VkPipelineShaderStageCreateInfo {
-                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                    pNext: null_mut(),
-                    flags: 0,
-                    stage: sys::VK_SHADER_STAGE_VERTEX_BIT,
-                    module: vertex_shader.vk_shader_module,
-                    pName: b"main\0".as_ptr() as *const i8,
-                    pSpecializationInfo: null_mut(),
-                },
-                sys::VkPipelineShaderStageCreateInfo {
-                    sType: sys::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                    pNext: null_mut(),
-                    flags: 0,
-                    stage: sys::VK_SHADER_STAGE_FRAGMENT_BIT,
-                    module: fragment_shader.vk_shader_module,
-                    pName: b"main\0".as_ptr() as *const i8,
-                    pSpecializationInfo: null_mut(),
-                }
-            ].as_ptr(),
-            pVertexInputState: &sys::VkPipelineVertexInputStateCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                vertexBindingDescriptionCount: 0,
-                pVertexBindingDescriptions: null_mut(),
-                vertexAttributeDescriptionCount: 0,
-                pVertexAttributeDescriptions: null_mut(),
-            },
-            pInputAssemblyState: &sys::VkPipelineInputAssemblyStateCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                topology: sys::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-                primitiveRestartEnable: sys::VK_FALSE,
-            },
-            pTessellationState: &sys::VkPipelineTessellationStateCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                patchControlPoints: 1,
-            },
-            pViewportState: &sys::VkPipelineViewportStateCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                viewportCount: 1,
-                pViewports: null_mut(),
-                scissorCount: 1,
-                pScissors: null_mut(),
-            },
-            pRasterizationState: &sys::VkPipelineRasterizationStateCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                depthClampEnable: sys::VK_FALSE,
-                rasterizerDiscardEnable: sys::VK_FALSE,
-                polygonMode: sys::VK_POLYGON_MODE_FILL,
-                cullMode: sys::VK_CULL_MODE_BACK_BIT,
-                frontFace: sys::VK_FRONT_FACE_CLOCKWISE,
-                depthBiasEnable: sys::VK_FALSE,
-                depthBiasConstantFactor: 0.0,
-                depthBiasClamp: 0.0,
-                depthBiasSlopeFactor: 0.0,
-                lineWidth: 1.0,
-            },
-            pMultisampleState: &sys::VkPipelineMultisampleStateCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                rasterizationSamples: sys::VK_SAMPLE_COUNT_1_BIT,
-                sampleShadingEnable: sys::VK_FALSE,
-                minSampleShading: 1.0,
-                pSampleMask: null_mut(),
-                alphaToCoverageEnable: sys::VK_FALSE,
-                alphaToOneEnable: sys::VK_FALSE,
-            },
-            pDepthStencilState: null_mut(),
-            pColorBlendState: &sys::VkPipelineColorBlendStateCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                logicOpEnable: sys::VK_FALSE,
-                logicOp: sys::VK_LOGIC_OP_COPY,
-                attachmentCount: 1,
-                pAttachments: &sys::VkPipelineColorBlendAttachmentState {
-                    blendEnable: sys::VK_FALSE,
-                    srcColorBlendFactor: sys::VK_BLEND_FACTOR_ONE,
-                    dstColorBlendFactor: sys::VK_BLEND_FACTOR_ZERO,
-                    colorBlendOp: sys::VK_BLEND_OP_ADD,
-                    srcAlphaBlendFactor: sys::VK_BLEND_FACTOR_ONE,
-                    dstAlphaBlendFactor: sys::VK_BLEND_FACTOR_ZERO,
-                    alphaBlendOp: sys::VK_BLEND_OP_ADD,
-                    colorWriteMask: sys::VK_COLOR_COMPONENT_R_BIT |
-                        sys::VK_COLOR_COMPONENT_G_BIT |
-                        sys::VK_COLOR_COMPONENT_B_BIT |
-                        sys::VK_COLOR_COMPONENT_A_BIT,
-                },
-                blendConstants: [0.0,0.0,0.0,0.0],
-            },
-            pDynamicState: &sys::VkPipelineDynamicStateCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                pDynamicStates: [
-                    sys::VK_DYNAMIC_STATE_VIEWPORT,
-                    sys::VK_DYNAMIC_STATE_SCISSOR,
-                ].as_ptr(),
-                dynamicStateCount: 2,
-            },
-            layout: pipeline_layout.vk_pipeline_layout,
-            renderPass: render_pass.vk_renderpass,
-            subpass: 0,
-            basePipelineHandle: null_mut(),
-            basePipelineIndex: -1,
-        };
-        let mut vk_graphics_pipeline = MaybeUninit::uninit();
-        match unsafe { sys::vkCreateGraphicsPipelines(self.vk_device,null_mut(),1,&create_info,null_mut(),vk_graphics_pipeline.as_mut_ptr()) } {
-            sys::VK_SUCCESS => { },
-            code => {
-                println!("unable to create Vulkan graphics pipeline (error {})",code);
-                return None;
-            },
-        }
-
-        Some(GraphicsPipeline {
-            vk_device: self.vk_device,
-            vk_graphics_pipeline: unsafe { vk_graphics_pipeline.assume_init() },
-        })
-    }
-
-    /// Create a command buffer.
-    pub fn create_commandbuffer(&self) -> Option<CommandBuffer> {
-#[cfg(gpu="vulkan")]
-        {
-            let info = sys::VkCommandBufferAllocateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                pNext: null_mut(),
-                commandPool: self.vk_command_pool,
-                level: sys::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-                commandBufferCount: 1,
-            };
-            let mut vk_command_buffer = MaybeUninit::uninit();
-            if unsafe { sys::vkAllocateCommandBuffers(self.vk_device,&info,vk_command_buffer.as_mut_ptr()) } != sys::VK_SUCCESS {
-                return None;
-            }
-            Some(CommandBuffer {
-                vk_device: self.vk_device,
-                vk_command_pool: self.vk_command_pool,
-                vk_command_buffer: unsafe { vk_command_buffer.assume_init() },
-            })
-        }
-
-#[cfg(not(gpu="vulkan"))]
-        None
-    }
-
-    /// Create a semaphore.
-    pub fn create_semaphore(&self) -> Option<Semaphore> {
-
-        let info = sys::VkSemaphoreCreateInfo {
-            sType: sys::VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-            pNext: null_mut(),
-            flags: 0,
-        };
-        let mut vk_semaphore = MaybeUninit::uninit();
-        match unsafe { sys::vkCreateSemaphore(self.vk_device,&info,null_mut(),vk_semaphore.as_mut_ptr()) } {
-            sys::VK_SUCCESS => { },
-            code => {
-                println!("unable to create semaphore (error {})",code);
-                return None;
-            },
-        }
-        Some(Semaphore {
-            vk_device: self.vk_device,
-            vk_semaphore: unsafe { vk_semaphore.assume_init() },
-        })
-    }
-
-    /// Create a pipeline layout.
-    pub fn create_pipeline_layout(&self) -> Option<PipelineLayout> {
-
-#[cfg(gpu="vulkan")]
-        {
-            let info = sys::VkPipelineLayoutCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                setLayoutCount: 0,
-                pSetLayouts: null_mut(),
-                pushConstantRangeCount: 0,
-                pPushConstantRanges: null_mut(),
-            };
-            let mut vk_pipeline_layout = MaybeUninit::uninit();
-            match unsafe { sys::vkCreatePipelineLayout(self.vk_device,&info,null_mut(),vk_pipeline_layout.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    println!("unable to create pipeline layout (error {})",code);
-                    return None;
-                },
-            }
-            Some(PipelineLayout {
-                vk_device: self.vk_device,
-                vk_pipeline_layout: unsafe { vk_pipeline_layout.assume_init() },
-            })
-        }
-    }
-
-    /// Create a shader.
-    pub fn create_shader(&self,code: &[u8]) -> Option<Shader> {
-
-#[cfg(gpu="vulkan")]
-        {
-            let create_info = sys::VkShaderModuleCreateInfo {
-                sType: sys::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-                pNext: null_mut(),
-                flags: 0,
-                codeSize: code.len() as u64,
-                pCode: code.as_ptr() as *const u32,
-            };
-
-            let mut vk_shader_module = MaybeUninit::uninit();
-            match unsafe { sys::vkCreateShaderModule(self.vk_device,&create_info,null_mut(),vk_shader_module.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    println!("unable to create shader (error {})",code);
-                    return None;
-                },
-            }
-            let vk_shader_module = unsafe { vk_shader_module.assume_init() };
-
-            Some(Shader {
-                vk_device: self.vk_device,
-                vk_shader_module: vk_shader_module,
-            })
-        }
-
-#[cfg(not(gpu="vulkan"))]
-        None
-    }
-
-    /// create a vertex buffer.
-    pub fn create_vertex_buffer<T: Vertex>(&self,vertices: &Vec<T>) -> Option<VertexBuffer> {
-
-        // create vertex buffer
-        let info = sys::VkBufferCreateInfo {
-            sType: sys::VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            pNext: null_mut(),
-            flags: 0,
-            size: (vertices.len() * T::SIZE) as u64,
-            usage: sys::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            sharingMode: sys::VK_SHARING_MODE_EXCLUSIVE,
-            queueFamilyIndexCount: 0,
-            pQueueFamilyIndices: null_mut(),
-        };
-        let mut vk_buffer = MaybeUninit::uninit();
-        match unsafe { sys::vkCreateBuffer(self.vk_device, &info, null_mut(), vk_buffer.as_mut_ptr()) } {
-            sys::VK_SUCCESS => { },
-            code => {
-                println!("unable to create vertex buffer (error {})",code);
-                return None;
-            }
-        }
-        let vk_buffer = unsafe { vk_buffer.assume_init() };
-
-        // get buffer memory requirements
-        let mut vk_buffer_memory_requirements = MaybeUninit::uninit();
-        unsafe { sys::vkGetBufferMemoryRequirements(
-            self.vk_device,
-            vk_buffer,
-            vk_buffer_memory_requirements.as_mut_ptr()
-        ) };
-        let vk_buffer_memory_requirements = unsafe { vk_buffer_memory_requirements.assume_init() };
-
-        // allocate shared memory
-        let info = sys::VkMemoryAllocateInfo {
-            sType: sys::VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            pNext: null_mut(),
-            allocationSize: (vertices.len() * T::SIZE) as u64,
-            memoryTypeIndex: vk_buffer_memory_requirements.memoryTypeBits | sys::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | sys::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        };
-        let mut vk_memory = MaybeUninit::uninit();
-        match unsafe { sys::vkAllocateMemory(self.vk_device,&info,null_mut(),vk_memory.as_mut_ptr()) } {
-            sys::VK_SUCCESS => { },
-            code => {
-                println!("unable to allocate memory (error {})",code);
-                return None;
-            }
-        }
-        let vk_memory = unsafe { vk_memory.assume_init() };
-        let mut data_ptr = MaybeUninit::uninit();
-        match unsafe { sys::vkMapMemory(
-            self.vk_device,
-            vk_memory,
-            0,
-            (vertices.len() * T::SIZE) as u64,
-            0,
-            data_ptr.as_mut_ptr()
-        ) } {
-            sys::VK_SUCCESS => { },
-            code => {
-                println!("unable to map memory (error {})",code);
-                return None;
-            }
-        }
-
-        // TODO: copy from the input vertices into data
-
-        unsafe { sys::vkUnmapMemory(self.vk_device,vk_memory) };
-        match unsafe { sys::vkBindBufferMemory(self.vk_device,vk_buffer,vk_memory,0) } {
-            sys::VK_SUCCESS => { },
-            code => {
-                println!("unable to bind memory to vertex buffer (error {})",code);
-                return None;
-            }
-        }
-
-        Some(VertexBuffer {
-            vk_buffer: vk_buffer,
-            vk_memory: vk_memory,
-        })
-    }
-
-    /// Submit command buffer.
-    pub fn submit(&self,command_buffer: &CommandBuffer,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
-#[cfg(gpu="vulkan")]
-        {
-            let wait_stage = sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            let info = sys::VkSubmitInfo {
-                sType: sys::VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                pNext: null_mut(),
-                waitSemaphoreCount: 1,
-                pWaitSemaphores: &wait_semaphore.vk_semaphore,
-                pWaitDstStageMask: &wait_stage,
-                commandBufferCount: 1,
-                pCommandBuffers: &command_buffer.vk_command_buffer,
-                signalSemaphoreCount: 1,
-                pSignalSemaphores: &signal_semaphore.vk_semaphore,
-            };
-            match unsafe { sys::vkQueueSubmit(self.vk_queue,1,&info,null_mut()) } {
-                sys::VK_SUCCESS => true,
-                code => {
-                    println!("unable to submit to graphics queue (error {})",code);
-                    false
-                },
-            }
-        }
-
-#[cfg(not(gpu="vulkan"))]
-        false
-    }
+impl System {
 
 #[doc(hidden)]
     fn translate_event(&self,xcb_event: *mut sys::xcb_generic_event_t) -> Option<(WindowId,Event)> {
@@ -1024,7 +475,7 @@ impl<'system> System {
 
     /// Sleep until new OS window events appear.
     pub fn wait(&self) {
-        let mut epe = [sys::epoll_event { events: sys::EPOLLIN as u32,data: sys::epoll_data_t { u64_: 0, } }];
+        let mut epe = [ sys::epoll_event { events: sys::EPOLLIN as u32,data: sys::epoll_data_t { u64_: 0, } } ];
         unsafe { sys::epoll_wait(self.epfd,epe.as_mut_ptr(),1,-1) };
     }
 
@@ -1065,6 +516,7 @@ impl Drop for System {
         unsafe {
 #[cfg(gpu="vulkan")]
             {
+                sys::vkFreeCommandBuffers(self.vk_device,self.vk_command_pool,1,&self.vk_command_buffer);
                 sys::vkDestroyCommandPool(self.vk_device,self.vk_command_pool,null_mut());
                 sys::vkDestroyDevice(self.vk_device,null_mut());
                 sys::vkDestroyInstance(self.vk_instance,null_mut());
