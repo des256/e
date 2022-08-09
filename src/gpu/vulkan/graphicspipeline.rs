@@ -21,10 +21,10 @@ pub struct GraphicsPipeline<'system> {
     pub(crate) vk_graphics_pipeline: sys::VkPipeline,
 }
 
-impl<'system> Window<'system> {
+impl System {
 
     /// Create a graphics pipeline.
-    pub fn create_graphics_pipeline(&self,pipeline_layout: &PipelineLayout,vertex_shader: &Shader,fragment_shader: &Shader) -> Option<GraphicsPipeline> {
+    pub fn create_graphics_pipeline(&self,window: &Window,pipeline_layout: &PipelineLayout,vertex_shader: &Shader,fragment_shader: &Shader) -> Option<GraphicsPipeline> {
 
         let create_info = sys::VkGraphicsPipelineCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -142,13 +142,13 @@ impl<'system> Window<'system> {
                 dynamicStateCount: 2,
             },
             layout: pipeline_layout.vk_pipeline_layout,
-            renderPass: self.vk_render_pass,
+            renderPass: window.vk_render_pass,
             subpass: 0,
             basePipelineHandle: null_mut(),
             basePipelineIndex: -1,
         };
         let mut vk_graphics_pipeline = MaybeUninit::uninit();
-        match unsafe { sys::vkCreateGraphicsPipelines(self.system.vk_device,null_mut(),1,&create_info,null_mut(),vk_graphics_pipeline.as_mut_ptr()) } {
+        match unsafe { sys::vkCreateGraphicsPipelines(self.vk_device,null_mut(),1,&create_info,null_mut(),vk_graphics_pipeline.as_mut_ptr()) } {
             sys::VK_SUCCESS => { },
             code => {
                 println!("unable to create graphics pipeline (error {})",code);
@@ -157,7 +157,7 @@ impl<'system> Window<'system> {
         }
 
         Some(GraphicsPipeline {
-            system: self.system,
+            system: &self,
             vk_graphics_pipeline: unsafe { vk_graphics_pipeline.assume_init() },
         })
     }

@@ -74,11 +74,6 @@ impl System {
             dprintln!("specified extent = {}",extent);
             extent
         };
-        let mut image_count = capabilities.minImageCount + 1;
-        if (capabilities.maxImageCount != 0) && (image_count > capabilities.maxImageCount) {
-            image_count = capabilities.maxImageCount;
-        }
-        dprintln!("image count = {}",image_count);
 
         // make sure VK_FORMAT_B8G8R8A8_SRGB is supported (BGRA8UN)
         let mut count = 0u32;
@@ -129,7 +124,7 @@ impl System {
             pNext: null_mut(),
             flags: 0,
             surface: vk_surface,
-            minImageCount: image_count,
+            minImageCount: 2,
             imageFormat: sys::VK_FORMAT_B8G8R8A8_SRGB,
             imageColorSpace: sys::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
             imageExtent: sys::VkExtent2D { width: extent.x,height: extent.y, },
@@ -487,11 +482,13 @@ impl<'system> Window<'system> {
 
     pub fn update_swapchain_resources(&mut self,r: Rect<i32>) {
 #[cfg(gpu="vulkan")]
-        self.destroy_swapchain_resources();
-        if let Some((vk_swapchain,vk_image_views,vk_framebuffers)) = self.system.create_swapchain_resources(self.vk_surface,self.vk_render_pass,r) {
-            self.vk_swapchain = vk_swapchain;
-            self.vk_image_views = vk_image_views;
-            self.vk_framebuffers = vk_framebuffers;
+        {
+            self.destroy_swapchain_resources();
+            if let Some((vk_swapchain,vk_image_views,vk_framebuffers)) = self.system.create_swapchain_resources(self.vk_surface,self.vk_render_pass,r) {
+                self.vk_swapchain = vk_swapchain;
+                self.vk_image_views = vk_image_views;
+                self.vk_framebuffers = vk_framebuffers;
+            }
         }
     }
 }

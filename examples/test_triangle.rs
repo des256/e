@@ -3,6 +3,10 @@ use {
     std::{
         fs::File,
         io::prelude::*,
+        time::{
+            Instant,
+            Duration,
+        },
     },
 };
 
@@ -22,12 +26,12 @@ fn main() {
 
     let mut window = system.create_frame_window(rect!(100,100,r.s.x,r.s.y),"test triangle").expect("unable to create frame window");
 
-    /*// create the vertices
+    // create the vertices
     let mut vertices = Vec::<TestVertex>::new();
     vertices.push(TestVertex { pos: vec3!(-0.5,0.5,0.0), });
     vertices.push(TestVertex { pos: vec3!(0.5,-0.5,0.0), });
     vertices.push(TestVertex { pos: vec3!(0.5,0.5,0.0), });
-    let vertex_buffer = system.create_vertex_buffer(&vertices).expect("unable to create vertex buffer");*/
+    let vertex_buffer = system.create_vertex_buffer(&vertices).expect("unable to create vertex buffer");
 
     // read vertex shader
     let mut f = File::open("test-triangle-vert.spv").expect("unable to open vertex shader");
@@ -45,7 +49,7 @@ fn main() {
     let pipeline_layout = system.create_pipeline_layout().expect("unable to create pipeline layout");
     
     // create graphics pipeline with this layout
-    let graphics_pipeline = window.create_graphics_pipeline(&pipeline_layout,&vertex_shader,&fragment_shader).expect("Unable to create graphics pipeline.");
+    let graphics_pipeline = system.create_graphics_pipeline(&window,&pipeline_layout,&vertex_shader,&fragment_shader).expect("Unable to create graphics pipeline.");
     
     // create the semaphores
     let image_available = system.create_semaphore().expect("Unable to create image available semaphore.");
@@ -53,12 +57,17 @@ fn main() {
 
     // and go
     let mut running = true;
+    let mut time = Instant::now();
     while running {
+
+        let duration = time.elapsed();
+        let fps = if duration.as_micros() != 0 { 1000000 / duration.as_micros() } else { 0 };
+        time = Instant::now();
 
         // obtain context to the next available frame from the window and signal image_available
         let context = window.acquire_next_context(&image_available);
 
-        // put GPU commands 
+        // put GPU commands on the queue
         if let Some(buffer) = context.begin() {
 
             // set the viewport and scissor to whatever the current window rectangle is
@@ -69,7 +78,7 @@ fn main() {
             buffer.bind_pipeline(&graphics_pipeline);
 
             // bind the vertexbuffer
-            //context.bind_vertex_buffer(&vertex_buffer);
+            //buffer.bind_vertex_buffer(&vertex_buffer);
 
             // render the triangle using the window's render pass
             buffer.begin_render_pass(rect!(0,0,r.s.x,r.s.y));
@@ -88,13 +97,13 @@ fn main() {
         // only when render_finished present the frame
         window.present(&context,&render_finished);
 
-        // wait for UX
-        system.wait();
+        let duration = time.elapsed();
+        println!("frame at {} FPS: {:?}",fps,duration);
 
-        // get all UX events
+        // get all UX events that might have gathered
         let events = system.flush();
 
-        // process the UX events        
+        // process the UX events
         for (id,event) in events {
 
             dprintln!("event: {} ({})",event,id);
