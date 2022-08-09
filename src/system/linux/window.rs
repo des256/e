@@ -33,7 +33,7 @@ pub struct Window<'system> {
 impl System {
 
 #[cfg(gpu="vulkan")]
-    fn create_window_resources(
+    fn create_swapchain_resources(
         &self,
         vk_surface: sys::VkSurfaceKHR,
         vk_render_pass: sys::VkRenderPass,
@@ -378,7 +378,7 @@ impl<'system> System {
             let vk_render_pass = unsafe { vk_render_pass.assume_init() };
     
             // create swapchain resources
-            if let Some((vk_swapchain,vk_image_views,vk_framebuffers)) = self.create_window_resources(vk_surface,vk_render_pass,r) {
+            if let Some((vk_swapchain,vk_image_views,vk_framebuffers)) = self.create_swapchain_resources(vk_surface,vk_render_pass,r) {
                 (vk_surface,vk_render_pass,vk_swapchain,vk_image_views,vk_framebuffers)
             }
             else {
@@ -468,7 +468,7 @@ impl<'system> System {
 impl<'system> Window<'system> {
 
 #[cfg(gpu="vulkan")]
-    fn destroy_resources(&self) {
+    fn destroy_swapchain_resources(&self) {
         unsafe {
             for vk_framebuffer in &self.vk_framebuffers {
                 sys::vkDestroyFramebuffer(self.system.vk_device,*vk_framebuffer,null_mut());
@@ -483,6 +483,16 @@ impl<'system> Window<'system> {
     /// Get WindowID for this window.
     pub fn id(&self) -> WindowId {
         self.xcb_window as WindowId
+    }
+
+    pub fn update_swapchain_resources(&mut self,r: Rect<i32>) {
+#[cfg(gpu="vulkan")]
+        self.destroy_swapchain_resources();
+        if let Some((vk_swapchain,vk_image_views,vk_framebuffers)) = self.system.create_swapchain_resources(self.vk_surface,self.vk_render_pass,r) {
+            self.vk_swapchain = vk_swapchain;
+            self.vk_image_views = vk_image_views;
+            self.vk_framebuffers = vk_framebuffers;
+        }
     }
 }
 
@@ -555,13 +565,15 @@ impl Window {self.resources.borrow().vk_renderpass
 
 impl<'system> Drop for Window<'system> {
     fn drop(&mut self) {
-        self.destroy_resources();
+#[cfg(gpu="vulkan")]
+        {
+            self.destroy_swapchain_resources();
+            unsafe {
+                sys::vkDestroySurfaceKHR(self.system.vk_instance,self.vk_surface,null_mut());
+                sys::vkDestroyRenderPass(self.system.vk_device,self.vk_render_pass,null_mut());
+            }
+        }
         unsafe {
-#[cfg(gpu="vulkan")]
-            sys::vkDestroySurfaceKHR(self.system.vk_instance,self.vk_surface,null_mut());
-#[cfg(gpu="vulkan")]
-            sys::vkDestroyRenderPass(self.system.vk_device,self.vk_render_pass,null_mut());
-
             sys::xcb_unmap_window(self.system.xcb_connection,self.xcb_window as u32);
             sys::xcb_destroy_window(self.system.xcb_connection,self.xcb_window as u32);
         }

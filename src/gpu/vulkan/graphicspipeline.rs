@@ -16,8 +16,8 @@ use {
     },
 };
 
-pub struct GraphicsPipeline<'system,'window> {
-    pub(crate) window: &'window Window<'system>,
+pub struct GraphicsPipeline<'system> {
+    pub(crate) system: &'system System,
     pub(crate) vk_graphics_pipeline: sys::VkPipeline,
 }
 
@@ -157,15 +157,15 @@ impl<'system> Window<'system> {
         }
 
         Some(GraphicsPipeline {
-            window: &self,
+            system: self.system,
             vk_graphics_pipeline: unsafe { vk_graphics_pipeline.assume_init() },
         })
     }
 }
 
-impl<'system,'window> Drop for GraphicsPipeline<'system,'window> {
+impl<'system> Drop for GraphicsPipeline<'system> {
 
     fn drop(&mut self) {
-        unsafe { sys::vkDestroyPipeline(self.window.system.vk_device,self.vk_graphics_pipeline,null_mut()) };
+        unsafe { sys::vkDestroyPipeline(self.system.vk_device,self.vk_graphics_pipeline,null_mut()) };
     }
 }

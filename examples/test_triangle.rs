@@ -18,9 +18,9 @@ fn main() {
 
     // create frame window
     let system = open_system().expect("unable to access system");
-    let r: Rect<i32> = rect!(0,0,640,480);
+    let mut r: Rect<i32> = rect!(0,0,640,480);
 
-    let window = system.create_frame_window(rect!(100,100,r.s.x,r.s.y),"test triangle").expect("unable to create frame window");
+    let mut window = system.create_frame_window(rect!(100,100,r.s.x,r.s.y),"test triangle").expect("unable to create frame window");
 
     /*// create the vertices
     let mut vertices = Vec::<TestVertex>::new();
@@ -55,29 +55,29 @@ fn main() {
     let mut running = true;
     while running {
 
-        // obtain the next available image from the window and signal image_available
-        let context = window.acquire_next(&image_available);
+        // obtain context to the next available frame from the window and signal image_available
+        let context = window.acquire_next_context(&image_available);
 
-        // build the command buffer
-        if context.begin() {
+        // put GPU commands 
+        if let Some(buffer) = context.begin() {
 
             // set the viewport and scissor to whatever the current window rectangle is
-            context.set_viewport(hyper!(0.0,0.0,0.0,r.s.x as f32,r.s.y as f32,1.0));
-            context.set_scissor(rect!(0,0,r.s.x,r.s.y));
+            buffer.set_viewport(hyper!(0.0,0.0,0.0,r.s.x as f32,r.s.y as f32,1.0));
+            buffer.set_scissor(rect!(0,0,r.s.x,r.s.y));
 
             // switch to the shader pipeline (select the shaders and blending, etc.)
-            context.bind_pipeline(&graphics_pipeline);
+            buffer.bind_pipeline(&graphics_pipeline);
 
             // bind the vertexbuffer
             //context.bind_vertex_buffer(&vertex_buffer);
 
             // render the triangle using the window's render pass
-            context.begin_render_pass(rect!(0,0,r.s.x,r.s.y));
-            context.draw(3,1,0,0);
-            context.end_render_pass();
+            buffer.begin_render_pass(rect!(0,0,r.s.x,r.s.y));
+            buffer.draw(3,1,0,0);
+            buffer.end_render_pass();
 
             // and finish the command buffer
-            if !context.end() {
+            if !buffer.end_submit(&image_available,&render_finished) {
                 println!("unable to end command buffer");
             }
         }
@@ -85,15 +85,10 @@ fn main() {
             println!("unable to begin command buffer");
         }
 
-        // only when image_available submit the command buffer, signal render_finished when done with the commands
-        if !context.submit(&image_available,&render_finished) {
-            println!("unable to submit command buffer");
-        }
-
         // only when render_finished present the frame
-        window.present(context.index,&render_finished);
+        window.present(&context,&render_finished);
 
-        // wait for UX to occur
+        // wait for UX
         system.wait();
 
         // get all UX events
@@ -108,12 +103,12 @@ fn main() {
             if id == window.id() {
 
                 // if the window changed size, rebuild the framebuffer resources
-                /*if let Event::Configure(new_r) = event {
+                if let Event::Configure(new_r) = event {
                     if r.s != new_r.s {
-                        window.rebuild_resources(new_r);
+                        window.update_swapchain_resources(new_r);
                     }
                     r = new_r;
-                }*/
+                }
 
                 // if the user closes the window, stop running
                 if let Event::Close = event {
