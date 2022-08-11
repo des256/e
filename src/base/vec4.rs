@@ -173,5 +173,5 @@ vec4_float!(f64);
 
 #[macro_export]
 macro_rules! vec4 {
-    ($x:expr,$y:expr,$z:expr,$w:expr) => { Vec2::new($x,$y,$z,$w) };
+    ($x:expr,$y:expr,$z:expr,$w:expr) => { Vec4::new($x,$y,$z,$w) };
 }

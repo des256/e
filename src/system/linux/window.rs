@@ -28,6 +28,8 @@ pub struct Window<'system> {
     pub(crate) vk_image_views: Vec<sys::VkImageView>,
 #[cfg(gpu="vulkan")]
     pub(crate) vk_framebuffers: Vec<sys::VkFramebuffer>,
+#[cfg(gpu="vulkan")]
+    pub(crate) vk_command_buffers: Vec<sys::VkCommandBuffer>,
 }
 
 impl System {
@@ -42,6 +44,7 @@ impl System {
         sys::VkSwapchainKHR,
         Vec<sys::VkImageView>,
         Vec<sys::VkFramebuffer>,
+        Vec<sys::VkCommandBuffer>,
     )> {
 
         // get surface capabilities to calculate the extent and image count
@@ -135,7 +138,7 @@ impl System {
             pQueueFamilyIndices: null_mut(),
             preTransform: capabilities.currentTransform,
             compositeAlpha: sys::VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-            presentMode: sys::VK_PRESENT_MODE_IMMEDIATE_KHR,
+            presentMode: sys::VK_PRESENT_MODE_FIFO_KHR,
             clipped: sys::VK_TRUE,
             oldSwapchain: null_mut(),
         };
@@ -153,6 +156,17 @@ impl System {
             },
         }
         let vk_swapchain = unsafe { vk_swapchain.assume_init() };
+
+        /*
+        pCreateInfo->surface is not known at this time to be supported for
+        presentation by this device. The
+        vkGetPhysicalDeviceSurfaceSupportKHR() must be called beforehand, and
+        it must return VK_TRUE support with this surface for at least one
+        queue family of this device. The Vulkan spec states: surface must be a
+        surface that is supported by the device as determined using
+        vkGetPhysicalDeviceSurfaceSupportKHR
+        (https://vulkan.lunarg.com/doc/view/1.2.162.1~rc2/linux/1.2-extensions/vkspec.html#VUID-VkSwapchainCreateInfoKHR-surface-01270)
+        */
 
         // get swapchain images
         dprintln!("getting swap chain images...");
@@ -211,7 +225,12 @@ impl System {
                 sys::VK_SUCCESS => { },
                 code => {
                     println!("unable to create image view (error {})",code);
-                    unsafe { sys::vkDestroySwapchainKHR(self.vk_device,vk_swapchain,null_mut()) };
+                    unsafe {
+                        for vk_image_view in &vk_image_views {
+                            sys::vkDestroyImageView(self.vk_device,*vk_image_view,null_mut());
+                        }
+                        sys::vkDestroySwapchainKHR(self.vk_device,vk_swapchain,null_mut());
+                    }
                     return None;
                 }
             }
@@ -238,16 +257,52 @@ impl System {
                 sys::VK_SUCCESS => { },
                 code => {
                     println!("unable to create framebuffer (error {})",code);
-                    unsafe { sys::vkDestroySwapchainKHR(self.vk_device,vk_swapchain,null_mut()) };
+                    unsafe {
+                        for vk_framebuffer in &vk_framebuffers {
+                            sys::vkDestroyFramebuffer(self.vk_device,*vk_framebuffer,null_mut());
+                        }
+                        for vk_image_view in &vk_image_views {
+                            sys::vkDestroyImageView(self.vk_device,*vk_image_view,null_mut());
+                        }
+                        sys::vkDestroySwapchainKHR(self.vk_device,vk_swapchain,null_mut());
+                    }
                     return None;
                 }
             }
             vk_framebuffers.push(unsafe { vk_framebuffer.assume_init() });
         }
 
+        // create command buffers for the image views
+        let mut vk_command_buffers = Vec::<sys::VkCommandBuffer>::new();
+        for _ in &vk_image_views {
+            let info = sys::VkCommandBufferAllocateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                pNext: null_mut(),
+                commandPool: self.vk_command_pool,
+                level: sys::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                commandBufferCount: 1,
+            };
+            let mut vk_command_buffer = MaybeUninit::uninit();
+            if unsafe { sys::vkAllocateCommandBuffers(self.vk_device,&info,vk_command_buffer.as_mut_ptr()) } != sys::VK_SUCCESS {
+                println!("unable to create command buffer");
+                unsafe {
+                    sys::vkFreeCommandBuffers(self.vk_device,self.vk_command_pool,vk_command_buffers.len() as u32,vk_command_buffers.as_ptr());
+                    for vk_framebuffer in &vk_framebuffers {
+                        sys::vkDestroyFramebuffer(self.vk_device,*vk_framebuffer,null_mut());
+                    }
+                    for vk_image_view in &vk_image_views {
+                        sys::vkDestroyImageView(self.vk_device,*vk_image_view,null_mut());
+                    }
+                    sys::vkDestroySwapchainKHR(self.vk_device,vk_swapchain,null_mut());
+                }
+                return None;
+            }
+            vk_command_buffers.push(unsafe { vk_command_buffer.assume_init() })
+        }
+
         dprintln!("success.");
 
-        Some((vk_swapchain,vk_image_views,vk_framebuffers))
+        Some((vk_swapchain,vk_image_views,vk_framebuffers,vk_command_buffers))
     }
 }
     
@@ -290,7 +345,7 @@ impl<'system> System {
         }
 
 #[cfg(gpu="vulkan")]
-        let (vk_surface,vk_render_pass,vk_swapchain,vk_image_views,vk_framebuffers) = {
+        let (vk_surface,vk_render_pass,vk_swapchain,vk_image_views,vk_framebuffers,vk_command_buffers) = {
 
             // create surface for this window
             let info = sys::VkXcbSurfaceCreateInfoKHR {
@@ -373,8 +428,8 @@ impl<'system> System {
             let vk_render_pass = unsafe { vk_render_pass.assume_init() };
     
             // create swapchain resources
-            if let Some((vk_swapchain,vk_image_views,vk_framebuffers)) = self.create_swapchain_resources(vk_surface,vk_render_pass,r) {
-                (vk_surface,vk_render_pass,vk_swapchain,vk_image_views,vk_framebuffers)
+            if let Some((vk_swapchain,vk_image_views,vk_framebuffers,vk_command_buffers)) = self.create_swapchain_resources(vk_surface,vk_render_pass,r) {
+                (vk_surface,vk_render_pass,vk_swapchain,vk_image_views,vk_framebuffers,vk_command_buffers)
             }
             else {
                 unsafe {
@@ -398,6 +453,8 @@ impl<'system> System {
             vk_image_views,
 #[cfg(gpu="vulkan")]
             vk_framebuffers,            
+#[cfg(gpu="vulkan")]
+            vk_command_buffers,
         })
     }
     
@@ -465,6 +522,7 @@ impl<'system> Window<'system> {
 #[cfg(gpu="vulkan")]
     fn destroy_swapchain_resources(&self) {
         unsafe {
+            sys::vkFreeCommandBuffers(self.system.vk_device,self.system.vk_command_pool,self.vk_command_buffers.len() as u32,self.vk_command_buffers.as_ptr());
             for vk_framebuffer in &self.vk_framebuffers {
                 sys::vkDestroyFramebuffer(self.system.vk_device,*vk_framebuffer,null_mut());
             }
@@ -475,6 +533,20 @@ impl<'system> Window<'system> {
         }
     }
 
+    /*
+    Cannot call vkDestroyFramebuffer on VkFramebuffer 0x90000000009[] that is
+    currently in use by a command buffer. The Vulkan spec states: All
+    submitted commands that refer to framebuffer must have completed execution
+    (https://vulkan.lunarg.com/doc/view/1.2.162.1~rc2/linux/1.2-extensions/vkspec.html#VUID-vkDestroyFramebuffer-framebuffer-00892)
+    */
+
+    /*
+    Cannot call vkDestroyImageView on VkImageView 0x70000000007[] that is
+    currently in use by a command buffer. The Vulkan spec states: All
+    submitted commands that refer to imageView must have completed execution
+    (https://vulkan.lunarg.com/doc/view/1.2.162.1~rc2/linux/1.2-extensions/vkspec.html#VUID-vkDestroyImageView-imageView-01026)
+    */
+
     /// Get WindowID for this window.
     pub fn id(&self) -> WindowId {
         self.xcb_window as WindowId
@@ -484,10 +556,11 @@ impl<'system> Window<'system> {
 #[cfg(gpu="vulkan")]
         {
             self.destroy_swapchain_resources();
-            if let Some((vk_swapchain,vk_image_views,vk_framebuffers)) = self.system.create_swapchain_resources(self.vk_surface,self.vk_render_pass,r) {
+            if let Some((vk_swapchain,vk_image_views,vk_framebuffers,vk_command_buffers)) = self.system.create_swapchain_resources(self.vk_surface,self.vk_render_pass,r) {
                 self.vk_swapchain = vk_swapchain;
                 self.vk_image_views = vk_image_views;
                 self.vk_framebuffers = vk_framebuffers;
+                self.vk_command_buffers = vk_command_buffers;
             }
         }
     }
@@ -575,4 +648,11 @@ impl<'system> Drop for Window<'system> {
             sys::xcb_destroy_window(self.system.xcb_connection,self.xcb_window as u32);
         }
     }
+
+    /*
+    Cannot call vkDestroyRenderPass on VkRenderPass 0x30000000003[] that is
+    currently in use by a command buffer. The Vulkan spec states: All
+    submitted commands that refer to renderPass must have completed execution
+    (https://vulkan.lunarg.com/doc/view/1.2.162.1~rc2/linux/1.2-extensions/vkspec.html#VUID-vkDestroyRenderPass-renderPass-00873)
+    */
 }

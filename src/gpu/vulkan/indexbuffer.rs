@@ -10,7 +10,7 @@ use {
     },
 };
 
-pub struct VertexBuffer<'system> {
+pub struct IndexBuffer<'system> {
     pub system: &'system System,
     pub(crate) vk_buffer: sys::VkBuffer,
     pub(crate) vk_memory: sys::VkDeviceMemory,
@@ -19,16 +19,16 @@ pub struct VertexBuffer<'system> {
 impl System {
 
     /// create a vertex buffer.
-    pub fn create_vertex_buffer<T: Vertex>(&self,vertices: &Vec<T>) -> Option<VertexBuffer> {
+    pub fn create_index_buffer<T>(&self,indices: &Vec<T>) -> Option<IndexBuffer> {
 
         // create vertex buffer
-        println!("creating vertex buffer");
+        println!("creating index buffer");
         let info = sys::VkBufferCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             pNext: null_mut(),
             flags: 0,
-            size: (vertices.len() * T::SIZE) as u64,
-            usage: sys::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            size: (indices.len() * 4) as u64,
+            usage: sys::VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
             sharingMode: sys::VK_SHARING_MODE_EXCLUSIVE,
             queueFamilyIndexCount: 0,
             pQueueFamilyIndices: null_mut(),
@@ -37,7 +37,7 @@ impl System {
         match unsafe { sys::vkCreateBuffer(self.vk_device, &info, null_mut(), vk_buffer.as_mut_ptr()) } {
             sys::VK_SUCCESS => { },
             code => {
-                println!("unable to create vertex buffer (error {})",code);
+                println!("unable to create index buffer (error {})",code);
                 return None;
             }
         }
@@ -48,7 +48,7 @@ impl System {
         let info = sys::VkMemoryAllocateInfo {
             sType: sys::VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             pNext: null_mut(),
-            allocationSize: (vertices.len() * T::SIZE) as u64,
+            allocationSize: (indices.len() * 4) as u64,
             memoryTypeIndex: self.shared_index as u32,
         };
         let mut vk_memory = MaybeUninit::<sys::VkDeviceMemory>::uninit();
@@ -82,23 +82,23 @@ impl System {
         println!("mapped pointer = {:?}",data_ptr);
 
         // copy from the input vertices into data
-        unsafe { copy_nonoverlapping(vertices.as_ptr(),data_ptr,vertices.len()) };
+        unsafe { copy_nonoverlapping(indices.as_ptr(),data_ptr,indices.len()) };
 
         // and unmap the memory again
         println!("unmapping memory");
         unsafe { sys::vkUnmapMemory(self.vk_device,vk_memory) };
 
         // bind to vertex buffer
-        println!("binding memory buffer to vertex buffer");
+        println!("binding memory buffer to index buffer");
         match unsafe { sys::vkBindBufferMemory(self.vk_device,vk_buffer,vk_memory,0) } {
             sys::VK_SUCCESS => { },
             code => {
-                println!("unable to bind memory to vertex buffer (error {})",code);
+                println!("unable to bind memory to index buffer (error {})",code);
                 return None;
             }
         }
 
-        Some(VertexBuffer {
+        Some(IndexBuffer {
             system: &self,
             vk_buffer: vk_buffer,
             vk_memory: vk_memory,
@@ -106,7 +106,7 @@ impl System {
     }
 }
 
-impl<'system> Drop for VertexBuffer<'system> {
+impl<'system> Drop for IndexBuffer<'system> {
     fn drop(&mut self) {
         unsafe {
             sys::vkDestroyBuffer(self.system.vk_device,self.vk_buffer,null_mut());

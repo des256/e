@@ -40,4 +40,11 @@ impl<'system> Drop for Semaphore<'system> {
     fn drop(&mut self) {
         unsafe { sys::vkDestroySemaphore(self.system.vk_device,self.vk_semaphore,null_mut()) };
     }
+
+    /*
+    Cannot call vkDestroySemaphore on VkSemaphore 0x140000000014[] that is
+    currently in use by a command buffer. The Vulkan spec states: All submitted
+    batches that refer to semaphore must have completed execution
+    (https://vulkan.lunarg.com/doc/view/1.2.162.1~rc2/linux/1.2-extensions/vkspec.html#VUID-vkDestroySemaphore-semaphore-01137)
+    */
 }

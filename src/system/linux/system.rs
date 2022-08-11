@@ -36,7 +36,7 @@ pub struct System {
 #[cfg(gpu="vulkan")]
     pub(crate) vk_command_pool: sys::VkCommandPool,
 #[cfg(gpu="vulkan")]
-    pub(crate) vk_command_buffer: sys::VkCommandBuffer,
+    pub(crate) shared_index: usize,
 }
 
 fn intern_atom_cookie(xcb_connection: *mut sys::xcb_connection_t,name: &str) -> sys::xcb_intern_atom_cookie_t {
@@ -100,7 +100,7 @@ pub fn open_system() -> Option<System> {
 
     // GPU-specific stuff
 #[cfg(gpu="vulkan")]
-    let (vk_instance,vk_physical_device,vk_device,vk_queue,vk_command_pool,vk_command_buffer) = {
+    let (vk_instance,vk_physical_device,vk_device,vk_queue,vk_command_pool,shared_index) = {
 
         // create instance
         let extension_names = [
@@ -319,27 +319,57 @@ pub fn open_system() -> Option<System> {
         }
         let vk_command_pool = unsafe { vk_command_pool.assume_init() };
 
-        // create command buffer
-        let info = sys::VkCommandBufferAllocateInfo {
-            sType: sys::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            pNext: null_mut(),
-            commandPool: vk_command_pool,
-            level: sys::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            commandBufferCount: 1,
-        };
-        let mut vk_command_buffer = MaybeUninit::uninit();
-        if unsafe { sys::vkAllocateCommandBuffers(vk_device,&info,vk_command_buffer.as_mut_ptr()) } != sys::VK_SUCCESS {
-            println!("unable to create command buffer");
-            unsafe { 
-                sys::vkDestroyCommandPool(vk_device,vk_command_pool,null_mut());
-                sys::vkDestroyDevice(vk_device,null_mut());
-                sys::vkDestroyInstance(vk_instance,null_mut());
-            }
-            return None;
-        }
-        let vk_command_buffer = unsafe { vk_command_buffer.assume_init() };
+        // get memory properties
+        let mut vk_memory_properties = MaybeUninit::<sys::VkPhysicalDeviceMemoryProperties>::uninit();
+        unsafe { sys::vkGetPhysicalDeviceMemoryProperties(vk_physical_device,vk_memory_properties.as_mut_ptr()) };
+        let vk_memory_properties = unsafe { vk_memory_properties.assume_init() };
 
-        (vk_instance,vk_physical_device,vk_device,vk_queue,vk_command_pool,vk_command_buffer)
+        // DEBUG: show the entire memory description
+#[cfg(build="debug")]
+        {
+            dprintln!("device memory properties:");
+            dprintln!("    memory types:");
+            for i in 0..vk_memory_properties.memoryTypeCount {
+                let vk_memory_type = &vk_memory_properties.memoryTypes[i as usize];
+                let mut flags = String::new();
+                if (vk_memory_type.propertyFlags & sys::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0 {
+                    flags += "device_local ";
+                }
+                if (vk_memory_type.propertyFlags & sys::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 {
+                    flags += "host_visible ";
+                }
+                if (vk_memory_type.propertyFlags & sys::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0 {
+                    flags += "host_coherent ";
+                }
+                if (vk_memory_type.propertyFlags & sys::VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0 {
+                    flags += "host_cached ";
+                }
+                if (vk_memory_type.propertyFlags & sys::VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT) != 0 {
+                    flags += "lazily_allocated ";
+                }
+                if (vk_memory_type.propertyFlags & sys::VK_MEMORY_PROPERTY_PROTECTED_BIT) != 0 {
+                    flags += "protected ";
+                }            
+                dprintln!("        {}: on heap {}, {}",i,vk_memory_type.heapIndex,flags);
+            }
+            dprintln!("    memory heaps:");
+            for i in 0..vk_memory_properties.memoryHeapCount {
+                let vk_memory_heap = &vk_memory_properties.memoryHeaps[i as usize];
+                dprintln!("        {}: size {} MiB, {:X}",i,vk_memory_heap.size / (1024 * 1024),vk_memory_heap.flags);
+            }
+        }
+
+        // find shared memory heap and type (later also find device-only index)
+        let mut shared_index: usize = 0;
+        for i in 0..vk_memory_properties.memoryTypeCount {
+            let flags = vk_memory_properties.memoryTypes[i as usize].propertyFlags;
+            if ((flags & sys::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0) && ((flags & sys::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0) && ((flags & sys::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0) {
+                shared_index = i as usize;
+                break;
+            }
+        }
+
+        (vk_instance,vk_physical_device,vk_device,vk_queue,vk_command_pool,shared_index)
     };
 
     Some(System {
@@ -367,7 +397,7 @@ pub fn open_system() -> Option<System> {
 #[cfg(gpu="vulkan")]
         vk_command_pool,
 #[cfg(gpu="vulkan")]
-        vk_command_buffer,
+        shared_index,
     })
 }
 
@@ -516,7 +546,6 @@ impl Drop for System {
         unsafe {
 #[cfg(gpu="vulkan")]
             {
-                sys::vkFreeCommandBuffers(self.vk_device,self.vk_command_pool,1,&self.vk_command_buffer);
                 sys::vkDestroyCommandPool(self.vk_device,self.vk_command_pool,null_mut());
                 sys::vkDestroyDevice(self.vk_device,null_mut());
                 sys::vkDestroyInstance(self.vk_instance,null_mut());
@@ -524,4 +553,11 @@ impl Drop for System {
             sys::XCloseDisplay(self.xdisplay);
         }
     }
+
+    /*
+    Attempt to free VkCommandBuffer 0x55b677443510[] which is in use. The
+    Vulkan spec states: All elements of pCommandBuffers must not be in the
+    pending state
+    (https://vulkan.lunarg.com/doc/view/1.2.162.1~rc2/linux/1.2-extensions/vkspec.html#VUID-vkFreeCommandBuffers-pCommandBuffers-00047)
+    */
 }
