@@ -19,9 +19,13 @@ pub struct System {
     pub(crate) wm_protocols: u32,
     pub(crate) wm_delete_window: u32,
     pub(crate) wm_motif_hints: u32,
+#[allow(dead_code)]
     pub(crate) wm_transient_for: u32,
+#[allow(dead_code)]
     pub(crate) wm_net_type: u32,
+#[allow(dead_code)]
     pub(crate) wm_net_type_utility: u32,
+#[allow(dead_code)]
     pub(crate) wm_net_type_dropdown_menu: u32,
     pub(crate) wm_net_state: u32,
     pub(crate) wm_net_state_above: u32,
@@ -312,8 +316,8 @@ pub fn open_system() -> Option<System> {
         if unsafe { sys::vkCreateCommandPool(vk_device,&info,null_mut(),vk_command_pool.as_mut_ptr()) } != sys::VK_SUCCESS {
             println!("unable to create command pool");
             unsafe { 
-                //sys::vkDestroyDevice(vk_device,null_mut());
-                //sys::vkDestroyInstance(vk_instance,null_mut());
+                sys::vkDestroyDevice(vk_device,null_mut());
+                sys::vkDestroyInstance(vk_instance,null_mut());
             }
             return None;
         }

@@ -2,15 +2,44 @@ use {
     crate::*,
 };
 
+pub(crate) fn debug_token(token: &TokenTree) -> String {
+    let mut debug = String::new();
+    match token {
+        TokenTree::Group(group) => {
+            let delimiter = group.delimiter();
+            let iterator = group.stream().into_iter();
+            match delimiter {
+                Delimiter::Parenthesis => debug += "(",
+                Delimiter::Brace => debug += "{",
+                Delimiter::Bracket => debug += "[",
+                Delimiter::None => { },
+            }
+            for token in iterator {
+                debug += &debug_token(&token);
+            }
+            match delimiter {
+                Delimiter::Parenthesis => debug += ")",
+                Delimiter::Brace => debug += "}",
+                Delimiter::Bracket => debug += "]",
+                Delimiter::None => { },
+            }
+        },
+        TokenTree::Ident(ident) => debug += &ident.to_string(),
+        TokenTree::Punct(punct) => debug += &punct.to_string(),
+        TokenTree::Literal(literal) => debug += &literal.to_string(),
+    }
+    debug
+}
+
 pub(crate) struct Lexer {
     pub token: Option<TokenTree>,
-    pub stream: IntoIter,
+    pub stream: std::iter::Peekable<IntoIter>,
 }
 
 impl Lexer {
     /// Create new Lexer around a TokenStream.
     pub(crate) fn new(stream: TokenStream) -> Lexer {
-        let mut stream = stream.into_iter();
+        let mut stream = stream.into_iter().peekable();
         let token = stream.next();
         Lexer {
             token,
@@ -59,12 +88,42 @@ impl Lexer {
     /// If the current token is a specific punctuation symbol, consume it and return true. Otherwise return false.
     pub(crate) fn parse_punct(&mut self,c: char) -> bool {
         let result = if let Some(TokenTree::Punct(punct)) = &self.token {
-            punct.as_char() == c
+            if punct.as_char() == c {
+                true
+            }
+            else {
+                false
+            }
         }
         else {
             false
         };
         if result {
+            self.consume();
+        }
+        result
+    }
+
+    /// If the current token is two specific punctuation symbols, consume them and return true. Otherwise return false.
+    pub(crate) fn parse_punct2(&mut self,c1: char,c2: char) -> bool {
+        let result = if let Some(TokenTree::Punct(punct)) = &self.token {
+            if punct.as_char() == c1 {
+                if let Some(TokenTree::Punct(punct)) = &self.stream.peek() {
+                    punct.as_char() == c2
+                }
+                else {
+                    false
+                }
+            }
+            else {
+                false
+            }
+        }
+        else {
+            false
+        };
+        if result {
+            self.consume();
             self.consume();
         }
         result

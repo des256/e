@@ -16,6 +16,9 @@ use grammar::*;
 mod lexer;
 use lexer::*;
 
+mod visattr;
+use visattr::*;
+
 mod r#struct;
 use r#struct::*;
 
@@ -25,7 +28,7 @@ use render::*;
 #[proc_macro_derive(VertexFormat)]
 pub fn derive_vertexformat(stream: TokenStream) -> TokenStream {
     let mut lexer = Lexer::new(stream);
-    let item = lexer.is_struct();
+    let item = lexer.parse_struct();
     //panic!("RENDERED IMPLEMENTATION: {}",render_struct(&item));
     render_struct(&item).parse().unwrap()
 }

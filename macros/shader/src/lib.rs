@@ -10,17 +10,29 @@ use {
     std::fmt,
 };
 
-//mod grammar;
-//use grammar::*;
+mod grammar;
+use grammar::*;
+
+mod display;
+use display::*;
 
 mod lexer;
 use lexer::*;
 
+mod visattr;
+use visattr::*;
+
+mod item;
+use item::*;
+
+mod expr;
+use expr::*;
+
+mod r#type;
+use r#type::*;
+
 #[proc_macro_attribute]
 pub fn shader(attr: TokenStream,item: TokenStream) -> TokenStream {
-    let iterator = item.into_iter();
-    for token in iterator {
-        print_token(&token);
-    }
-    panic!("done, debug.");
+    let item = Lexer::new(item).parse_item().unwrap();
+    panic!("done, debug: {}",item);
 }

@@ -63,10 +63,10 @@ macro_rules! color_argb_int {
 
             impl const From<Color<$t>> for u32 {
                 fn from(color: Color<$t>) -> Self {
-                    let mut r = (color.r >> (<$t>::BITS - 8)) as u32;
-                    let mut g = (color.g >> (<$t>::BITS - 8)) as u32;
-                    let mut b = (color.b >> (<$t>::BITS - 8)) as u32;
-                    let mut a = (color.a >> (<$t>::BITS - 8)) as u32;
+                    let r = (color.r >> (<$t>::BITS - 8)) as u32;
+                    let g = (color.g >> (<$t>::BITS - 8)) as u32;
+                    let b = (color.b >> (<$t>::BITS - 8)) as u32;
+                    let a = (color.a >> (<$t>::BITS - 8)) as u32;
                     (a << 24) | (r << 16) | (g << 8) | b
                 }
             }
@@ -96,10 +96,10 @@ macro_rules! color_argb_float {
 
             impl const From<Color<$t>> for u32 {
                 fn from(color: Color<$t>) -> Self {
-                    let mut r = if (color.r <= 0.0) { 0u32 } else if (color.r >= 1.0) { 255u32 } else { (color.r * 255.0) as u32 };
-                    let mut g = if (color.g <= 0.0) { 0u32 } else if (color.g >= 1.0) { 255u32 } else { (color.g * 255.0) as u32 };
-                    let mut b = if (color.b <= 0.0) { 0u32 } else if (color.b >= 1.0) { 255u32 } else { (color.b * 255.0) as u32 };
-                    let mut a = if (color.a <= 0.0) { 0u32 } else if (color.a >= 1.0) { 255u32 } else { (color.a * 255.0) as u32 };
+                    let r = if (color.r <= 0.0) { 0u32 } else if (color.r >= 1.0) { 255u32 } else { (color.r * 255.0) as u32 };
+                    let g = if (color.g <= 0.0) { 0u32 } else if (color.g >= 1.0) { 255u32 } else { (color.g * 255.0) as u32 };
+                    let b = if (color.b <= 0.0) { 0u32 } else if (color.b >= 1.0) { 255u32 } else { (color.b * 255.0) as u32 };
+                    let a = if (color.a <= 0.0) { 0u32 } else if (color.a >= 1.0) { 255u32 } else { (color.a * 255.0) as u32 };
                     (a << 24) | (r << 16) | (g << 8) | b
                 }
             }

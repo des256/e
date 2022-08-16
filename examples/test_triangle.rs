@@ -6,12 +6,27 @@ use {
         time::Instant,
     },
     vertexformat::*,
+    shader::*,
 };
 
 #[derive(VertexFormat)]
 struct TestVertex {
     pub pos: f32xy,
     pub color: f32rgba,
+}
+
+#[shader(vertex)]
+mod my_vertex_shader {
+    fn main(vertex: TestVertex) -> (f32xyzw,f32rgba) {
+        (vertex.pos,vertex.color)
+    }
+}
+
+#[shader(fragment)]
+mod my_fragment_shader {
+    fn main(color: f32rgba) -> f32rgba {
+        color
+    }
 }
 
 fn main() {

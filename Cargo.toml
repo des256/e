@@ -22,3 +22,4 @@ crate-type = ["rlib"]
 
 [dependencies]
 vertexformat = { path = "./macros/vertexformat" }
+shader = { path = "./macros/shader" }

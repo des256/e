@@ -1,7 +1,3 @@
-use {
-    crate::*,
-};
-
 pub enum PrimitiveTopology {
     Points,
     Lines,
