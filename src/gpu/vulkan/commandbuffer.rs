@@ -52,7 +52,7 @@ impl<'system,'window> CommandContext<'system,'window> {
 impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
 
     /// Begin render pass.
-    pub fn begin_render_pass(&self,r: Rect<i32>) {
+    pub fn begin_render_pass(&self,r: i32r) {
         let clear_color = sys::VkClearValue {
             color: sys::VkClearColorValue {
                 float32: [0.0,0.0,0.0,1.0]
@@ -138,24 +138,24 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// Specify current viewport transformation.
-    pub fn set_viewport(&self,r: Hyper<f32>) {
+    pub fn set_viewport(&self,h: f32h) {
         unsafe { sys::vkCmdSetViewport(
             self.context.window.vk_command_buffers[self.context.index],
             0,
             1,
             &sys::VkViewport {
-                x: r.o.x,
-                y: r.o.y,
-                width: r.s.x,
-                height: r.s.y,
-                minDepth: r.o.z,
-                maxDepth: r.o.z + r.s.z,
+                x: h.o.x,
+                y: h.o.y,
+                width: h.s.x,
+                height: h.s.y,
+                minDepth: h.o.z,
+                maxDepth: h.o.z + h.s.z,
             },
         ) };
     }
 
     /// Specify current scissor rectangle.
-    pub fn set_scissor(&self,r: Rect<i32>) {
+    pub fn set_scissor(&self,r: i32r) {
         unsafe { sys::vkCmdSetScissor(
             self.context.window.vk_command_buffers[self.context.index],
             0,

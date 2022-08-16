@@ -3,35 +3,31 @@ use {
     std::{
         fs::File,
         io::prelude::*,
-        time::{
-            Instant,
-            Duration,
-        },
+        time::Instant,
     },
+    vertexformat::*,
 };
 
-pub struct TestVertex {
-    pub pos: Vec2<f32>,
-}
-
-impl Vertex for TestVertex {
-    const SIZE: usize = 8;
+#[derive(VertexFormat)]
+struct TestVertex {
+    pub pos: f32xy,
+    pub color: f32rgba,
 }
 
 fn main() {
 
     // create frame window
     let system = open_system().expect("unable to access system");
-    let mut r: Rect<i32> = rect!(0,0,640,480);
+    let mut r = i32r { o: i32xy::ZERO,s: u32xy { x: 640,y: 480, }, };
 
-    let mut window = system.create_frame_window(rect!(100,100,r.s.x,r.s.y),"test triangle").expect("unable to create frame window");
+    let mut window = system.create_frame_window(i32r { o: i32xy { x: 100,y: 100, },s: r.s, },"test triangle").expect("unable to create frame window");
 
     // create the vertices
     let mut vertices = Vec::<TestVertex>::new();
-    vertices.push(TestVertex { pos: vec2!(-0.5,-0.5), });
-    vertices.push(TestVertex { pos: vec2!(0.5,-0.5), });
-    vertices.push(TestVertex { pos: vec2!(0.5,0.5), });
-    vertices.push(TestVertex { pos: vec2!(-0.5,0.5), });
+    vertices.push(TestVertex { pos: f32xy { x: -0.5,y: -0.5, }, color: f32rgba::from(0xFFFF0000), });
+    vertices.push(TestVertex { pos: f32xy { x: 0.5,y: -0.5, }, color: f32rgba::from(0xFF00FF00), });
+    vertices.push(TestVertex { pos: f32xy { x: 0.5,y: 0.5, }, color: f32rgba::from(0xFF0000FF), });
+    vertices.push(TestVertex { pos: f32xy { x: -0.5,y: 0.5, }, color: f32rgba::from(0xFFFFFF00), });
     let vertex_buffer = system.create_vertex_buffer(&vertices).expect("unable to create vertex buffer");
 
     // create the indices
@@ -48,13 +44,13 @@ fn main() {
     let mut f = File::open("test_triangle_vert.spv").expect("unable to open vertex shader");
     let mut b = Vec::<u8>::new();
     f.read_to_end(&mut b).expect("unable to read vertex shader");
-    let vertex_shader = system.create_shader(&b).expect("unable to create vertex shader");
+    let vertex_shader = system.create_shader_module(&b).expect("unable to create vertex shader");
 
     // read fragment shader
     let mut f = File::open("test_triangle_frag.spv").expect("unable to open fragment shader");
     let mut b = Vec::<u8>::new();
     f.read_to_end(&mut b).expect("unable to read fragment shader");
-    let fragment_shader = system.create_shader(&b).expect("unable to create fragment shader");
+    let fragment_shader = system.create_shader_module(&b).expect("unable to create fragment shader");
 
     // create pipeline layout
     let pipeline_layout = system.create_pipeline_layout().expect("unable to create pipeline layout");
@@ -73,49 +69,20 @@ fn main() {
         DepthClamp::Disabled,
         PrimitiveDiscard::Disabled,
         PolygonMode::Fill,
-        CullMode::Back,
-        FrontFace::CounterClockwise,
+        CullMode::None,
         DepthBias::Disabled,
-        0.0,
-        0.0,
-        0.0,
         1.0,
         1,
         SampleShading::Disabled,
-        0.0,
         AlphaToCoverage::Disabled,
         AlphaToOne::Disabled,
         DepthTest::Disabled,
         DepthWrite::Disabled,
-        CompareOp::Always,
-        DepthBounds::Disabled,
         StencilTest::Disabled,
-        StencilOp::Keep,
-        StencilOp::Keep,
-        StencilOp::Keep,
-        CompareOp::Always,
-        0,
-        0,
-        0,
-        StencilOp::Keep,
-        StencilOp::Keep,
-        StencilOp::Keep,
-        CompareOp::Always,
-        0,
-        0,
-        0,
-        0.0,
-        0.0,
         LogicOp::Disabled,
         Blend::Disabled,
-        BlendFactor::One,
-        BlendFactor::Zero,
-        BlendOp::Add,
-        BlendFactor::One,
-        BlendFactor::Zero,
-        BlendOp::Add,
         0x0F,
-        vec4!(0.0,0.0,0.0,0.0),
+        f32xyzw::ZERO,
     ).expect("Unable to create graphics pipeline.");
     
     // create the semaphores
@@ -165,8 +132,11 @@ fn main() {
         if let Some(buffer) = context.begin() {
 
             // set the viewport and scissor to whatever the current window rectangle is
-            buffer.set_viewport(hyper!(0.0,0.0,0.0,r.s.x as f32,r.s.y as f32,1.0));
-            buffer.set_scissor(rect!(0,0,r.s.x,r.s.y));
+            buffer.set_viewport(f32h {
+                o: f32xyz::ZERO,
+                s: f32xyz { x: r.s.x as f32,y: r.s.y as f32,z: 1.0, },
+            });
+            buffer.set_scissor(i32r { o: i32xy::ZERO,s: r.s, });
 
             // switch to the shader pipeline (select the shaders and blending, etc.)
             buffer.bind_pipeline(&graphics_pipeline);
@@ -178,7 +148,7 @@ fn main() {
             buffer.bind_index_buffer(&index_buffer);
 
             // render the triangle using the window's render pass
-            buffer.begin_render_pass(rect!(0,0,r.s.x,r.s.y));
+            buffer.begin_render_pass(i32r { o: i32xy::ZERO,s: r.s, });
             buffer.draw_indexed(6,1,0,0,0);
             buffer.end_render_pass();
 

@@ -1,3 +1,7 @@
+use {
+    crate::*,
+};
+
 pub enum PrimitiveTopology {
     Points,
     Lines,
@@ -33,26 +37,26 @@ pub enum PolygonMode {
     Point,
 }
 
-pub enum CullMode {
-    None,
-    Front,
-    Back,
-    FrontAndBack,
-}
-
 pub enum FrontFace {
     CounterClockwise,
     Clockwise,
 }
 
+pub enum CullMode {
+    None,
+    Front(FrontFace),
+    Back(FrontFace),
+    FrontAndBack(FrontFace),
+}
+
 pub enum DepthBias {
     Disabled,
-    Enabled,
+    Enabled(f32,f32,f32),
 }
 
 pub enum SampleShading {
     Disabled,
-    Enabled,
+    Enabled(f32),
 }
 
 pub enum AlphaToCoverage {
@@ -61,16 +65,6 @@ pub enum AlphaToCoverage {
 }
 
 pub enum AlphaToOne {
-    Disabled,
-    Enabled,
-}
-
-pub enum DepthTest {
-    Disabled,
-    Enabled,
-}
-
-pub enum DepthWrite {
     Disabled,
     Enabled,
 }
@@ -88,12 +82,25 @@ pub enum CompareOp {
 
 pub enum DepthBounds {
     Disabled,
+    Enabled(f32,f32),
+}
+
+pub enum DepthTest {
+    Disabled,
+    Enabled(CompareOp,DepthBounds),
+}
+
+pub enum DepthWrite {
+    Disabled,
     Enabled,
 }
 
 pub enum StencilTest {
     Disabled,
-    Enabled,
+    Enabled(
+        (StencilOp,StencilOp,StencilOp,CompareOp,u32,u32,u32),
+        (StencilOp,StencilOp,StencilOp,CompareOp,u32,u32,u32),
+    ),
 }
 
 pub enum StencilOp {
@@ -127,9 +134,12 @@ pub enum LogicOp {
     Set,
 }
 
-pub enum Blend {
-    Disabled,
-    Enabled,
+pub enum BlendOp {
+    Add,
+    Subtract,
+    ReverseSubtract,
+    Min,
+    Max,
 }
 
 pub enum BlendFactor {
@@ -154,12 +164,9 @@ pub enum BlendFactor {
     OneMinusSrc1Alpha,
 }
 
-pub enum BlendOp {
-    Add,
-    Subtract,
-    ReverseSubtract,
-    Min,
-    Max,
+pub enum Blend {
+    Disabled,
+    Enabled((BlendOp,BlendFactor,BlendFactor),(BlendOp,BlendFactor,BlendFactor)),
 }
 
 mod commandcontext;
@@ -171,8 +178,8 @@ pub use commandbuffer::*;
 mod pipelinelayout;
 pub use pipelinelayout::*;
 
-mod shader;
-pub use shader::*;
+mod shadermodule;
+pub use shadermodule::*;
 
 mod graphicspipeline;
 pub use graphicspipeline::*;

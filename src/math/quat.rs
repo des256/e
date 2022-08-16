@@ -195,7 +195,7 @@ impl<T: Neg<Output=T>> Neg for Quat<T> {
     }
 }
 
-#[macro_export]
-macro_rules! quat {
-    ($r:expr,$i:expr,$j:expr,$k:expr) => { Quat::new($r,$i,$j,$k) };
-}
+#[allow(non_camel_case_types)]
+pub type f32q = Quat<f32>;
+#[allow(non_camel_case_types)]
+pub type f64q = Quat<f64>;

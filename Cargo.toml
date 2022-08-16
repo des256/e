@@ -19,3 +19,6 @@ codegen-units = 1
 [lib]
 name = "e"
 crate-type = ["rlib"]
+
+[dependencies]
+vertexformat = { path = "./macros/vertexformat" }

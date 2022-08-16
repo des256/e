@@ -6,7 +6,7 @@ use {
     },
 };
 
-pub struct Shader<'system> {
+pub struct ShaderModule<'system> {
     pub system: &'system System,
     pub(crate) vk_shader_module: sys::VkShaderModule,
 }
@@ -14,7 +14,7 @@ pub struct Shader<'system> {
 impl System {
 
     /// Create a shader.
-    pub fn create_shader(&self,code: &[u8]) -> Option<Shader> {
+    pub fn create_shader_module(&self,code: &[u8]) -> Option<ShaderModule> {
 
 #[cfg(gpu="vulkan")]
         {
@@ -36,7 +36,7 @@ impl System {
             }
             let vk_shader_module = unsafe { vk_shader_module.assume_init() };
 
-            Some(Shader {
+            Some(ShaderModule {
                 system: &self,
                 vk_shader_module: vk_shader_module,
             })
@@ -47,7 +47,7 @@ impl System {
     }    
 }
 
-impl<'system> Drop for Shader<'system> {
+impl<'system> Drop for ShaderModule<'system> {
 
     fn drop(&mut self) {
         unsafe { sys::vkDestroyShaderModule(self.system.vk_device,self.vk_shader_module,null_mut()) };

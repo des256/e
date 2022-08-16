@@ -1,1 +1,0 @@
-nu: alles terugbouwen naar testbaar, zonder vulkan en x apart, en commandcontext invoeren

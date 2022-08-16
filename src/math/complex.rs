@@ -238,7 +238,7 @@ impl<T: Neg<Output=T>> Neg for Complex<T> {
     }
 }
 
-#[macro_export]
-macro_rules! complex {
-    ($r:expr,$i:expr) => { Complex::new($r,$i) };
-}
+#[allow(non_camel_case_types)]
+pub type f32c = Complex<f32>;
+#[allow(non_camel_case_types)]
+pub type f64c = Complex<f64>;

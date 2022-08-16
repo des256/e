@@ -19,7 +19,7 @@ pub struct VertexBuffer<'system> {
 impl System {
 
     /// create a vertex buffer.
-    pub fn create_vertex_buffer<T: Vertex>(&self,vertices: &Vec<T>) -> Option<VertexBuffer> {
+    pub fn create_vertex_buffer<T: VertexFormat>(&self,vertices: &Vec<T>) -> Option<VertexBuffer> {
 
         // create vertex buffer
         println!("creating vertex buffer");
@@ -27,7 +27,7 @@ impl System {
             sType: sys::VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             pNext: null_mut(),
             flags: 0,
-            size: (vertices.len() * T::SIZE) as u64,
+            size: (vertices.len() * T::stride()) as u64,
             usage: sys::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             sharingMode: sys::VK_SHARING_MODE_EXCLUSIVE,
             queueFamilyIndexCount: 0,
@@ -48,7 +48,7 @@ impl System {
         let info = sys::VkMemoryAllocateInfo {
             sType: sys::VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             pNext: null_mut(),
-            allocationSize: (vertices.len() * T::SIZE) as u64,
+            allocationSize: (vertices.len() * T::stride()) as u64,
             memoryTypeIndex: self.shared_index as u32,
         };
         let mut vk_memory = MaybeUninit::<sys::VkDeviceMemory>::uninit();

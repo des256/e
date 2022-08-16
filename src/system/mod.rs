@@ -69,11 +69,11 @@ pub enum MouseCursor {
 pub enum Event {
     KeyPress(u8),
     KeyRelease(u8),
-    MousePress(Vec2<i32>,MouseButton),
-    MouseRelease(Vec2<i32>,MouseButton),
+    MousePress(i32xy,MouseButton),
+    MouseRelease(i32xy,MouseButton),
     MouseWheel(MouseWheel),
-    MouseMove(Vec2<i32>),
-    Configure(Rect<i32>),
+    MouseMove(i32xy),
+    Configure(i32r),
     Expose,
     Close,
 }
@@ -92,10 +92,6 @@ impl Display for Event {
             Event::Close => { write!(f,"Close") },
         }
     }
-}
-
-pub trait Vertex {
-    const SIZE: usize;
 }
 
 #[cfg(system="linux")]

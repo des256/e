@@ -7,37 +7,64 @@ use {
             Formatter,
             Result
         },
-        ops::Add,
     },
 };
 
 /// Rectangle.
 #[derive(Copy,Clone,Debug)]
-pub struct Rect<T> {
-    pub o: Vec2<T>,
-    pub s: Vec2<T>,
+pub struct Rect<I,U> {
+    pub o: Vec2<I>,
+    pub s: Vec2<U>,
 }
 
-impl<T: Copy + PartialOrd + Add<T,Output=T>> Rect<T> {
-    pub fn new(ox: T,oy: T,sx: T,sy: T) -> Rect<T> {
-        Rect { o: vec2!(ox,oy),s: vec2!(sx,sy), }
-    }
 
-    pub fn contains(&self,p: &Vec2<T>) -> bool {
-        (p.x >= self.o.x) &&
-        (p.y >= self.o.y) &&
-        (p.x < self.o.x + self.s.x) &&
-        (p.y < self.o.y + self.s.y)
+impl<I,U> Rect<I,U> {
+    pub fn new(o: Vec2<I>,s: Vec2<U>) -> Rect<I,U> {
+        Rect { o: o,s: s, }
     }
 }
 
-impl<T: Display> Display for Rect<T> {
+impl<I: Display,U: Display> Display for Rect<I,U> {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"({},{} {}x{})",self.o.x,self.o.y,self.s.x,self.s.y)
     }
 }
 
-#[macro_export]
-macro_rules! rect {
-    ($ox:expr,$oy:expr,$sx:expr,$sy:expr) => { Rect::new($ox,$oy,$sx,$sy) };
+macro_rules! rect_contains {
+    ($i:ty,$u:ty) => {
+        impl Rect<$i,$u> {
+            pub fn contains(&self,p: Vec2<$i>) -> bool {
+                (p.x >= self.o.x) &&
+                (p.y >= self.o.y) &&
+                (p.x < self.o.x + self.s.x as $i) &&
+                (p.y < self.o.y + self.s.y as $i)
+            }    
+        }
+    }
 }
+
+rect_contains!(i8,u8);
+rect_contains!(i16,u16);
+rect_contains!(i32,u32);
+rect_contains!(i64,u64);
+rect_contains!(i128,u128);
+rect_contains!(isize,usize);
+rect_contains!(f32,f32);
+rect_contains!(f64,f64);
+
+#[allow(non_camel_case_types)]
+pub type i8r = Rect<i8,u8>;
+#[allow(non_camel_case_types)]
+pub type i16r = Rect<i16,u16>;
+#[allow(non_camel_case_types)]
+pub type i32r = Rect<i32,u32>;
+#[allow(non_camel_case_types)]
+pub type i64r = Rect<i64,u64>;
+#[allow(non_camel_case_types)]
+pub type i128r = Rect<i128,u128>;
+#[allow(non_camel_case_types)]
+pub type isizer = Rect<isize,usize>;
+#[allow(non_camel_case_types)]
+pub type f32r = Rect<f32,f32>;
+#[allow(non_camel_case_types)]
+pub type f64r = Rect<f64,f64>;

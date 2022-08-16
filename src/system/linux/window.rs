@@ -39,7 +39,7 @@ impl System {
         &self,
         vk_surface: sys::VkSurfaceKHR,
         vk_render_pass: sys::VkRenderPass,
-        r: Rect<i32>,
+        r: i32r,
     ) -> Option<(
         sys::VkSwapchainKHR,
         Vec<sys::VkImageView>,
@@ -58,10 +58,13 @@ impl System {
 
         let extent = if capabilities.currentExtent.width != 0xFFFFFFFF {
             dprintln!("fixed extent = {} x {}",capabilities.currentExtent.width,capabilities.currentExtent.height);
-            vec2!(capabilities.currentExtent.width,capabilities.currentExtent.height)
+            u32xy {
+                x: capabilities.currentExtent.width,
+                y: capabilities.currentExtent.height,
+            }
         }
         else {
-            let mut extent: Vec2<u32> = vec2!(r.s.x as u32,r.s.y as u32);
+            let mut extent = u32xy { x: r.s.x as u32,y: r.s.y as u32, };
             if extent.x < capabilities.minImageExtent.width {
                 extent.x = capabilities.minImageExtent.width;
             }
@@ -309,7 +312,7 @@ impl System {
 impl<'system> System {
     
     // create basic window, decorations are handled in the public create_frame and create_popup
-    fn create_window(&'system self,r: Rect<i32>,_absolute: bool) -> Option<Window> {
+    fn create_window(&'system self,r: i32r,_absolute: bool) -> Option<Window> {
 
         // create window
         let xcb_window = unsafe { sys::xcb_generate_id(self.xcb_connection) };
@@ -364,7 +367,16 @@ impl<'system> System {
                 },
             }
             let vk_surface = unsafe { vk_surface.assume_init() };
-        
+
+            // check if surface is supported by queue family
+            let mut supported = sys::VK_FALSE;
+            unsafe { sys::vkGetPhysicalDeviceSurfaceSupportKHR(self.vk_physical_device,0,vk_surface,&mut supported) };
+            if supported != sys::VK_TRUE {
+                println!("surface not supported by queue family");
+                unsafe { sys::vkDestroySurfaceKHR(self.vk_instance,vk_surface,null_mut()) };
+                return None;
+            }
+
             // create render pass
 
             // attachments: image descriptions and load/store indications of each attachment
@@ -459,7 +471,7 @@ impl<'system> System {
     }
     
     /// Create application frame window.
-    pub fn create_frame_window(&'system self,r: Rect<i32>,title: &str) -> Option<Window> {
+    pub fn create_frame_window(&'system self,r: i32r,title: &str) -> Option<Window> {
         let window = self.create_window(r,false)?;
         let protocol_set = [self.wm_delete_window];
         let protocol_set_void = protocol_set.as_ptr() as *const std::os::raw::c_void;
@@ -488,7 +500,7 @@ impl<'system> System {
     }
     
     /// Create standalone popup window.
-    pub fn create_popup_window(&'system self,r: Rect<i32>) -> Option<Window> {
+    pub fn create_popup_window(&'system self,r: i32r) -> Option<Window> {
         let window = self.create_window(r,true)?;
         let net_state = [self.wm_net_state_above];
         unsafe { sys::xcb_change_property(
@@ -552,7 +564,7 @@ impl<'system> Window<'system> {
         self.xcb_window as WindowId
     }
 
-    pub fn update_swapchain_resources(&mut self,r: Rect<i32>) {
+    pub fn update_swapchain_resources(&mut self,r: i32r) {
 #[cfg(gpu="vulkan")]
         {
             self.destroy_swapchain_resources();

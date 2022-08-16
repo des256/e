@@ -1,3 +1,6 @@
+#![feature(const_trait_impl)]
+#![feature(const_fn_floating_point_arithmetic)]
+
 mod sys {
     #![allow(non_camel_case_types)]
     #![allow(non_upper_case_globals)]

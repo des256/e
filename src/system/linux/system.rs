@@ -305,15 +305,15 @@ pub fn open_system() -> Option<System> {
         let info = sys::VkCommandPoolCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             pNext: null_mut(),
-            flags: 0,
+            flags: sys::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
             queueFamilyIndex: 0,
         };
         let mut vk_command_pool = MaybeUninit::uninit();
         if unsafe { sys::vkCreateCommandPool(vk_device,&info,null_mut(),vk_command_pool.as_mut_ptr()) } != sys::VK_SUCCESS {
             println!("unable to create command pool");
             unsafe { 
-                sys::vkDestroyDevice(vk_device,null_mut());
-                sys::vkDestroyInstance(vk_instance,null_mut());
+                //sys::vkDestroyDevice(vk_device,null_mut());
+                //sys::vkDestroyInstance(vk_instance,null_mut());
             }
             return None;
         }
@@ -463,11 +463,15 @@ impl System {
             },
             sys::XCB_CONFIGURE_NOTIFY => {
                 let configure_notify = xcb_event as *const sys::xcb_configure_notify_event_t;
-                let r = Rect::new(
-                    unsafe { *configure_notify }.x as i32,
-                    unsafe { *configure_notify }.y as i32,
-                    unsafe { *configure_notify }.width as i32,
-                    unsafe { *configure_notify }.height as i32
+                let r = i32r::new(
+                    i32xy::new(
+                        unsafe { *configure_notify }.x as i32,
+                        unsafe { *configure_notify }.y as i32,
+                    ),
+                    u32xy::new(
+                        unsafe { *configure_notify }.width as u32,
+                        unsafe { *configure_notify }.height as u32,
+                    ),
                 );
                 let xcb_window = unsafe { *configure_notify }.window;
                 return Some((xcb_window as WindowId,Event::Configure(r)));
@@ -547,8 +551,8 @@ impl Drop for System {
 #[cfg(gpu="vulkan")]
             {
                 sys::vkDestroyCommandPool(self.vk_device,self.vk_command_pool,null_mut());
-                sys::vkDestroyDevice(self.vk_device,null_mut());
-                sys::vkDestroyInstance(self.vk_instance,null_mut());
+                //sys::vkDestroyDevice(self.vk_device,null_mut());
+                //sys::vkDestroyInstance(self.vk_instance,null_mut());
             }
             sys::XCloseDisplay(self.xdisplay);
         }

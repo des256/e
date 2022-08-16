@@ -32,6 +32,9 @@ pub use vec3::*;
 mod vec4;
 pub use vec4::*;
 
+mod color;
+pub use color::*;
+
 mod rect;
 pub use rect::*;
 
