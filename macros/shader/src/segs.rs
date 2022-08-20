@@ -6,7 +6,7 @@ use {
 // GenericArgs = `<` { Type [ `=` Type ] [ `as` Segments ] [ `,` ] } `>` .
 // TypeFn = `(` { Type [ `,` ] } `)` [ `->` Type ] .
 // Segments = [ `::` ] Segment { [ `::` ] Segment } .
-pub(crate) fn parse_seg(lexer: &Lexer) -> Seg {
+pub(crate) fn parse_seg(lexer: &mut Lexer) -> Seg {
     if let Some(ident) = lexer.any_ident() {
         Seg::Ident(ident)
     }
@@ -31,14 +31,14 @@ pub(crate) fn parse_seg(lexer: &Lexer) -> Seg {
         }
         Seg::Generic(genargs)
     }
-    else if let Some(sublexer) = lexer.group('(') {
+    else if let Some(mut sublexer) = lexer.group('(') {
         let mut types: Vec<Box<Type>> = Vec::new();
         while !sublexer.done() {
-            types.push(Box::new(parse_type(&sublexer)));
+            types.push(Box::new(parse_type(&mut sublexer)));
             lexer.punct(',');
         }
         let return_ty = if lexer.punct2('-','>') {
-            Some(Box::new(parse_type(&sublexer)))
+            Some(Box::new(parse_type(&mut sublexer)))
         }
         else {
             None
@@ -51,7 +51,7 @@ pub(crate) fn parse_seg(lexer: &Lexer) -> Seg {
 }
 
 // Segments = [ `::` ] Segment { [ `::` ] Segment } .
-pub(crate) fn parse_segs(lexer: &Lexer) -> Vec<Seg> {
+pub(crate) fn parse_segs(lexer: &mut Lexer) -> Vec<Seg> {
     lexer.punct2(':',':');
     let mut segs: Vec<Seg> = Vec::new();
     segs.push(parse_seg(lexer));

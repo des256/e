@@ -43,6 +43,12 @@ pub(crate) enum ExprField {
     Ident(String),
 }
 
+pub(crate) struct Arm {
+    pats: Vec<Box<Pat>>,
+    if_expr: Option<Box<Expr>>,
+    expr: Box<Expr>,
+}
+
 pub(crate) enum Expr {
     Literal(String),
     Segs(Vec<Seg>),
@@ -94,11 +100,17 @@ pub(crate) enum Expr {
     AndAssign(Box<Expr>,Box<Expr>),
     XorAssign(Box<Expr>,Box<Expr>),
     OrAssign(Box<Expr>,Box<Expr>),
-    Block(Vec<Stat>),
+    Block(Vec<Box<Stat>>),
     Continue,
-    Loop(Box<Expr>),
     Break(Option<Box<Expr>>),
     Return(Option<Box<Expr>>),
+    Loop(Vec<Box<Stat>>),
+    For(Box<Pat>,Box<Expr>,Vec<Box<Stat>>),
+    IfLet(Vec<Box<Pat>>,Box<Expr>,Vec<Box<Stat>>,Option<Box<Expr>>),
+    If(Box<Expr>,Vec<Box<Stat>>,Option<Box<Expr>>),
+    WhileLet(Vec<Box<Pat>>,Box<Expr>,Vec<Box<Stat>>),
+    While(Box<Expr>,Vec<Box<Stat>>),
+    Match(Box<Expr>,Vec<Box<Arm>>),
 }
 
 pub(crate) struct Param {
@@ -120,7 +132,7 @@ pub(crate) enum Variant {
 
 pub(crate) enum Item {
     Module(String,Vec<Item>),
-    Function(String,Vec<String>,Vec<Param>,Option<Box<Type>>,Box<Expr>),
+    Function(String,Vec<String>,Vec<Param>,Option<Box<Type>>,Vec<Box<Stat>>),
     Alias(String,Vec<String>,Box<Type>),
     Struct(String,Vec<String>,Vec<Field>),
     Tuple(String,Vec<String>,Vec<Box<Type>>),

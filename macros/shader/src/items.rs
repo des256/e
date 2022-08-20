@@ -3,7 +3,7 @@ use {
 };
 
 // Generics = `<` [ IDENT { `,` IDENT } [ `,` ] ] `>` .
-pub(crate) fn parse_generics(lexer: &Lexer) -> Vec<String> {
+pub(crate) fn parse_generics(lexer: &mut Lexer) -> Vec<String> {
     // after '<'
     let mut idents: Vec<String> = Vec::new();
     while !lexer.punct('>') {
@@ -14,13 +14,13 @@ pub(crate) fn parse_generics(lexer: &Lexer) -> Vec<String> {
 }
 
 // Module = `mod` IDENT `;` | ( `{` { Item } `}` ) .
-pub(crate) fn parse_mod(lexer: &Lexer) -> Item {
+pub(crate) fn parse_mod(lexer: &mut Lexer) -> Item {
     // after "mod"
     let ident = lexer.any_ident().expect("identifier expected");
     let mut items: Vec<Item> = Vec::new();
-    if let Some(sublexer) = lexer.group('{') {
+    if let Some(mut sublexer) = lexer.group('{') {
         while !sublexer.done() {
-            items.push(parse_item(&sublexer).unwrap());
+            items.push(parse_item(&mut sublexer).unwrap());
         }
     }
     else {
@@ -32,7 +32,7 @@ pub(crate) fn parse_mod(lexer: &Lexer) -> Item {
 // FunctionParam = Pat `:` Type .
 // FunctionParameters = FunctionParam { `,` FunctionParam } [ `,` ] .
 // Function = `fn` IDENT [ Generics ] `(` [ FunctionParameters ] `)` [ `->` Type ] BlockExpr .
-pub(crate) fn parse_fn(lexer: &Lexer) -> Item {
+pub(crate) fn parse_fn(lexer: &mut Lexer) -> Item {
     // after "fn"
     let ident = lexer.any_ident().expect("identifier expected");
     let generics = if lexer.punct('<') {
@@ -44,9 +44,9 @@ pub(crate) fn parse_fn(lexer: &Lexer) -> Item {
     let mut sublexer = lexer.group('(').expect("( expected");
     let mut params: Vec<Param> = Vec::new();
     while !sublexer.done() {
-        let pat = parse_pat(&sublexer);
+        let pat = parse_pat(&mut sublexer);
         sublexer.punct(':');
-        let ty = Box::new(parse_type(&sublexer));
+        let ty = Box::new(parse_type(&mut sublexer));
         params.push(Param { pat,ty, });
         sublexer.punct(',');
     }
@@ -56,12 +56,12 @@ pub(crate) fn parse_fn(lexer: &Lexer) -> Item {
     else {
         None
     };
-    let block = parse_block_expr(lexer);
-    Item::Function(ident,generics,params,return_ty,Box::new(block))
+    let stats = parse_block_stats(lexer);
+    Item::Function(ident,generics,params,return_ty,stats)
 }
 
 // Alias = `type` IDENT [ Generics ] `=` Type `;` .
-pub(crate) fn parse_alias(lexer: &Lexer) -> Item {
+pub(crate) fn parse_alias(lexer: &mut Lexer) -> Item {
     // after "type"
     let ident = lexer.any_ident().expect("identifier expected");
     let generics = if lexer.punct('<') {
@@ -81,7 +81,7 @@ pub(crate) fn parse_alias(lexer: &Lexer) -> Item {
 // StructStruct = `struct` IDENT [ Generics ] ( `{` [ StructFields ] `}` ) | `;` .
 // TupleFields = Type { `,` Type } [ `,` ] .
 // TupleStruct = `struct` IDENT [ Generics ] `(` [ TupleFields ] `)` `;` .
-pub(crate) fn parse_struct_or_tuple(lexer: &Lexer) -> Item {
+pub(crate) fn parse_struct_or_tuple(lexer: &mut Lexer) -> Item {
     // after "struct"
     let ident = lexer.any_ident().expect("identifier expected");
     let generics = if lexer.punct('<') {
@@ -90,21 +90,21 @@ pub(crate) fn parse_struct_or_tuple(lexer: &Lexer) -> Item {
     else {
         Vec::new()
     };
-    if let Some(sublexer) = lexer.group('{') {
+    if let Some(mut sublexer) = lexer.group('{') {
         let mut fields: Vec<Field> = Vec::new();
         while !sublexer.done() {
             let ident = sublexer.any_ident().expect("identifier expected");
             sublexer.punct(':');
-            let ty = Box::new(parse_type(&sublexer));
+            let ty = Box::new(parse_type(&mut sublexer));
             fields.push(Field { ident,ty, });
             sublexer.punct(',');
         }
         Item::Struct(ident,generics,fields)
     }
-    else if let Some(sublexer) = lexer.group('(') {
+    else if let Some(mut sublexer) = lexer.group('(') {
         let mut types: Vec<Box<Type>> = Vec::new();
         while !sublexer.done() {
-            types.push(Box::new(parse_type(&sublexer)));
+            types.push(Box::new(parse_type(&mut sublexer)));
             sublexer.punct(',');
         }
         Item::Tuple(ident,generics,types)
@@ -123,7 +123,7 @@ pub(crate) fn parse_struct_or_tuple(lexer: &Lexer) -> Item {
 // EnumItem = IDENT [ EnumItemTuple | EnumItemStruct | EnumItemDiscriminant ] .
 // EnumItems = EnumItem { `,` EnumItem } [ `,` ] .
 // Enum = `enum` IDENT [ Generics ] `{` [ EnumItems ] `}` .
-pub(crate) fn parse_enum(lexer: &Lexer) -> Item {
+pub(crate) fn parse_enum(lexer: &mut Lexer) -> Item {
     // after "enum"
     let ident = lexer.any_ident().expect("identifier expected");
     let generics = if lexer.punct('<') {
@@ -132,31 +132,31 @@ pub(crate) fn parse_enum(lexer: &Lexer) -> Item {
     else {
         Vec::new()
     };
-    let sublexer = lexer.group('{').expect("{ expected");
+    let mut sublexer = lexer.group('{').expect("{ expected");
     let mut variants: Vec<Variant> = Vec::new();
     while !sublexer.done() {
         let ident = sublexer.any_ident().expect("identifier expected");
-        if let Some(subsublexer) = sublexer.group('{') {
+        if let Some(mut subsublexer) = sublexer.group('{') {
             let mut fields: Vec<Field> = Vec::new();
             while !subsublexer.done() {
                 let ident = subsublexer.any_ident().expect("identifier expected");
                 subsublexer.punct(':');
-                let ty = Box::new(parse_type(&subsublexer));
+                let ty = Box::new(parse_type(&mut subsublexer));
                 fields.push(Field { ident,ty, });
                 subsublexer.punct(',');
             }
             variants.push(Variant::Struct(ident,fields));
         }
-        else if let Some(subsublexer) = sublexer.group('(') {
+        else if let Some(mut subsublexer) = sublexer.group('(') {
             let mut types: Vec<Box<Type>> = Vec::new();
             while !subsublexer.done() {
-                types.push(Box::new(parse_type(&subsublexer)));
+                types.push(Box::new(parse_type(&mut subsublexer)));
                 subsublexer.punct(',');
             }
             variants.push(Variant::Tuple(ident,types));
         }
         else if sublexer.punct('=') {
-            let expr = Box::new(parse_expr(&sublexer));
+            let expr = Box::new(parse_expr(&mut sublexer));
             variants.push(Variant::Discr(ident,expr));
         }
         else {
@@ -168,7 +168,7 @@ pub(crate) fn parse_enum(lexer: &Lexer) -> Item {
 }
 
 // Union = `union` IDENT [ Generics ] `{` StructFields `}` .
-pub(crate) fn parse_union(lexer: &Lexer) -> Item {
+pub(crate) fn parse_union(lexer: &mut Lexer) -> Item {
     // after "union"
     let ident = lexer.any_ident().expect("identifier expected");
     let generics = if lexer.punct('<') {
@@ -177,12 +177,12 @@ pub(crate) fn parse_union(lexer: &Lexer) -> Item {
     else {
         Vec::new()
     };
-    let sublexer = lexer.group('{').expect("{ expected");
+    let mut sublexer = lexer.group('{').expect("{ expected");
     let mut fields: Vec<Field> = Vec::new();
     while !sublexer.done() {
         let ident = sublexer.any_ident().expect("identifier expected");
         sublexer.punct(':');
-        let ty = Box::new(parse_type(&sublexer));
+        let ty = Box::new(parse_type(&mut sublexer));
         fields.push(Field { ident,ty, });
         sublexer.punct(',');
     }
@@ -190,7 +190,7 @@ pub(crate) fn parse_union(lexer: &Lexer) -> Item {
 }
 
 // Constant = `const` IDENT | `_` `:` Type `=` Expr `;` .
-pub(crate) fn parse_const(lexer: &Lexer) -> Item {
+pub(crate) fn parse_const(lexer: &mut Lexer) -> Item {
     // after "const"
     let ident = if let Some(ident) = lexer.any_ident() {
         Some(ident)
@@ -208,7 +208,7 @@ pub(crate) fn parse_const(lexer: &Lexer) -> Item {
 }
 
 // Static = `static` [ `mut` ] IDENT `:` Type `=` Expr `;` .
-pub(crate) fn parse_static(lexer: &Lexer) -> Item {
+pub(crate) fn parse_static(lexer: &mut Lexer) -> Item {
     // after "static"
     let is_mut = lexer.ident("mut");
     let ident = lexer.any_ident().expect("identifier expected");
@@ -220,7 +220,7 @@ pub(crate) fn parse_static(lexer: &Lexer) -> Item {
 }
 
 // Item = Module | Function | Alias | StructStruct | TupleStruct | Enum | Union | Constant | Static .
-pub(crate) fn parse_item(lexer: &Lexer) -> Option<Item> {
+pub(crate) fn parse_item(lexer: &mut Lexer) -> Option<Item> {
     if lexer.ident("mod") {
         Some(parse_mod(lexer))
     }

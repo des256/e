@@ -2,19 +2,19 @@ use {
     crate::*,
 };
 
-pub(crate) fn parse_type(lexer: &Lexer) -> Type {
-    if let Some(sublexer) = lexer.group('(') {
+pub(crate) fn parse_type(lexer: &mut Lexer) -> Type {
+    if let Some(mut sublexer) = lexer.group('(') {
         let mut types: Vec<Box<Type>> = Vec::new();
         while !sublexer.done() {
-            types.push(Box::new(parse_type(&sublexer)));
+            types.push(Box::new(parse_type(&mut sublexer)));
             sublexer.punct(',');
         }
         Type::Tuple(types)
     }
-    else if let Some(sublexer) = lexer.group('[') {
-        let ty = Box::new(parse_type(&sublexer));
+    else if let Some(mut sublexer) = lexer.group('[') {
+        let ty = Box::new(parse_type(&mut sublexer));
         if sublexer.punct(';') {
-            let expr = Box::new(parse_expr(&sublexer));
+            let expr = Box::new(parse_expr(&mut sublexer));
             Type::Array(ty,expr)
         }
         else {
@@ -41,20 +41,20 @@ pub(crate) fn parse_type(lexer: &Lexer) -> Type {
         Type::Pointer(is_mut,ty)
     }
     else if lexer.ident("fn") {
-        let sublexer = lexer.group('(').expect("( expected");
+        let mut sublexer = lexer.group('(').expect("( expected");
         let mut params: Vec<AnonParam> = Vec::new();
         let mut is_var = false;
         while !sublexer.done() {
             params.push(if let Some(ident) = sublexer.any_ident() {
                 lexer.punct(':');
-                let ty = Box::new(parse_type(&sublexer));
+                let ty = Box::new(parse_type(&mut sublexer));
                 AnonParam::Param(ident,ty)
             }
             else {
                 if sublexer.punct('_') {
                     sublexer.punct(':');
                 }
-                let ty = Box::new(parse_type(&sublexer));
+                let ty = Box::new(parse_type(&mut sublexer));
                 AnonParam::Anon(ty)
             });
             sublexer.punct(',');

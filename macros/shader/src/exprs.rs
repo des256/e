@@ -2,7 +2,7 @@ use {
     crate::*,
 };
 
-pub(crate) fn parse_primary_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_primary_expr(lexer: &mut Lexer) -> Expr {
     if let Some(literal) = lexer.literal() {
         Expr::Literal(literal)
     }
@@ -17,50 +17,50 @@ pub(crate) fn parse_primary_expr(lexer: &Lexer) -> Expr {
     }
 }
 
-pub(crate) fn parse_direct_expr(lexer: &Lexer) -> Expr {
-    if let Some(sublexer) = lexer.group('[') {
+pub(crate) fn parse_direct_expr(lexer: &mut Lexer) -> Expr {
+    if let Some(mut sublexer) = lexer.group('[') {
         let mut exprs: Vec<Box<Expr>> = Vec::new();
         if sublexer.done() {
             Expr::Array(Vec::new())
         }
         else {
-            exprs.push(Box::new(parse_expr(&sublexer)));
+            exprs.push(Box::new(parse_expr(&mut sublexer)));
             if sublexer.punct(';') {
-                let expr = parse_expr(&sublexer);
+                let expr = parse_expr(&mut sublexer);
                 Expr::CloneArray(exprs[0],Box::new(expr))
             }
             else {
                 sublexer.punct(',');
                 while !sublexer.done() {
-                    exprs.push(Box::new(parse_expr(&sublexer)));
+                    exprs.push(Box::new(parse_expr(&mut sublexer)));
                     sublexer.punct(',');
                 }
                 Expr::Array(exprs)
             }
         }
     }
-    else if let Some(sublexer) = lexer.group('(') {
+    else if let Some(mut sublexer) = lexer.group('(') {
         let mut exprs: Vec<Box<Expr>> = Vec::new();
         while !sublexer.done() {
-            exprs.push(Box::new(parse_expr(&sublexer)));
+            exprs.push(Box::new(parse_expr(&mut sublexer)));
             sublexer.punct(',');
         }
         Expr::Tuple(exprs)
     }
     else {
         let expr = parse_primary_expr(lexer);
-        if let Some(sublexer) = lexer.group('{') {
+        if let Some(mut sublexer) = lexer.group('{') {
             let mut fields: Vec<ExprField> = Vec::new();
             let mut last_expr: Option<Box<Expr>> = None;
             if sublexer.punct2('.','.') {
-                let last_expr = Some(Box::new(parse_expr(&sublexer)));
+                let last_expr = Some(Box::new(parse_expr(&mut sublexer)));
                 Expr::StructEnumStruct(Box::new(expr),Vec::new(),last_expr)
             }
             else {
                 while !sublexer.done() {
                     fields.push(if let Some(ident) = sublexer.any_ident() {
                         if sublexer.punct(':') {
-                            let expr = parse_expr(&sublexer);
+                            let expr = parse_expr(&mut sublexer);
                             ExprField::IdentExpr(ident,Box::new(expr))
                         }
                         else {
@@ -69,7 +69,7 @@ pub(crate) fn parse_direct_expr(lexer: &Lexer) -> Expr {
                     }
                     else if let Some(literal) = sublexer.literal() {
                         sublexer.punct(':');
-                        let expr = parse_expr(&sublexer);
+                        let expr = parse_expr(&mut sublexer);
                         ExprField::LiteralExpr(literal,Box::new(expr))
                     }
                     else {
@@ -77,17 +77,17 @@ pub(crate) fn parse_direct_expr(lexer: &Lexer) -> Expr {
                     });
                     sublexer.punct(',');
                     if sublexer.punct2('.','.') {
-                        last_expr = Some(Box::new(parse_expr(&sublexer)));
+                        last_expr = Some(Box::new(parse_expr(&mut sublexer)));
                         sublexer.punct(',');
                     }
                 }
                 Expr::StructEnumStruct(Box::new(expr),fields,last_expr)
             }
         }
-        else if let Some(sublexer) = lexer.group('(') {
+        else if let Some(mut sublexer) = lexer.group('(') {
             let mut exprs: Vec<Box<Expr>> = Vec::new();
             while !sublexer.done() {
-                exprs.push(Box::new(parse_expr(&sublexer)));
+                exprs.push(Box::new(parse_expr(&mut sublexer)));
                 sublexer.punct(',');
             }
             Expr::StructEnumTuple(Box::new(expr),exprs)
@@ -98,7 +98,7 @@ pub(crate) fn parse_direct_expr(lexer: &Lexer) -> Expr {
     }
 }
 
-pub(crate) fn parse_field_index_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_field_index_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_direct_expr(lexer);
     while lexer.punct('.') {
         if let Some(literal) = lexer.literal() {
@@ -111,20 +111,20 @@ pub(crate) fn parse_field_index_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_index_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_index_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_field_index_expr(lexer);
-    while let Some(sublexer) = lexer.group('[') {
-        expr = Expr::Index(Box::new(expr),Box::new(parse_expr(&sublexer)));
+    while let Some(mut sublexer) = lexer.group('[') {
+        expr = Expr::Index(Box::new(expr),Box::new(parse_expr(&mut sublexer)));
     }
     expr
 }
 
-pub(crate) fn parse_call_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_call_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_index_expr(lexer);
-    while let Some(sublexer) = lexer.group('(') {
+    while let Some(mut sublexer) = lexer.group('(') {
         let exprs: Vec<Box<Expr>> = Vec::new();
         while !sublexer.done() {
-            exprs.push(Box::new(parse_expr(&sublexer)));
+            exprs.push(Box::new(parse_expr(&mut sublexer)));
             sublexer.punct(',');
         }
         expr = Expr::Call(Box::new(expr),exprs);
@@ -132,7 +132,7 @@ pub(crate) fn parse_call_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_error_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_error_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_call_expr(lexer);
     while lexer.punct('?') {
         expr = Expr::Error(Box::new(expr));
@@ -140,7 +140,7 @@ pub(crate) fn parse_error_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_borrow_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_borrow_expr(lexer: &mut Lexer) -> Expr {
     if lexer.punct('&') {
         let is_double = lexer.punct('&');
         let is_mut = lexer.ident("mut");
@@ -152,7 +152,7 @@ pub(crate) fn parse_borrow_expr(lexer: &Lexer) -> Expr {
     }
 }
 
-pub(crate) fn parse_deref_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_deref_expr(lexer: &mut Lexer) -> Expr {
     if lexer.punct('*') {
         Expr::Deref(Box::new(parse_deref_expr(lexer)))
     }
@@ -161,7 +161,7 @@ pub(crate) fn parse_deref_expr(lexer: &Lexer) -> Expr {
     }
 }
 
-pub(crate) fn parse_neg_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_neg_expr(lexer: &mut Lexer) -> Expr {
     if lexer.punct('-') {
         Expr::Negate(Box::new(parse_neg_expr(lexer)))
     }
@@ -173,7 +173,7 @@ pub(crate) fn parse_neg_expr(lexer: &Lexer) -> Expr {
     }
 }
 
-pub(crate) fn parse_cast_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_cast_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_neg_expr(lexer);
     while lexer.ident("as") {
         expr = Expr::Cast(Box::new(expr),Box::new(parse_type(lexer)));
@@ -181,7 +181,7 @@ pub(crate) fn parse_cast_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_mul_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_mul_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_cast_expr(lexer);
     loop {
         if lexer.punct('*') {
@@ -200,7 +200,7 @@ pub(crate) fn parse_mul_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_add_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_add_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_mul_expr(lexer);
     loop {
         if lexer.punct('+') {
@@ -216,7 +216,7 @@ pub(crate) fn parse_add_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_shift_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_shift_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_add_expr(lexer);
     loop {
         if lexer.punct2('<','<') {
@@ -232,7 +232,7 @@ pub(crate) fn parse_shift_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_and_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_and_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_shift_expr(lexer);
     loop {
         if lexer.punct('&') {
@@ -245,7 +245,7 @@ pub(crate) fn parse_and_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_xor_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_xor_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_and_expr(lexer);
     loop {
         if lexer.punct('^') {
@@ -258,7 +258,7 @@ pub(crate) fn parse_xor_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_or_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_or_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_xor_expr(lexer);
     loop {
         if lexer.punct('|') {
@@ -271,7 +271,7 @@ pub(crate) fn parse_or_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_comp_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_comp_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_or_expr(lexer);
     loop {
         if lexer.punct2('=','=') {
@@ -299,7 +299,7 @@ pub(crate) fn parse_comp_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_logand_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_logand_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_comp_expr(lexer);
     loop {
         if lexer.punct2('&','&') {
@@ -312,7 +312,7 @@ pub(crate) fn parse_logand_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_logor_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_logor_expr(lexer: &mut Lexer) -> Expr {
     let mut expr = parse_logand_expr(lexer);
     loop {
         if lexer.punct2('|','|') {
@@ -325,7 +325,7 @@ pub(crate) fn parse_logor_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_range_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_range_expr(lexer: &mut Lexer) -> Expr {
     if lexer.punct2('.','.') {
         let with_eq = lexer.punct('=');
         let expr = parse_logor_expr(lexer);
@@ -356,7 +356,7 @@ pub(crate) fn parse_range_expr(lexer: &Lexer) -> Expr {
     }
 }
 
-pub(crate) fn parse_assign_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_assign_expr(lexer: &mut Lexer) -> Expr {
     let expr = parse_range_expr(lexer);
     if lexer.punct('=') {
         expr = Expr::Assign(Box::new(expr),Box::new(parse_range_expr(lexer)))
@@ -390,66 +390,157 @@ pub(crate) fn parse_assign_expr(lexer: &Lexer) -> Expr {
     expr
 }
 
-pub(crate) fn parse_block_expr(lexer: &Lexer) -> Expr {
-    let sublexer = lexer.group('{').expect("{ expected");
+pub(crate) fn parse_block_stats(sublexer: &mut Lexer) -> Vec<Box<Stat>> {
+    // after `{`
     let mut stats: Vec<Box<Stat>> = Vec::new();
     while !sublexer.done() {
-        lexer.punct(';');
-        if lexer.ident("let") {
-            let pat = Box::new(parse_pat(&sublexer));
+        sublexer.punct(';');
+        if sublexer.ident("let") {
+            let pat = Box::new(parse_pat(&mut sublexer));
             let ty = if sublexer.punct(':') {
-                Some(Box::new(parse_type(&sublexer)))
+                Some(Box::new(parse_type(&mut sublexer)))
             }
             else {
                 None
             };
             let expr = if sublexer.punct('=') {
-                Some(Box::new(parse_expr(&sublexer)))
+                Some(Box::new(parse_expr(&mut sublexer)))
             }
             else {
                 None
             };
-            lexer.punct(';');
+            sublexer.punct(';');
             stats.push(Box::new(Stat::Let(pat,ty,expr)));
         }
-        else if let Some(item) = parse_item(&sublexer) {
+        else if let Some(item) = parse_item(&mut sublexer) {
             stats.push(Box::new(Stat::Item(item)));
         }
         else {
-            stats.push(Box::new(Stat::Expr(Box::new(parse_expr(&sublexer)))));
+            stats.push(Box::new(Stat::Expr(Box::new(parse_expr(&mut sublexer)))));
         }
     }
-    Expr::Block(stats)
+    stats
 }
 
-pub(crate) fn parse_expr(lexer: &Lexer) -> Expr {
+pub(crate) fn parse_else_expr(lexer: &mut Lexer) -> Option<Expr> {
+    if lexer.ident("if") {
+        if lexer.ident("let") {
+            lexer.punct('|');
+            let mut pats: Vec<Box<Pat>> = Vec::new();
+            pats.push(Box::new(parse_pat(lexer)));
+            while lexer.punct('|') {
+                pats.push(Box::new(parse_pat(lexer)));
+            }
+            lexer.punct('=');
+            let expr = Box::new(parse_expr(lexer));
+            let stats = parse_block_stats(&mut lexer.group('{').expect("{ expected"));
+            let else_expr = if lexer.ident("else") {
+                Some(Box::new(parse_else_expr(lexer).expect("if, if else, or block expression expected")))
+            }
+            else {
+                None
+            };
+            Some(Expr::IfLet(pats,expr,stats,else_expr))
+        }
+        else {
+            let expr = Box::new(parse_expr(lexer));
+            let stats = parse_block_stats(&mut lexer.group('{').expect("{ expected"));
+            let else_expr = if lexer.ident("else") {
+                Some(Box::new(parse_else_expr(lexer).expect("if, if else, or block expression expected")))
+            }
+            else {
+                None
+            };
+            Some(Expr::If(expr,stats,else_expr))
+        }
+    }
+    else if let Some(mut sublexer) = lexer.group('{') {
+        Some(Expr::Block(parse_block_stats(&mut sublexer)))
+    }
+    else {
+        None
+    }
+}
+
+pub(crate) fn parse_expr(lexer: &mut Lexer) -> Expr {
     if lexer.ident("continue") {
         Expr::Continue
     }
     else if lexer.ident("loop") {
-        Expr::Loop(Box::new(parse_block_expr(lexer)))
+        Expr::Loop(parse_block_stats(&mut lexer.group('{').expect("{ expected")))
     }
     else if lexer.ident("while") {
-        // PredicateLoopExpr = `while` Expr BlockExpr .
-        // MatchArmPats = [ `|` ] Pat { `|` Pat } .
-        // PredicatePatLoopExpr = `while` `let` MatchArmsPats `=` Expr BlockExpr .
+        if lexer.ident("let") {
+            lexer.punct('|');
+            let mut pats: Vec<Box<Pat>> = Vec::new();
+            pats.push(Box::new(parse_pat(lexer)));
+            while lexer.punct('|') {
+                pats.push(Box::new(parse_pat(lexer)));
+            }
+            lexer.punct('=');
+            let expr = Box::new(parse_expr(lexer));
+            let stats = parse_block_stats(&mut lexer.group('{').expect("{ expected"));
+            Expr::WhileLet(pats,expr,stats)
+        }
+        else {
+            let expr = Box::new(parse_expr(lexer));
+            let stats = parse_block_stats(&mut lexer.group('{').expect("{ expected"));
+            Expr::While(expr,stats)
+        }
     }
     else if lexer.ident("for") {
-        // IteratorLoopExpr = `for` Pat `in` Expr BlockExpr .
-    }
-    else if lexer.ident("if") {
-        // IfExpr = `if` Expr BlockExpr [ `else` BlockExpr | IfExpr | IfLetExpr ] .
-        // IfLetExpr = `if` `let` MatchArmPats `=` Expr BlockExpr [ `else` BlockExpr | IfExpr | IfLetExpr ] .
+        let pat = Box::new(parse_pat(lexer));
+        lexer.ident("in");
+        let expr = Box::new(parse_expr(lexer));
+        let stats = parse_block_stats(&mut lexer.group('{').expect("{ expected"));
+        Expr::For(pat,expr,stats)
     }
     else if lexer.ident("match") {
-        // MatchArm = { OuterAttribute } MatchArmPats [ `if` Expr ] `=>` Expr .
-        // MatchExpr = `match` Expr `{` [ { MatchArm `,` } MatchArm [ `,` ] ] `}` .
+        let expr = Box::new(parse_expr(lexer));
+        let mut sublexer = lexer.group('{').expect("{ expected");
+        let arms: Vec<Box<Arm>> = Vec::new();
+        while !sublexer.done() {
+            sublexer.punct('|');
+            let mut pats: Vec<Box<Pat>> = Vec::new();
+            pats.push(Box::new(parse_pat(&mut sublexer)));
+            while sublexer.punct('|') {
+                pats.push(Box::new(parse_pat(&mut sublexer)));
+            }
+            let if_expr = if sublexer.ident("if") {
+                Some(Box::new(parse_expr(&mut sublexer)))
+            }
+            else {
+                None
+            };
+            sublexer.punct2('=','>');
+            let expr = Box::new(parse_expr(&mut sublexer));
+            sublexer.punct(',');
+            arms.push(Box::new(Arm { pats,if_expr,expr, }));
+        }
+        Expr::Match(expr,arms)
     }
     else if lexer.ident("break") {
-        Expr::Break
+        if lexer.punct(';') {
+            Expr::Break(None)
+        }
+        else {
+            let expr = Box::new(parse_expr(lexer));
+            lexer.punct(';');
+            Expr::Break(Some(expr))
+        }
     }
     else if lexer.ident("return") {
-        Expr::Return
+        if lexer.punct(';') {
+            Expr::Break(None)
+        }
+        else {
+            let expr = Box::new(parse_expr(lexer));
+            lexer.punct(';');
+            Expr::Break(Some(expr))
+        }
+    }
+    else if let Some(expr) = parse_else_expr(lexer) {
+        expr
     }
     else {
         parse_assign_expr(lexer)

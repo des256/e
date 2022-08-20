@@ -15,9 +15,9 @@ impl Display for Item {
                 for item in items {
                     write!(f,"{} ",item);
                 }
-                write!(f,"}}")
+                write!(f,"}} ")
             },
-            Item::Function(ident,generics,params,ty,block) => {
+            Item::Function(ident,generics,params,ty,stats) => {
                 write!(f,"fn {}",ident);
                 if generics.len() > 0 {
                     write!(f,"<");
@@ -28,13 +28,17 @@ impl Display for Item {
                 }
                 write!(f,"(");
                 for param in params {
-                    write!(f,"{}: {},",param.pat,param.ty)
+                    write!(f,"{}: {},",param.pat,param.ty);
                 }
                 write!(f,") ");
                 if let Some(ty) = ty {
                     write!(f,"-> {}",ty);
                 }
-                write!(f,"{{ {} }}",block)
+                write!(f,"{{ ");
+                for stat in stats {
+                    write!(f,"{} ",stat);
+                }
+                write!(f,"}} ")
             },
             Item::Alias(ident,generics,ty) => {
                 write!(f,"type {}",ident);
@@ -45,7 +49,7 @@ impl Display for Item {
                     }
                     write!(f,">");
                 }
-                write!(f," = {}",ty)
+                write!(f," = {} ",ty)
             },
             Item::Struct(ident,generics,fields) => {
                 write!(f,"struct {}",ident);
@@ -59,12 +63,12 @@ impl Display for Item {
                 if fields.len() > 0 {
                     write!(f," {{ ");
                     for field in fields {
-                        write!(f,"{}: {},",field.ident,field.ty)
+                        write!(f,"{}: {},",field.ident,field.ty);
                     }
-                    write!(f,"}}")
+                    write!(f,"}} ")
                 }
                 else {
-                    write!(f,";")
+                    write!(f,"; ")
                 }
             },
             Item::Tuple(ident,generics,types) => {
@@ -80,7 +84,7 @@ impl Display for Item {
                 for ty in types {
                     write!(f,"{},",ty);
                 }
-                write!(f,")")
+                write!(f,") ")
             },
             Item::Enum(ident,generics,variants) => {
                 write!(f,"enum {}",ident);
@@ -95,7 +99,7 @@ impl Display for Item {
                 for variant in variants {
                     write!(f,"{}, ",variant);
                 }
-                write!(f,"}}")
+                write!(f,"}} ")
             },
             Item::Union(ident,generics,fields) => {
                 write!(f,"union {}",ident);
@@ -111,10 +115,10 @@ impl Display for Item {
                     for field in fields {
                         write!(f,"{}: {}, ",field.ident,field.ty);
                     }
-                    write!(f,"}}")
+                    write!(f,"}} ")
                 }
                 else {
-                    write!(f,";")
+                    write!(f,"; ")
                 }
             },
             Item::Const(ident,ty,expr) => {
@@ -141,17 +145,21 @@ impl Display for Variant {
                 for field in fields {
                     write!(f,"{}: {}, ",field.ident,field.ty);
                 }
-                write!(f,"}}")
+                write!(f,"}} ")
             },
             Variant::Tuple(ident,types) => {
                 write!(f,"{}(",ident);
                 for ty in types {
                     write!(f,"{},",ty);
                 }
-                write!(f,")")
+                write!(f,") ")
             },
         }
     }
+}
+
+impl Display for Stat {
+    fn fmt(&self,f: &mut Formatter) -> Result { write!(f,"TODO") }
 }
 
 impl Display for Expr {
