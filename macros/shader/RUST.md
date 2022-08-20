@@ -1,6 +1,6 @@
 # Rust Grammar
 
-## Lexical Structure
+## Lexical Structure (IDENTIFIER, Lifetime, Type)
 
 SimplePath = [ `::` ] SimplePathSegment { `::` SimplePathSegment } .
 

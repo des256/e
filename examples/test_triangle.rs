@@ -16,15 +16,25 @@ struct TestVertex {
 }
 
 #[shader(vertex)]
-mod my_vertex_shader {
+/*mod my_vertex_shader {
     fn main(vertex: TestVertex) -> (f32xyzw,f32rgba) {
+        (vertex.pos,vertex.color)
+    }
+}*/
+mod my_vertex_shader {
+    fn main(vertex: TestVertex) {
         (vertex.pos,vertex.color)
     }
 }
 
 #[shader(fragment)]
-mod my_fragment_shader {
+/*mod my_fragment_shader {
     fn main(color: f32rgba) -> f32rgba {
+        color
+    }
+}*/
+mod my_fragment_shader {
+    fn main(color: f32rgba) {
         color
     }
 }
