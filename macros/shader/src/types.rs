@@ -1,79 +1,37 @@
 use {
     crate::*,
+    std::fmt::{
+        Display,
+        Formatter,
+        Result,
+    },
 };
 
-pub(crate) fn parse_type(lexer: &mut Lexer) -> Type {
-    if let Some(mut sublexer) = lexer.group('(') {
-        let mut types: Vec<Box<Type>> = Vec::new();
-        while !sublexer.done() {
-            types.push(Box::new(parse_type(&mut sublexer)));
-            sublexer.punct(',');
+impl Parser {
+    pub fn parse_type(&mut self) -> ast::Type {
+        let mut result = if self.punct('_') {
+            ast::Type::Inferred
         }
-        Type::Tuple(types)
-    }
-    else if let Some(mut sublexer) = lexer.group('[') {
-        let ty = Box::new(parse_type(&mut sublexer));
-        if sublexer.punct(';') {
-            let expr = Box::new(parse_expr(&mut sublexer));
-            Type::Array(ty,expr)
+        else if let Some(symbol) = self.any_ident() {
+            ast::Type::Symbol(symbol)
         }
         else {
-            Type::Slice(ty)
-        }
-    }
-    else if lexer.punct('_') {
-        Type::Inferred
-    }
-    else if lexer.punct('!') {
-        Type::Never
-    }
-    else if lexer.punct('&') {
-        let is_mut = lexer.ident("mut");
-        let ty = Box::new(parse_type(lexer));
-        Type::Ref(is_mut,ty)
-    }
-    else if lexer.punct('*') {
-        let is_mut = lexer.ident("mut");
-        if !is_mut {
-            lexer.ident("const");
-        }
-        let ty = Box::new(parse_type(lexer));
-        Type::Pointer(is_mut,ty)
-    }
-    else if lexer.ident("fn") {
-        let mut sublexer = lexer.group('(').expect("( expected");
-        let mut params: Vec<AnonParam> = Vec::new();
-        let mut is_var = false;
-        while !sublexer.done() {
-            params.push(if let Some(ident) = sublexer.any_ident() {
-                lexer.punct(':');
-                let ty = Box::new(parse_type(&mut sublexer));
-                AnonParam::Param(ident,ty)
-            }
-            else {
-                if sublexer.punct('_') {
-                    sublexer.punct(':');
-                }
-                let ty = Box::new(parse_type(&mut sublexer));
-                AnonParam::Anon(ty)
-            });
-            sublexer.punct(',');
-            if sublexer.punct('.') {
-                sublexer.punct('.');
-                sublexer.punct('.');
-                is_var = true;
-            }
-        }
-        let return_ty = if lexer.punct('-') {
-            lexer.punct('>');
-            Some(Box::new(parse_type(lexer)))
-        }
-        else {
-            None
+            panic!("type not supported");
         };
-        Type::Function(params,is_var,return_ty)
+        while let Some(subparser) = self.group('[') {
+            let expr = self.parse_expr();
+            result = ast::Type::Array(Box::new(result),Box::new(expr));
+        }
+        result
     }
-    else {
-        Type::Segs(parse_segs(lexer))
+}
+
+impl Display for ast::Type {
+    fn fmt(&self,f: &mut Formatter) -> Result {
+        match self {
+            ast::Type::Array(ty,expr) => write!(f,"{}[{}]",ty,expr),
+            ast::Type::Symbol(symbol) => write!(f,"{}",symbol),
+            ast::Type::Inferred => write!(f,"_"),
+        }
     }
 }

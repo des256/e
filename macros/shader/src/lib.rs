@@ -4,23 +4,13 @@ use {
         TokenTree,
         Delimiter,
         token_stream::IntoIter,
-        Spacing,
-        Group,
     },
-    std::fmt,
 };
 
 mod ast;
-use ast::*;
 
-mod display;
-use display::*;
-
-mod lexer;
-use lexer::*;
-
-mod segs;
-use segs::*;
+mod parser;
+use parser::*;
 
 mod types;
 use types::*;
@@ -31,12 +21,25 @@ use pats::*;
 mod exprs;
 use exprs::*;
 
+mod stats;
+use stats::*;
+
 mod items;
 use items::*;
 
 #[proc_macro_attribute]
-pub fn shader(attr: TokenStream,item: TokenStream) -> TokenStream {
-    let lexer = Lexer::new(item);
-    let item = parse_item(&mut lexer).expect("item expected");
-    panic!("done, debug: {}",item);
+pub fn vertex_shader(attr_stream: TokenStream,item_stream: TokenStream) -> TokenStream {
+
+    // get uniform structure, vertex struct and varying struct
+    let mut attr_parser = Parser::new(attr_stream);
+    let uniforms = attr_parser.any_ident().expect("uniform expected");
+    attr_parser.punct(',');
+    let vertex = attr_parser.any_ident().expect("vertex expected");
+    attr_parser.punct(',');
+    let varying = attr_parser.any_ident().expect("varying expected");
+
+    // parse module or function into AST
+    let item = Parser::new(item_stream).parse_item();
+
+    panic!("done: {}",item);
 }

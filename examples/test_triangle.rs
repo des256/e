@@ -9,23 +9,45 @@ use {
     shader::*,
 };
 
+//#[derive(Uniforms)]
+struct TheUniforms {
+    pub model: Mat4<f32>,
+    pub view: Mat4<f32>,
+    pub projection: Mat4<f32>,
+}
+
 #[derive(VertexFormat)]
 struct TestVertex {
     pub pos: f32xy,
     pub color: f32rgba,
 }
 
-#[shader(vertex)]
+//#[derive(Varying)]
+struct TestVarying {
+    pub color: f32rgba,
+}
+
+#[vertex_shader(TheUniforms,TestVertex,TestVarying)]
 mod my_vertex_shader {
-    fn main(vertex: TestVertex) -> (f32xyzw,f32rgba) {
-        (f32xyzw { x: vertex.pos.x,y: vertex.pos.y,z: 0.0,w: 1.0, },vertex.color)
+    fn main(vertex: TestVertex) -> (f32xyzw,TestVarying) {
+        (
+            f32xyzw {
+                x: vertex.pos.x,
+                y: vertex.pos.y,
+                z: 0.0,
+                w: 1.0,
+            },
+            TestVarying {
+                color: vertex.color,
+            },
+        )
     }
 }
 
-#[shader(fragment)]
+#[fragment_shader(TheUniforms,TestVarying,f32rgba)]
 mod my_fragment_shader {
-    fn main(color: f32rgba) {
-        color
+    fn main(varying: TestVarying) -> f32rgba {
+        varying.color
     }
 }
 

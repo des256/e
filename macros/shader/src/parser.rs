@@ -31,18 +31,18 @@ pub(crate) fn debug_token(token: &TokenTree) -> String {
     debug
 }
 
-pub(crate) struct Lexer {
+pub(crate) struct Parser {
     pub stream: std::iter::Peekable<IntoIter>,
     pub current: Option<TokenTree>,
 }
 
-impl Lexer {
+impl Parser {
 
-    /// Create new Lexer around a TokenStream.
-    pub(crate) fn new(stream: TokenStream) -> Lexer {
+    /// Create new Parser around a TokenStream.
+    pub(crate) fn new(stream: TokenStream) -> Parser {
         let mut stream = stream.into_iter().peekable();
         let current = stream.next();
-        Lexer { stream,current, }
+        Parser { stream,current, }
     }
 
     /// Consume current token.
@@ -76,21 +76,20 @@ impl Lexer {
 
     /// If the current token is a specific identifier, consume it and return true. Otherwise return false.
     pub(crate) fn ident(&mut self,s: &str) -> bool {
-        let result = if let Some(TokenTree::Ident(ident)) = &self.current {
-            if ident.to_string() == s {
-                true
-            }
-            else {
-                false
-            }
-        }
-        else {
-            false
-        };
+        let result = self.peek_ident(s);
         if result {
             self.consume();
         }
         result
+    }
+
+    pub(crate) fn peek_ident(&mut self,s: &str) -> bool {
+        if let Some(TokenTree::Ident(ident)) = &self.current {
+            ident.to_string() == s
+        }
+        else {
+            false
+        }
     }
 
     /// If the current token is an identifier, consume it and return Some(String) containing the identifier. Otherwise return None.
@@ -109,34 +108,39 @@ impl Lexer {
 
     /// If the current token is a specific punctuation symbol, consume it and return true. Otherwise return false.
     pub(crate) fn punct(&mut self,c: char) -> bool {
-        let result = if let Some(TokenTree::Punct(punct)) = &self.current {
-            if punct.as_char() == c {
-                true
-            }
-            else {
-                false
-            }
-        }
-        else {
-            false
-        };
+        let result = self.peek_punct(c);
         if result {
             self.consume();
         }
         result
     }
 
+    /// If the current token is a specific punctuation symbol, return true, otherwise return false.
+    pub(crate) fn peek_punct(&self,c: char) -> bool {
+        if let Some(TokenTree::Punct(punct)) = &self.current {
+            punct.as_char() == c
+        }
+        else {
+            false
+        }
+    }
+
     /// If the current token is two specific punctuation symbols, consume it and return true. Otherwise return false.
     pub(crate) fn punct2(&mut self,c1: char,c2: char) -> bool {
-        let result = if let Some(TokenTree::Punct(punct)) = &self.current {
+        let result = self.peek_punct2(c1,c2);
+        if result {
+            self.consume();
+            self.consume();
+        }
+        result
+    }
+
+    /// If the current token is two specific punctuation symbols, return true. Otherwise return false.
+    pub(crate) fn peek_punct2(&mut self,c1: char,c2: char) -> bool {
+        if let Some(TokenTree::Punct(punct)) = &self.current {
             if punct.as_char() == c1 {
                 if let Some(TokenTree::Punct(punct)) = &self.stream.peek() {
-                    if punct.as_char() == c2 {
-                        true
-                    }
-                    else {
-                        false
-                    }
+                    punct.as_char() == c2
                 }
                 else {
                     false
@@ -148,32 +152,27 @@ impl Lexer {
         }
         else {
             false
-        };
-        if result {
-            self.consume();
-            self.consume();
         }
-        result
     }
 
-    /// If the current token is parenthesis, bracket or brace, consume it and return the sub-lexer in Some(Lexer). Otherwise return None.
-    pub(crate) fn group(&mut self,open_punct: char) -> Option<Lexer> {
+    /// If the current token is parenthesis, bracket or brace, consume it and return the sub-lexer in Some(Parser). Otherwise return None.
+    pub(crate) fn group(&mut self,open_punct: char) -> Option<Parser> {
         let result = if let Some(TokenTree::Group(group)) = &self.current {
             match open_punct {
                 '(' => if group.delimiter() == Delimiter::Parenthesis {
-                    Some(Lexer::new(group.stream()))
+                    Some(Parser::new(group.stream()))
                 }
                 else {
                     None
                 },
                 '[' => if group.delimiter() == Delimiter::Bracket {
-                    Some(Lexer::new(group.stream()))
+                    Some(Parser::new(group.stream()))
                 }
                 else {
                     None
                 },
                 '{' => if group.delimiter() == Delimiter::Brace {
-                    Some(Lexer::new(group.stream()))
+                    Some(Parser::new(group.stream()))
                 }
                 else {
                     None
@@ -188,5 +187,20 @@ impl Lexer {
             self.consume();
         }
         result
+    }
+
+    /// If the current token is parenthesis, bracket or brace, return true, otherwise return false.
+    pub(crate) fn peek_group(&self,open_punct: char) -> bool {
+        if let Some(TokenTree::Group(group)) = &self.current {
+            match open_punct {
+                '(' => group.delimiter() == Delimiter::Parenthesis,
+                '[' => group.delimiter() == Delimiter::Bracket,
+                '{' => group.delimiter() == Delimiter::Brace,
+                _ => false,
+            }
+        }
+        else {
+            false
+        }
     }
 }
