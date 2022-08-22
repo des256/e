@@ -27,19 +27,29 @@ use stats::*;
 mod items;
 use items::*;
 
+mod render;
+use render::*;
+
 #[proc_macro_attribute]
-pub fn vertex_shader(attr_stream: TokenStream,item_stream: TokenStream) -> TokenStream {
+pub fn shader(attr_stream: TokenStream,item_stream: TokenStream) -> TokenStream {
 
-    // get uniform structure, vertex struct and varying struct
-    let mut attr_parser = Parser::new(attr_stream);
-    let uniforms = attr_parser.any_ident().expect("uniform expected");
-    attr_parser.punct(',');
-    let vertex = attr_parser.any_ident().expect("vertex expected");
-    attr_parser.punct(',');
-    let varying = attr_parser.any_ident().expect("varying expected");
+    let mut parser = Parser::new(attr_stream);
 
-    // parse module or function into AST
-    let item = Parser::new(item_stream).parse_item();
-
-    panic!("done: {}",item);
+    let shader_type = parser.any_ident().expect("shader type (vertex, fragment or geometry) expected");
+    parser.punct(',');
+    match shader_type.as_str() {
+        "vertex" => {
+            let uniform = parser.any_ident().expect("uniform type expected");
+            parser.punct(',');
+            let vertex = parser.any_ident().expect("vertex type expected");
+            parser.punct(',');
+            let varying = parser.any_ident().expect("varying type expected");
+            let item = Parser::new(item_stream).parse_item();
+            panic!(format!("item: {}",item));
+            render_vertex_shader(item,uniform,vertex,varying).parse().unwrap()
+        },
+        _ => {
+            panic!("only vertex shader supported for now");
+        },
+    }
 }

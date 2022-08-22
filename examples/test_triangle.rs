@@ -9,27 +9,26 @@ use {
     shader::*,
 };
 
-//#[derive(Uniforms)]
-struct TheUniforms {
+struct MyUniform {
     pub model: Mat4<f32>,
     pub view: Mat4<f32>,
     pub projection: Mat4<f32>,
 }
 
-#[derive(VertexFormat)]
-struct TestVertex {
-    pub pos: f32xy,
-    pub color: f32rgba,
+#[derive(Vertex)]
+struct MyVertex {
+    pub pos: Vec2<f32>,
+    pub color: Color<f32>,
 }
 
 //#[derive(Varying)]
-struct TestVarying {
-    pub color: f32rgba,
+struct MyVarying {
+    pub color: Color<f32>,
 }
 
-#[vertex_shader(TheUniforms,TestVertex,TestVarying)]
+#[shader(vertex,MyUniform,MyVertex,MyVarying)]
 mod my_vertex_shader {
-    fn main(vertex: TestVertex) -> (f32xyzw,TestVarying) {
+    fn main(vertex: MyVertex) -> (f32xyzw,MyVarying) {
         (
             f32xyzw {
                 x: vertex.pos.x,
@@ -37,16 +36,16 @@ mod my_vertex_shader {
                 z: 0.0,
                 w: 1.0,
             },
-            TestVarying {
+            MyVarying {
                 color: vertex.color,
             },
         )
     }
 }
 
-#[fragment_shader(TheUniforms,TestVarying,f32rgba)]
+#[shader(fragment,MyUniform,MyVarying,Color<f32>)]
 mod my_fragment_shader {
-    fn main(varying: TestVarying) -> f32rgba {
+    fn main(varying: MyVarying) -> Color<f32> {
         varying.color
     }
 }
@@ -60,11 +59,11 @@ fn main() {
     let mut window = system.create_frame_window(i32r { o: i32xy { x: 100,y: 100, },s: r.s, },"test triangle").expect("unable to create frame window");
 
     // create the vertices
-    let mut vertices = Vec::<TestVertex>::new();
-    vertices.push(TestVertex { pos: f32xy { x: -0.5,y: -0.5, }, color: f32rgba::from(0xFFFF0000), });
-    vertices.push(TestVertex { pos: f32xy { x: 0.5,y: -0.5, }, color: f32rgba::from(0xFF00FF00), });
-    vertices.push(TestVertex { pos: f32xy { x: 0.5,y: 0.5, }, color: f32rgba::from(0xFF0000FF), });
-    vertices.push(TestVertex { pos: f32xy { x: -0.5,y: 0.5, }, color: f32rgba::from(0xFFFFFF00), });
+    let mut vertices = Vec::<MyVertex>::new();
+    vertices.push(MyVertex { pos: f32xy { x: -0.5,y: -0.5, }, color: Color::<f32>::from(0xFFFF0000), });
+    vertices.push(MyVertex { pos: f32xy { x: 0.5,y: -0.5, }, color: Color::<f32>::from(0xFF00FF00), });
+    vertices.push(MyVertex { pos: f32xy { x: 0.5,y: 0.5, }, color: Color::<f32>::from(0xFF0000FF), });
+    vertices.push(MyVertex { pos: f32xy { x: -0.5,y: 0.5, }, color: Color::<f32>::from(0xFFFFFF00), });
     let vertex_buffer = system.create_vertex_buffer(&vertices).expect("unable to create vertex buffer");
 
     // create the indices
