@@ -48,7 +48,7 @@ impl System {
         logic_op: LogicOp,
         blend: Blend,
         write_mask: u8,
-        blend_constant: Vec4<f32>,
+        blend_constant: Color<f32>,
     ) -> Option<GraphicsPipeline> {
 
         // TODO

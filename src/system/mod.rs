@@ -69,11 +69,11 @@ pub enum MouseCursor {
 pub enum Event {
     KeyPress(u8),
     KeyRelease(u8),
-    MousePress(i32xy,MouseButton),
-    MouseRelease(i32xy,MouseButton),
+    MousePress(Vec2<isize>,MouseButton),
+    MouseRelease(Vec2<isize>,MouseButton),
     MouseWheel(MouseWheel),
-    MouseMove(i32xy),
-    Configure(i32r),
+    MouseMove(Vec2<isize>),
+    Configure(Rect<isize,usize>),
     Expose,
     Close,
 }

@@ -34,7 +34,7 @@ impl System {
             pQueueFamilyIndices: null_mut(),
         };
         let mut vk_buffer = MaybeUninit::uninit();
-        match unsafe { sys::vkCreateBuffer(self.vk_device, &info, null_mut(), vk_buffer.as_mut_ptr()) } {
+        match unsafe { sys::vkCreateBuffer(self.gpu.vk_device, &info, null_mut(), vk_buffer.as_mut_ptr()) } {
             sys::VK_SUCCESS => { },
             code => {
                 println!("unable to create index buffer (error {})",code);
@@ -49,10 +49,10 @@ impl System {
             sType: sys::VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             pNext: null_mut(),
             allocationSize: (indices.len() * 4) as u64,
-            memoryTypeIndex: self.shared_index as u32,
+            memoryTypeIndex: self.gpu.shared_index as u32,
         };
         let mut vk_memory = MaybeUninit::<sys::VkDeviceMemory>::uninit();
-        match unsafe { sys::vkAllocateMemory(self.vk_device,&info,null_mut(),vk_memory.as_mut_ptr()) } {
+        match unsafe { sys::vkAllocateMemory(self.gpu.vk_device,&info,null_mut(),vk_memory.as_mut_ptr()) } {
             sys::VK_SUCCESS => { },
             code => {
                 println!("unable to allocate memory (error {})",code);
@@ -65,7 +65,7 @@ impl System {
         println!("mapping memory");
         let mut data_ptr = MaybeUninit::<*mut c_void>::uninit();
         match unsafe { sys::vkMapMemory(
-            self.vk_device,
+            self.gpu.vk_device,
             vk_memory,
             0,
             sys::VK_WHOLE_SIZE as u64,
@@ -86,11 +86,11 @@ impl System {
 
         // and unmap the memory again
         println!("unmapping memory");
-        unsafe { sys::vkUnmapMemory(self.vk_device,vk_memory) };
+        unsafe { sys::vkUnmapMemory(self.gpu.vk_device,vk_memory) };
 
         // bind to vertex buffer
         println!("binding memory buffer to index buffer");
-        match unsafe { sys::vkBindBufferMemory(self.vk_device,vk_buffer,vk_memory,0) } {
+        match unsafe { sys::vkBindBufferMemory(self.gpu.vk_device,vk_buffer,vk_memory,0) } {
             sys::VK_SUCCESS => { },
             code => {
                 println!("unable to bind memory to index buffer (error {})",code);
@@ -109,8 +109,8 @@ impl System {
 impl<'system> Drop for IndexBuffer<'system> {
     fn drop(&mut self) {
         unsafe {
-            sys::vkDestroyBuffer(self.system.vk_device,self.vk_buffer,null_mut());
-            sys::vkFreeMemory(self.system.vk_device,self.vk_memory,null_mut());
+            sys::vkDestroyBuffer(self.system.gpu.vk_device,self.vk_buffer,null_mut());
+            sys::vkFreeMemory(self.system.gpu.vk_device,self.vk_memory,null_mut());
         }
     }
 

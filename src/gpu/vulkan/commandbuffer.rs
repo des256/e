@@ -1,58 +1,38 @@
 use {
     crate::*,
-    std::ptr::null_mut,
+    std::{
+        rc::Rc,
+        ptr::null_mut,
+    }
 };
 
-pub struct CommandBuffer<'system,'window,'context> {
-    pub context: &'context CommandContext<'system,'window>,
+pub struct CommandBuffer {
+    pub system: Rc<System>,
+    pub vk_command_buffer: sys::VkCommandBuffer,
 }
 
-impl<'system,'window> CommandContext<'system,'window> {
+impl CommandBuffer {
 
-    /// Begin a command buffer for this context.
-    pub fn begin(&self) -> Option<CommandBuffer> {
+    /// Begin the command buffer.
+    pub fn begin(&self) -> bool {
         let info = sys::VkCommandBufferBeginInfo {
             sType: sys::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             pNext: null_mut(),
             flags: 0,
             pInheritanceInfo: null_mut(),
         };
-        match unsafe { sys::vkBeginCommandBuffer(self.window.vk_command_buffers[self.index],&info) } {
+        match unsafe { sys::vkBeginCommandBuffer(self.vk_command_buffer,&info) } {
             sys::VK_SUCCESS => { },
             code => {
                 println!("unable to begin command buffer (error {})",code);
-                return None;
+                return false;
             }
         }
-        Some(CommandBuffer {
-            context: &self,
-        })
+        true
     }
 
-    /*
-    Calling vkBeginCommandBuffer() on active VkCommandBuffer 0x55b677443510[]
-    before it has completed. You must check command buffer fence before this
-    call. The Vulkan spec states: commandBuffer must not be in the recording
-    or pending state
-    (https://vulkan.lunarg.com/doc/view/1.2.162.1~rc2/linux/1.2-extensions/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00049)
-    */
-
-    /*
-    Call to vkBeginCommandBuffer() on VkCommandBuffer 0x55b677443510[] attempts
-    to implicitly reset cmdBuffer created from VkCommandPool 0x10000000001[]
-    that does NOT have the VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT bit
-    set. The Vulkan spec states: If commandBuffer was allocated from a
-    VkCommandPool which did not have the
-    VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT flag set, commandBuffer
-    must be in the initial state
-    (https://vulkan.lunarg.com/doc/view/1.2.162.1~rc2/linux/1.2-extensions/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00050)
-    */
-}
-
-impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
-
     /// Begin render pass.
-    pub fn begin_render_pass(&mut self,r: i32r) {
+    pub fn begin_render_pass(&mut self,window: &Window,index: usize,r: Rect<i32,u32>) {
         let clear_color = sys::VkClearValue {
             color: sys::VkClearColorValue {
                 float32: [0.0,0.0,0.0,1.0]
@@ -61,12 +41,12 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
         let info = sys::VkRenderPassBeginInfo {
         sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             pNext: null_mut(),
-            renderPass: self.context.window.vk_render_pass,
-            framebuffer: self.context.window.vk_framebuffers[self.context.index],
+            renderPass: window.gpu.vk_render_pass,
+            framebuffer: window.gpu.swapchain_resources.vk_framebuffers[index],
             renderArea: sys::VkRect2D {
                 offset: sys::VkOffset2D {
-                    x: r.o.x,
-                    y: r.o.y,
+                    x: r.o.x as i32,
+                    y: r.o.y as i32,
                 },
                 extent: sys::VkExtent2D {
                     width: r.s.x as u32,
@@ -76,18 +56,18 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
             clearValueCount: 1,
             pClearValues: &clear_color,
         };
-        unsafe { sys::vkCmdBeginRenderPass(self.context.window.vk_command_buffers[self.context.index],&info,sys::VK_SUBPASS_CONTENTS_INLINE) }
+        unsafe { sys::vkCmdBeginRenderPass(self.vk_command_buffer,&info,sys::VK_SUBPASS_CONTENTS_INLINE) }
     }
 
     /// End render pass.
     pub fn end_render_pass(&mut self) {
-        unsafe { sys::vkCmdEndRenderPass(self.context.window.vk_command_buffers[self.context.index]) };
+        unsafe { sys::vkCmdEndRenderPass(self.vk_command_buffer) };
     }
 
     /// Specify current graphics pipeline.
     pub fn bind_pipeline(&mut self,pipeline: &GraphicsPipeline) {
         unsafe { sys::vkCmdBindPipeline(
-            self.context.window.vk_command_buffers[self.context.index],
+            self.vk_command_buffer,
             sys::VK_PIPELINE_BIND_POINT_GRAPHICS,
             pipeline.vk_graphics_pipeline,
         ) };
@@ -96,7 +76,7 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     /// Specify current vertex buffer.
     pub fn bind_vertex_buffer(&mut self,vertex_buffer: &VertexBuffer) {
         unsafe { sys::vkCmdBindVertexBuffers(
-            self.context.window.vk_command_buffers[self.context.index],
+            self.vk_command_buffer,
             0,
             1,
             [ vertex_buffer.vk_buffer, ].as_ptr(),
@@ -107,7 +87,7 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     /// Specify current index buffer.
     pub fn bind_index_buffer(&mut self,index_buffer: &IndexBuffer) {
         unsafe { sys::vkCmdBindIndexBuffer(
-            self.context.window.vk_command_buffers[self.context.index],
+            self.vk_command_buffer,
             index_buffer.vk_buffer,
             0,
             sys::VK_INDEX_TYPE_UINT32,
@@ -117,7 +97,7 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     /// Emit vertices.
     pub fn draw(&mut self,vertex_count: usize,instance_count: usize,first_vertex: usize, first_instance: usize) {
         unsafe { sys::vkCmdDraw(
-            self.context.window.vk_command_buffers[self.context.index],
+            self.vk_command_buffer,
             vertex_count as u32,
             instance_count as u32,
             first_vertex as u32,
@@ -128,7 +108,7 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     /// Emit indexed vertices.
     pub fn draw_indexed(&mut self,index_count: usize,instance_count: usize,first_index: usize,vertex_offset: isize,first_instance: usize) {
         unsafe { sys::vkCmdDrawIndexed(
-            self.context.window.vk_command_buffers[self.context.index],
+            self.vk_command_buffer,
             index_count as u32,
             instance_count as u32,
             first_index as u32,
@@ -138,9 +118,9 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// Specify current viewport transformation.
-    pub fn set_viewport(&mut self,h: f32h) {
+    pub fn set_viewport(&mut self,h: Hyper<f32,f32>) {
         unsafe { sys::vkCmdSetViewport(
-            self.context.window.vk_command_buffers[self.context.index],
+            self.vk_command_buffer,
             0,
             1,
             &sys::VkViewport {
@@ -155,15 +135,15 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// Specify current scissor rectangle.
-    pub fn set_scissor(&mut self,r: i32r) {
+    pub fn set_scissor(&mut self,r: Rect<i32,u32>) {
         unsafe { sys::vkCmdSetScissor(
-            self.context.window.vk_command_buffers[self.context.index],
+            self.vk_command_buffer,
             0,
             1,
             &sys::VkRect2D {
                 offset: sys::VkOffset2D {
-                    x: r.o.x,
-                    y: r.o.y,
+                    x: r.o.x as i32,
+                    y: r.o.y as i32,
                 },
                 extent: sys::VkExtent2D {
                     width: r.s.x as u32,
@@ -173,33 +153,22 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
         ) };
     }
 
-    /// Finish the commands, and submit them such that they will start as soon as wait_semaphore is triggered. When all drawing is done, trigger signal_semaphore.
-    pub fn end_submit(&mut self,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
-        match unsafe { sys::vkEndCommandBuffer(self.context.window.vk_command_buffers[self.context.index]) } {
+    /// End the command buffer.
+    pub fn end(&self) -> bool {
+        match unsafe { sys::vkEndCommandBuffer(self.vk_command_buffer) } {
             sys::VK_SUCCESS => { },
             code => {
                 println!("unable to end command buffer (error {})",code);
                 return false;
             },
         }
-        let wait_stage = sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        let info = sys::VkSubmitInfo {
-            sType: sys::VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            pNext: null_mut(),
-            waitSemaphoreCount: 1,
-            pWaitSemaphores: &wait_semaphore.vk_semaphore,
-            pWaitDstStageMask: &wait_stage,
-            commandBufferCount: 1,
-            pCommandBuffers: &self.context.window.vk_command_buffers[self.context.index],
-            signalSemaphoreCount: 1,
-            pSignalSemaphores: &signal_semaphore.vk_semaphore,
-        };
-        match unsafe { sys::vkQueueSubmit(self.context.window.system.vk_queue,1,&info,null_mut()) } {
-            sys::VK_SUCCESS => true,
-            code => {
-                println!("unable to submit to graphics queue (error {})",code);
-                false
-            },
-        }
+        true
+    }
+}
+
+impl Drop for CommandBuffer {
+    
+    fn drop(&mut self) {
+        unsafe { sys::vkFreeCommandBuffers(self.system.gpu.vk_device,self.system.gpu.vk_command_pool,1,&self.vk_command_buffer) };
     }
 }

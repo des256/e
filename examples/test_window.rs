@@ -4,12 +4,12 @@ fn main() {
 
     let system = open_system().expect("Unable to access system.");
     let window = system.create_frame_window(
-        i32r {
-            o: i32xy {
+        Rect {
+            o: Vec2::<isize> {
                 x: 50,
                 y: 50,
             },
-            s: u32xy {
+            s: Vec2::<usize> {
                 x: 640,
                 y: 350,
             },

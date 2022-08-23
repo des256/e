@@ -32,17 +32,32 @@ mod my_vertex_shader {
 #[fragment_shader]
 mod my_fragment_shader {
     fn main(varying: Color<f32>) -> Color<f32> {
-        varying.color
+        varying
     }
 }
 
 fn main() {
 
+    // initial rectangle
+    let mut r = Rect { o: Vec2::<isize>::ZERO,s: Vec2::<usize> { x: 640,y: 480, }, };
+
     // create frame window
     let system = open_system().expect("unable to access system");
-    let mut r = i32r { o: i32xy::ZERO,s: u32xy { x: 640,y: 480, }, };
+    let mut window = system.create_frame_window(Rect { o: Vec2::<isize> { x: 100,y: 100, },s: r.s, },"test triangle").expect("unable to create frame window");
 
-    let mut window = system.create_frame_window(i32r { o: i32xy { x: 100,y: 100, },s: r.s, },"test triangle").expect("unable to create frame window");
+    // get number of associated framebuffers
+    let count = window.get_framebuffer_count();
+
+    // create command buffers, one for each framebuffer
+    let mut command_buffers: Vec<CommandBuffer> = Vec::new();
+    for i in 0..count {
+        if let Some(command_buffer) = system.create_command_buffer() {
+            command_buffers.push(command_buffer);
+        }
+        else {
+            panic!("cannot create command buffer");
+        }
+    }
 
     // create the vertices
     let mut vertices = Vec::<MyVertex>::new();
@@ -102,7 +117,7 @@ fn main() {
         LogicOp::Disabled,
         Blend::Disabled,
         0x0F,
-        f32xyzw::ZERO,
+        Color::<f32>::ZERO,
     ).expect("Unable to create graphics pipeline.");
     
     // create the semaphores
@@ -145,43 +160,41 @@ fn main() {
             }
         }
 
-        // obtain context to the next available frame from the window and signal image_available
-        let context = window.acquire_next(&image_available);
+        // obtain index for the current accessible framebuffer
+        let index = window.acquire_next(&image_available);
 
-        // put GPU commands on the queue
-        if let Some(buffer) = context.begin() {
+        // start associated command buffer
+        let cb = &command_buffers[index];
+        cb.begin();
 
-            // set the viewport and scissor to whatever the current window rectangle is
-            buffer.set_viewport(f32h {
-                o: f32xyz::ZERO,
-                s: f32xyz { x: r.s.x as f32,y: r.s.y as f32,z: 1.0, },
-            });
-            buffer.set_scissor(i32r { o: i32xy::ZERO,s: r.s, });
+        // set the viewport and scissor to whatever the current window rectangle is
+        cb.set_viewport(Hyper {
+            o: Vec3::<f32>::ZERO,
+            s: Vec3 { x: r.s.x as f32,y: r.s.y as f32,z: 1.0, },
+        });
+        cb.set_scissor(Rect { o: Vec2::<isize>::ZERO,s: r.s, });
 
-            // switch to the shader pipeline (select the shaders and blending, etc.)
-            buffer.bind_pipeline(&graphics_pipeline);
+        // switch to the shader pipeline (select the shaders and blending, etc.)
+        cb.bind_pipeline(&graphics_pipeline);
 
-            // bind the vertexbuffer
-            buffer.bind_vertex_buffer(&vertex_buffer);
+        // bind the vertexbuffer
+        cb.bind_vertex_buffer(&vertex_buffer);
 
-            // bind the indexbuffer
-            buffer.bind_index_buffer(&index_buffer);
+        // bind the indexbuffer
+        cb.bind_index_buffer(&index_buffer);
 
-            // render the triangle using the window's render pass
-            buffer.begin_render_pass(i32r { o: i32xy::ZERO,s: r.s, });
-            buffer.draw_indexed(6,1,0,0,0);
-            buffer.end_render_pass();
+        // render the triangle using the window's render pass
+        cb.begin_render_pass(Rect { o: Vec2::<isize>::ZERO,s: r.s, });
+        cb.draw_indexed(6,1,0,0,0);
+        cb.end_render_pass();
 
-            // and finish the command buffer
-            if !buffer.end_submit(&image_available,&render_finished) {
-                println!("unable to end command buffer");
-            }
-        }
-        else {
-            println!("unable to begin command buffer");
-        }
+        // end the command buffer
+        cb.end();
 
-        // only when render_finished present the frame
-        window.present(context,&render_finished);
+        // and submit the work
+        system.submit(cb,&image_available,&render_finished);
+
+        // and present the frame
+        window.present(index,&render_finished);
     }
 }

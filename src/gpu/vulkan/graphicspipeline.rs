@@ -105,7 +105,7 @@ impl System {
         logic_op: LogicOp,
         blend: Blend,
         write_mask: u8,
-        blend_constant: Vec4<f32>,
+        blend_constant: Color<f32>,
     ) -> Option<GraphicsPipeline> {
 
         let vertex_base_types = T::get_types();
@@ -591,7 +591,7 @@ impl System {
                 alphaBlendOp: alpha_op,
                 colorWriteMask: write_mask as u32,
             },
-            blendConstants: [blend_constant.x,blend_constant.y,blend_constant.z,blend_constant.w],
+            blendConstants: [blend_constant.r,blend_constant.g,blend_constant.b,blend_constant.a],
         };
         let dynamic = sys::VkPipelineDynamicStateCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
@@ -619,13 +619,13 @@ impl System {
             pColorBlendState: &blend,
             pDynamicState: &dynamic,
             layout: pipeline_layout.vk_pipeline_layout,
-            renderPass: window.vk_render_pass,
+            renderPass: window.gpu.vk_render_pass,
             subpass: 0,
             basePipelineHandle: null_mut(),
             basePipelineIndex: -1,
         };
         let mut vk_graphics_pipeline = MaybeUninit::uninit();
-        match unsafe { sys::vkCreateGraphicsPipelines(self.vk_device,null_mut(),1,&create_info,null_mut(),vk_graphics_pipeline.as_mut_ptr()) } {
+        match unsafe { sys::vkCreateGraphicsPipelines(self.gpu.vk_device,null_mut(),1,&create_info,null_mut(),vk_graphics_pipeline.as_mut_ptr()) } {
             sys::VK_SUCCESS => { },
             code => {
                 println!("unable to create graphics pipeline (error {})",code);
@@ -643,7 +643,7 @@ impl System {
 impl<'system> Drop for GraphicsPipeline<'system> {
 
     fn drop(&mut self) {
-        unsafe { sys::vkDestroyPipeline(self.system.vk_device,self.vk_graphics_pipeline,null_mut()) };
+        unsafe { sys::vkDestroyPipeline(self.system.gpu.vk_device,self.vk_graphics_pipeline,null_mut()) };
     }
 
     /*

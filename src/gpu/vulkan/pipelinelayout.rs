@@ -30,7 +30,7 @@ impl<'system> System {
             pPushConstantRanges: null_mut(),
         };
         let mut vk_pipeline_layout = MaybeUninit::uninit();
-        match unsafe { sys::vkCreatePipelineLayout(self.vk_device,&info,null_mut(),vk_pipeline_layout.as_mut_ptr()) } {
+        match unsafe { sys::vkCreatePipelineLayout(self.gpu.vk_device,&info,null_mut(),vk_pipeline_layout.as_mut_ptr()) } {
             sys::VK_SUCCESS => { },
             code => {
                 println!("unable to create pipeline layout (error {})",code);
@@ -47,6 +47,6 @@ impl<'system> System {
 impl<'system> Drop for PipelineLayout<'system> {
 
     fn drop(&mut self) {
-        unsafe { sys::vkDestroyPipelineLayout(self.system.vk_device,self.vk_pipeline_layout,null_mut()) };
+        unsafe { sys::vkDestroyPipelineLayout(self.system.gpu.vk_device,self.vk_pipeline_layout,null_mut()) };
     }
 }

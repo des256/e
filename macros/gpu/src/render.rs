@@ -382,61 +382,15 @@ fn render_function(symbol: String,params: Vec<(sr::Pat,Box<sr::Type>)>,return_ty
 
 pub(crate) fn render_vertex_trait(item: sr::Item) -> String {
     if let sr::Item::Struct(symbol,fields) = item {
-        let mut types: Vec<sr::BaseType> = Vec::new();
+        let mut types: Vec<BaseType> = Vec::new();
         for (_,ty) in fields {
             if let sr::Type::Symbol(symbol) = *ty {
-                types.push(match symbol.as_str() {
-                    "u8" => sr::BaseType::U8,
-                    "u16" => sr::BaseType::U16,
-                    "u32" => sr::BaseType::U32,
-                    "u64" => sr::BaseType::U64,
-                    "i8" => sr::BaseType::I8,
-                    "i16" => sr::BaseType::I16,
-                    "i32" => sr::BaseType::I32,
-                    "i64" => sr::BaseType::I64,
-                    "f16" => sr::BaseType::F16,
-                    "f32" => sr::BaseType::F32,
-                    "f64" => sr::BaseType::F64,
-                    "Vec2<u8>" => sr::BaseType::Vec2U8,
-                    "Vec2<u16>" => sr::BaseType::Vec2U16,
-                    "Vec2<u32>" => sr::BaseType::Vec2U32,
-                    "Vec2<u64>" => sr::BaseType::Vec2U64,
-                    "Vec2<i8>" => sr::BaseType::Vec2I8,
-                    "Vec2<i16>" => sr::BaseType::Vec2I16,
-                    "Vec2<i32>" => sr::BaseType::Vec2I32,
-                    "Vec2<i64>" => sr::BaseType::Vec2I64,
-                    "Vec2<f16>" => sr::BaseType::Vec2F16,
-                    "Vec2<f32>" => sr::BaseType::Vec2F32,
-                    "Vec2<f64>" => sr::BaseType::Vec2F64,
-                    "Vec3<u8>" => sr::BaseType::Vec3U8,
-                    "Vec3<u16>" => sr::BaseType::Vec3U16,
-                    "Vec3<u32>" => sr::BaseType::Vec3U32,
-                    "Vec3<u64>" => sr::BaseType::Vec3U64,
-                    "Vec3<i8>" => sr::BaseType::Vec3I8,
-                    "Vec3<i16>" => sr::BaseType::Vec3I16,
-                    "Vec3<i32>" => sr::BaseType::Vec3I32,
-                    "Vec3<i64>" => sr::BaseType::Vec3I64,
-                    "Vec3<f16>" => sr::BaseType::Vec3F16,
-                    "Vec3<f32>" => sr::BaseType::Vec3F32,
-                    "Vec3<f64>" => sr::BaseType::Vec3F64,
-                    "Vec4<u8>" => sr::BaseType::Vec4U8,
-                    "Vec4<u16>" => sr::BaseType::Vec4U16,
-                    "Vec4<u32>" => sr::BaseType::Vec4U32,
-                    "Vec4<u64>" => sr::BaseType::Vec4U64,
-                    "Vec4<i8>" => sr::BaseType::Vec4I8,
-                    "Vec4<i16>" => sr::BaseType::Vec4I16,
-                    "Vec4<i32>" => sr::BaseType::Vec4I32,
-                    "Vec4<i64>" => sr::BaseType::Vec4I64,
-                    "Vec4<f16>" => sr::BaseType::Vec4F16,
-                    "Vec4<f32>" => sr::BaseType::Vec4F32,
-                    "Vec4<f64>" => sr::BaseType::Vec4F64,
-                    "Color<u8>" => sr::BaseType::ColorU8,
-                    "Color<u16>" => sr::BaseType::ColorU16,
-                    "Color<f16>" => sr::BaseType::ColorF16,
-                    "Color<f32>" => sr::BaseType::ColorF32,
-                    "Color<f64>" => sr::BaseType::ColorF64,
-                    _ => panic!("ony base types allowed (not {})",symbol),
-                });
+                if let Some(base_type) = BaseType::from_rust(&symbol) {
+                    types.push(base_type);
+                }
+                else {
+                    panic!("only base types allowed (not {})",symbol);
+                }
             }
             else {
                 panic!("only base types allowed (not {})",ty);
@@ -448,7 +402,7 @@ pub(crate) fn render_vertex_trait(item: sr::Item) -> String {
             if !first_type {
                 r += ",";
             }
-            r += &format!("BaseType::{}",sr::base_type_variant(&ty));
+            r += &format!("BaseType::{}",ty.variant());
             first_type = false;
         }
         r += "] } }";

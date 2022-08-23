@@ -1,10 +1,10 @@
 use {
     crate::*,
-    std::ptr::null_mut,
+    std::rc::Rc,
 };
 
 pub enum Command {
-    BeginRenderPass(Rect<i32,u32>),
+    BeginRenderPass(Rect<isize,usize>),
     EndRenderPass,
     BindPipeline,
     BindVertexBuffer,
@@ -12,29 +12,23 @@ pub enum Command {
     Draw(usize,usize,usize,usize),
     DrawIndexed(usize,usize,usize,isize,usize),
     SetViewport(Hyper<f32,f32>),
-    SetScissor(Rect<i32,u32>),
+    SetScissor(Rect<isize,usize>),
 }
 
-pub struct CommandBuffer<'system,'window,'context> {
-    pub context: &'context CommandContext<'system,'window>,
+pub struct CommandBuffer {
+    pub system: Rc<System>,
     pub commands: Vec<Command>,
 }
 
-impl<'system,'window> CommandContext<'system,'window> {
+impl CommandBuffer {
 
-    /// Begin a command buffer for this context.
-    pub fn begin(&self) -> Option<CommandBuffer> {
-        Some(CommandBuffer {
-            context: &self,
-            commands: Vec::new(),
-        })
+    /// Begin a command buffer.
+    pub fn begin(&self) -> bool {
+        true
     }
-}
-
-impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
 
     /// Begin render pass.
-    pub fn begin_render_pass(&mut self,r: i32r) {
+    pub fn begin_render_pass(&mut self,r: Rect<isize,usize>) {
         self.commands.push(Command::BeginRenderPass(r));
     }
 
@@ -69,17 +63,17 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// Specify current viewport transformation.
-    pub fn set_viewport(&mut self,h: f32h) {
+    pub fn set_viewport(&mut self,h: Hyper<f32,f32>) {
         self.commands.push(Command::SetViewport(h));
     }
 
     /// Specify current scissor rectangle.
-    pub fn set_scissor(&mut self,r: i32r) {
+    pub fn set_scissor(&mut self,r: Rect<isize,usize>) {
         self.commands.push(Command::SetScissor(r));
     }
 
-    /// Finish the commands, and submit them such that they will start as soon as wait_semaphore is triggered. When all drawing is done, trigger signal_semaphore.
-    pub fn end_submit(&mut self,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
+    /// Finish the command buffer.
+    pub fn end(&self) -> bool {
         // actually perform the commands here
         true
     }

@@ -24,7 +24,7 @@ impl System {
         };
 
         let mut vk_shader_module = MaybeUninit::uninit();
-        match unsafe { sys::vkCreateShaderModule(self.vk_device,&create_info,null_mut(),vk_shader_module.as_mut_ptr()) } {
+        match unsafe { sys::vkCreateShaderModule(self.gpu.vk_device,&create_info,null_mut(),vk_shader_module.as_mut_ptr()) } {
             sys::VK_SUCCESS => { },
             code => {
                 println!("unable to create shader (error {})",code);
@@ -43,6 +43,6 @@ impl System {
 impl<'system> Drop for ShaderModule<'system> {
 
     fn drop(&mut self) {
-        unsafe { sys::vkDestroyShaderModule(self.system.vk_device,self.vk_shader_module,null_mut()) };
+        unsafe { sys::vkDestroyShaderModule(self.system.gpu.vk_device,self.vk_shader_module,null_mut()) };
     }
 }
