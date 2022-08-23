@@ -8,10 +8,13 @@ use {
 };
 
 impl Parser {
-    pub fn parse_item(&mut self) -> ast::Item {
+    pub fn parse_item(&mut self) -> sr::Item {
+        if self.ident("pub") {
+            self.group('(');
+        }
         if self.ident("mod") {
             let symbol = self.any_ident().expect("identifier expected");
-            let mut items: Vec<ast::Item> = Vec::new();
+            let mut items: Vec<sr::Item> = Vec::new();
             if let Some(mut parser) = self.group('{') {
                 while !parser.done() {
                     items.push(parser.parse_item());
@@ -20,11 +23,11 @@ impl Parser {
             else {
                 self.punct(';');
             }
-            ast::Item::Module(symbol,items)
+            sr::Item::Module(symbol,items)
         }
         else if self.ident("fn") {
             let symbol = self.any_ident().expect("identifier expected");
-            let mut params: Vec<(ast::Pat,Box<ast::Type>)> = Vec::new();
+            let mut params: Vec<(sr::Pat,Box<sr::Type>)> = Vec::new();
             if let Some(mut parser) = self.group('(') {
                 while !parser.done() {
                     let pat = parser.parse_pat();
@@ -40,12 +43,28 @@ impl Parser {
             else {
                 None
             };
-            let mut stats: Vec<ast::Stat> = Vec::new();
+            let mut stats: Vec<sr::Stat> = Vec::new();
             let mut parser = self.group('{').expect("{ expected");
             while !parser.done() {
                 stats.push(parser.parse_stat());
             }
-            ast::Item::Function(symbol,params,return_ty,stats)
+            sr::Item::Function(symbol,params,return_ty,stats)
+        }
+        else if self.ident("struct") {
+            let symbol = self.any_ident().expect("identifier expected");
+            let mut fields: Vec<(String,Box<sr::Type>)> = Vec::new();
+            let mut parser = self.group('{').expect("{ expected");
+            while !parser.done() {
+                if parser.ident("pub") {
+                    parser.group('(');
+                }
+                let symbol = parser.any_ident().expect("identifier expected");
+                parser.punct(':');
+                let ty = parser.parse_type();
+                fields.push((symbol,Box::new(ty)));
+                parser.punct(',');
+            }
+            sr::Item::Struct(symbol,fields)
         }
         else {
             panic!("item not supported");
@@ -53,17 +72,17 @@ impl Parser {
     }
 }
 
-impl Display for ast::Item {
+impl Display for sr::Item {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
-            ast::Item::Module(symbol,items) => {
+            sr::Item::Module(symbol,items) => {
                 write!(f,"mod {} {{ ",symbol)?;
                 for item in items {
                     write!(f,"{} ",item)?;
                 }
                 write!(f,"}}")
             },
-            ast::Item::Function(symbol,params,return_ty,stats) => {
+            sr::Item::Function(symbol,params,return_ty,stats) => {
                 write!(f,"fn {}(",symbol)?;
                 let mut first_param = true;
                 for (pat,ty) in params {
@@ -80,6 +99,18 @@ impl Display for ast::Item {
                 write!(f,"{{ ")?;
                 for stat in stats {
                     write!(f,"{} ",stat)?;
+                }
+                write!(f,"}}")
+            },
+            sr::Item::Struct(symbol,fields) => {
+                write!(f,"struct {} {{",symbol)?;
+                let mut first_field = true;
+                for (symbol,ty) in fields {
+                    if !first_field {
+                        write!(f,",")?;
+                    }
+                    write!(f,"{}: {}",symbol,ty)?;
+                    first_field = false;
                 }
                 write!(f,"}}")
             },

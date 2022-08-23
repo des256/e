@@ -1,5 +1,5 @@
 [package]
-name = "vertexformat"
+name = "gpu_macros"
 version = "0.1.0"
 authors = ["Desmond Germans <desmond@germansmedia.nl>"]
 edition = "2018"

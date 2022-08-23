@@ -324,22 +324,22 @@ impl<'system> System {
             | sys::XCB_EVENT_MASK_BUTTON_RELEASE
             | sys::XCB_EVENT_MASK_POINTER_MOTION
             | sys::XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-            unsafe { *self.xcb_screen }.default_colormap,
+            self.xcb_colormap,
         ];
         unsafe {
             sys::xcb_create_window(
                 self.xcb_connection,
-                (*self.xcb_screen).root_depth as u8,
+                self.xcb_depth,
                 xcb_window as u32,
                 //if let Some(id) = parent { id as u32 } else { system.rootwindow as u32 },
-                (*self.xcb_screen).root as u32,
+                self.xcb_root_window,
                 r.o.x as i16,
                 r.o.y as i16,
                 r.s.x as u16,
                 r.s.y as u16,
                 0,
                 sys::XCB_WINDOW_CLASS_INPUT_OUTPUT as u16,
-                (*self.xcb_screen).root_visual as u32,
+                self.xcb_visual_id,
                 sys::XCB_CW_EVENT_MASK | sys::XCB_CW_COLORMAP,
                 &values as *const u32 as *const std::os::raw::c_void
             );

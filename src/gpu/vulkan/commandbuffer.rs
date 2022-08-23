@@ -52,7 +52,7 @@ impl<'system,'window> CommandContext<'system,'window> {
 impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
 
     /// Begin render pass.
-    pub fn begin_render_pass(&self,r: i32r) {
+    pub fn begin_render_pass(&mut self,r: i32r) {
         let clear_color = sys::VkClearValue {
             color: sys::VkClearColorValue {
                 float32: [0.0,0.0,0.0,1.0]
@@ -80,12 +80,12 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// End render pass.
-    pub fn end_render_pass(&self) {
+    pub fn end_render_pass(&mut self) {
         unsafe { sys::vkCmdEndRenderPass(self.context.window.vk_command_buffers[self.context.index]) };
     }
 
     /// Specify current graphics pipeline.
-    pub fn bind_pipeline(&self,pipeline: &GraphicsPipeline) {
+    pub fn bind_pipeline(&mut self,pipeline: &GraphicsPipeline) {
         unsafe { sys::vkCmdBindPipeline(
             self.context.window.vk_command_buffers[self.context.index],
             sys::VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -94,7 +94,7 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// Specify current vertex buffer.
-    pub fn bind_vertex_buffer(&self,vertex_buffer: &VertexBuffer) {
+    pub fn bind_vertex_buffer(&mut self,vertex_buffer: &VertexBuffer) {
         unsafe { sys::vkCmdBindVertexBuffers(
             self.context.window.vk_command_buffers[self.context.index],
             0,
@@ -105,7 +105,7 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// Specify current index buffer.
-    pub fn bind_index_buffer(&self,index_buffer: &IndexBuffer) {
+    pub fn bind_index_buffer(&mut self,index_buffer: &IndexBuffer) {
         unsafe { sys::vkCmdBindIndexBuffer(
             self.context.window.vk_command_buffers[self.context.index],
             index_buffer.vk_buffer,
@@ -115,7 +115,7 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// Emit vertices.
-    pub fn draw(&self,vertex_count: usize,instance_count: usize,first_vertex: usize, first_instance: usize) {
+    pub fn draw(&mut self,vertex_count: usize,instance_count: usize,first_vertex: usize, first_instance: usize) {
         unsafe { sys::vkCmdDraw(
             self.context.window.vk_command_buffers[self.context.index],
             vertex_count as u32,
@@ -126,7 +126,7 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// Emit indexed vertices.
-    pub fn draw_indexed(&self,index_count: usize,instance_count: usize,first_index: usize,vertex_offset: isize,first_instance: usize) {
+    pub fn draw_indexed(&mut self,index_count: usize,instance_count: usize,first_index: usize,vertex_offset: isize,first_instance: usize) {
         unsafe { sys::vkCmdDrawIndexed(
             self.context.window.vk_command_buffers[self.context.index],
             index_count as u32,
@@ -138,7 +138,7 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// Specify current viewport transformation.
-    pub fn set_viewport(&self,h: f32h) {
+    pub fn set_viewport(&mut self,h: f32h) {
         unsafe { sys::vkCmdSetViewport(
             self.context.window.vk_command_buffers[self.context.index],
             0,
@@ -155,7 +155,7 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// Specify current scissor rectangle.
-    pub fn set_scissor(&self,r: i32r) {
+    pub fn set_scissor(&mut self,r: i32r) {
         unsafe { sys::vkCmdSetScissor(
             self.context.window.vk_command_buffers[self.context.index],
             0,
@@ -174,7 +174,7 @@ impl<'system,'window,'context> CommandBuffer<'system,'window,'context> {
     }
 
     /// Finish the commands, and submit them such that they will start as soon as wait_semaphore is triggered. When all drawing is done, trigger signal_semaphore.
-    pub fn end_submit(&self,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
+    pub fn end_submit(&mut self,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
         match unsafe { sys::vkEndCommandBuffer(self.context.window.vk_command_buffers[self.context.index]) } {
             sys::VK_SUCCESS => { },
             code => {

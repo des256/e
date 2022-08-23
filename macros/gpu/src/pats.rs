@@ -8,26 +8,26 @@ use {
 };
 
 impl Parser {
-    pub fn parse_pat(&mut self) -> ast::Pat {
+    pub fn parse_pat(&mut self) -> sr::Pat {
         if self.punct('_') {
-            ast::Pat::Wildcard
+            sr::Pat::Wildcard
         }
         else if self.punct2('.','.') {
-            ast::Pat::Rest
+            sr::Pat::Rest
         }
         else if let Some(literal) = self.literal() {
-            ast::Pat::Literal(literal.to_string())
+            sr::Pat::Literal(literal.to_string())
         }
         else if let Some(mut parser) = self.group('[') {
-            let mut pats: Vec<ast::Pat> = Vec::new();
+            let mut pats: Vec<sr::Pat> = Vec::new();
             while !parser.done() {
                 pats.push(parser.parse_pat());
                 parser.punct(',');
             }
-            ast::Pat::Slice(pats)
+            sr::Pat::Slice(pats)
         }
         else if let Some(symbol) = self.any_ident() {
-            ast::Pat::Symbol(symbol)
+            sr::Pat::Symbol(symbol)
         }
         else {
             panic!("pattern not supported");
@@ -35,13 +35,13 @@ impl Parser {
     }
 }
 
-impl Display for ast::Pat {
+impl Display for sr::Pat {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
-            ast::Pat::Wildcard => write!(f,"_"),
-            ast::Pat::Rest => write!(f,".."),
-            ast::Pat::Literal(literal) => write!(f,"{}",literal),
-            ast::Pat::Slice(pats) => {
+            sr::Pat::Wildcard => write!(f,"_"),
+            sr::Pat::Rest => write!(f,".."),
+            sr::Pat::Literal(literal) => write!(f,"{}",literal),
+            sr::Pat::Slice(pats) => {
                 write!(f,"[")?;
                 let mut first_pat = true;
                 for pat in pats {
@@ -53,7 +53,7 @@ impl Display for ast::Pat {
                 }
                 write!(f,"]")
             },
-            ast::Pat::Symbol(symbol) => write!(f,"{}",symbol),
+            sr::Pat::Symbol(symbol) => write!(f,"{}",symbol),
         }
     }
 }

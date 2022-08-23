@@ -3,18 +3,31 @@ use {
     std::{
         os::raw::c_int,
         ptr::null_mut,
-        mem::transmute,
     },
 };
 
 #[cfg(gpu="vulkan")]
 use std::mem::MaybeUninit;
 
+#[cfg(gpu="opengl")]
+use std::os::raw::c_void;
+
+#[cfg(gpu="opengl")]
+const GLX_CONTEXT_MAJOR_VERSION_ARB: u32 = 0x2091;
+#[cfg(gpu="opengl")]
+const GLX_CONTEXT_MINOR_VERSION_ARB: u32 = 0x2092;
+
+#[cfg(gpu="opengl")]
+type GlXCreateContextAttribsARBProc = unsafe extern "C" fn(dpy: *mut sys::Display,fbc: sys::GLXFBConfig,share_context: sys::GLXContext,direct: c_int,attribs: *const c_int) -> sys::GLXContext;
+
 /// The system structure (linux).
 pub struct System {
     pub(crate) xdisplay: *mut sys::Display,
     pub(crate) xcb_connection: *mut sys::xcb_connection_t,
-    pub(crate) xcb_screen: *mut sys::xcb_screen_t,
+    pub(crate) xcb_root_window: sys::xcb_window_t,
+    pub(crate) xcb_depth: u8,
+    pub(crate) xcb_visual_id: sys::xcb_visualid_t,
+    pub(crate) xcb_colormap: sys::xcb_colormap_t,
     pub(crate) epfd: c_int,
     pub(crate) wm_protocols: u32,
     pub(crate) wm_delete_window: u32,
@@ -41,6 +54,10 @@ pub struct System {
     pub(crate) vk_command_pool: sys::VkCommandPool,
 #[cfg(gpu="vulkan")]
     pub(crate) shared_index: usize,
+#[cfg(gpu="opengl")]    
+    pub(crate) glx_context: sys::GLXContext,
+#[cfg(gpu="opengl")]    
+    pub(crate) xcb_hidden_window: sys::xcb_window_t,
 }
 
 fn intern_atom_cookie(xcb_connection: *mut sys::xcb_connection_t,name: &str) -> sys::xcb_intern_atom_cookie_t {
@@ -73,13 +90,21 @@ pub fn open_system() -> Option<System> {
         println!("unable to obtain X server setup");
         return None;
     }
+
+    // start by assuming the root depth and visual
     let xcb_screen = unsafe { sys::xcb_setup_roots_iterator(xcb_setup) }.data;
+    let xcb_root_window = unsafe { *xcb_screen }.root;
+#[allow(unused_assignments)]
+    let mut xcb_depth = unsafe { *xcb_screen }.root_depth;
+#[allow(unused_assignments)]
+    let mut xcb_visual_id = unsafe { *xcb_screen }.root_visual;
+    let xcb_colormap = unsafe { *xcb_screen }.default_colormap;
 
     // create epoll descriptor to be able to wait for UI events on a system level
     let fd = unsafe { sys::xcb_get_file_descriptor(xcb_connection) };
     let epfd = unsafe { sys::epoll_create1(0) };
     let mut epe = [sys::epoll_event { events: sys::EPOLLIN as u32,data: sys::epoll_data_t { u64_: 0, }, }];
-    unsafe { sys::epoll_ctl(epfd,sys::EPOLL_CTL_ADD as i32,fd,epe.as_mut_ptr()) };
+    unsafe { sys::epoll_ctl(epfd,sys::EPOLL_CTL_ADD as c_int,fd,epe.as_mut_ptr()) };
 
     // get the atoms
     let protocols_cookie = intern_atom_cookie(xcb_connection,"WM_PROTOCOLS");
@@ -180,7 +205,7 @@ pub fn open_system() -> Option<System> {
             &count as *const u32 as *mut u32,
             vk_queue_families.as_mut_ptr() as *mut sys::VkQueueFamilyProperties,
         ) };
-        let vk_queue_families = unsafe { transmute::<_,Vec<sys::VkQueueFamilyProperties>>(vk_queue_families) };
+        let vk_queue_families = unsafe { std::mem::transmute::<_,Vec<sys::VkQueueFamilyProperties>>(vk_queue_families) };
 
         // DEBUG: display the number of queues and capabilities
 #[cfg(build="debug")]
@@ -376,10 +401,106 @@ pub fn open_system() -> Option<System> {
         (vk_instance,vk_physical_device,vk_device,vk_queue,vk_command_pool,shared_index)
     };
 
+#[cfg(gpu="opengl")]
+    let (glx_context,xcb_hidden_window) = {
+
+        // check if glX is useful
+        let mut glxmaj: c_int = 0;
+        let mut glxmin: c_int = 0;
+        unsafe { if sys::glXQueryVersion(xdisplay,&mut glxmaj as *mut c_int,&mut glxmin as *mut c_int) == 0 { panic!("unable to get glX version"); } }
+        if (glxmaj * 100 + glxmin) < 103 { panic!("glX version {}.{} needs to be at least 1.3",glxmaj,glxmin); }
+     
+        // choose appropriate framebuffer configuration
+        let attribs = [
+            sys::GLX_X_RENDERABLE,  1,
+            sys::GLX_DRAWABLE_TYPE, sys::GLX_WINDOW_BIT,
+            sys::GLX_RENDER_TYPE,   sys::GLX_RGBA_BIT,
+            sys::GLX_X_VISUAL_TYPE, sys::GLX_TRUE_COLOR,
+            sys::GLX_RED_SIZE,      8,
+            sys::GLX_GREEN_SIZE,    8,
+            sys::GLX_BLUE_SIZE,     8,
+            sys::GLX_ALPHA_SIZE,    8,
+            sys::GLX_DEPTH_SIZE,    24,
+            sys::GLX_STENCIL_SIZE,  8,
+            sys::GLX_DOUBLEBUFFER,  1,
+            0,
+        ];
+        let mut fbcount: c_int = 0;
+        let fbconfigs = unsafe { sys::glXChooseFBConfig(xdisplay,0,attribs.as_ptr() as *const i32,&mut fbcount as *mut c_int) };
+        if fbcount == 0 { panic!("unable to find framebuffer config"); }
+        let fbconfig = unsafe { *fbconfigs };
+        unsafe { sys::XFree(fbconfigs as *mut c_void) };
+
+        // adjust the window creation parameters accordingly
+        let visual = unsafe { sys::glXGetVisualFromFBConfig(xdisplay,fbconfig) };
+        xcb_visual_id = unsafe { *visual }.visualid as u32;
+        xcb_depth = unsafe { *visual }.depth as u8;
+
+        // get context creator
+        let glx_create_context_attribs: GlXCreateContextAttribsARBProc = unsafe { std::mem::transmute(sys::glXGetProcAddress(b"glXCreateContextAttribARB" as *const u8)) };
+
+        // create tiny window
+        let xcb_hidden_window = unsafe { sys::xcb_generate_id(xcb_connection) };
+        let values = [
+            sys::XCB_EVENT_MASK_EXPOSURE
+            | sys::XCB_EVENT_MASK_KEY_PRESS
+            | sys::XCB_EVENT_MASK_KEY_RELEASE
+            | sys::XCB_EVENT_MASK_BUTTON_PRESS
+            | sys::XCB_EVENT_MASK_BUTTON_RELEASE
+            | sys::XCB_EVENT_MASK_POINTER_MOTION
+            | sys::XCB_EVENT_MASK_STRUCTURE_NOTIFY,
+            xcb_colormap,
+        ];
+        unsafe {
+            sys::xcb_create_window(
+                xcb_connection,
+                xcb_depth,
+                xcb_hidden_window as u32,
+                xcb_root_window,
+                0,
+                0,
+                1,
+                1,
+                0,
+                sys::XCB_WINDOW_CLASS_INPUT_OUTPUT as u16,
+                xcb_visual_id,
+                sys::XCB_CW_EVENT_MASK | sys::XCB_CW_COLORMAP,
+                &values as *const u32 as *const c_void
+            );
+            //sys::xcb_map_window(xcb_connection,xcb_hidden_window as u32);
+            sys::xcb_flush(xcb_connection);
+            sys::XSync(xdisplay,sys::False as c_int);
+        }
+
+        // create glX context
+        let context_attribs: [c_int; 5] = [
+            GLX_CONTEXT_MAJOR_VERSION_ARB as c_int, 4,
+            GLX_CONTEXT_MINOR_VERSION_ARB as c_int, 5,
+            0,
+        ];
+        let glx_context = unsafe { glx_create_context_attribs(xdisplay,fbconfig,std::ptr::null_mut(),sys::True as c_int,&context_attribs[0] as *const c_int) };
+        unsafe {
+            sys::xcb_flush(xcb_connection);
+            sys::XSync(xdisplay,sys::False as c_int);
+        }
+        if glx_context.is_null() { panic!("unable to open OpenGL context"); }
+        if unsafe { sys::glXIsDirect(xdisplay,glx_context) } == 0 { panic!("OpenGL context is not direct"); }
+        unsafe { sys::glXMakeCurrent(xdisplay,xcb_hidden_window as u64,glx_context) };
+    
+        // load OpenGL symbols
+        //gl::load_with(|symbol| load_function(&symbol));
+
+        (glx_context,xcb_hidden_window)
+    };
+
     Some(System {
         xdisplay,
         xcb_connection,
-        xcb_screen,
+        //xcb_screen,
+        xcb_root_window,
+        xcb_depth,
+        xcb_visual_id,
+        xcb_colormap,
         epfd,
         wm_protocols,
         wm_delete_window,
@@ -402,6 +523,10 @@ pub fn open_system() -> Option<System> {
         vk_command_pool,
 #[cfg(gpu="vulkan")]
         shared_index,
+#[cfg(gpu="opengl")]
+        glx_context,
+#[cfg(gpu="opengl")]
+        xcb_hidden_window,
     })
 }
 
@@ -429,7 +554,10 @@ impl System {
             },
             sys::XCB_BUTTON_PRESS => {
                 let button_press = xcb_event as *const sys::xcb_button_press_event_t;
-                let p = Vec2 { x: unsafe { *button_press }.event_x as i32,y: unsafe { *button_press }.event_y as i32, };
+                let p = unsafe { Vec2 {
+                    x: (*button_press).event_x as i32,
+                    y: (*button_press).event_y as i32,
+                } };
                 let xcb_window = unsafe { *button_press }.event;
                 match unsafe { *button_press }.detail {
                     1 => { return Some((xcb_window as WindowId,Event::MousePress(p,MouseButton::Left))); },
@@ -444,10 +572,10 @@ impl System {
             },
             sys::XCB_BUTTON_RELEASE => {
                 let button_release = xcb_event as *const sys::xcb_button_release_event_t;
-                let p = Vec2 {
-                    x: unsafe { *button_release }.event_x as i32,
-                    y: unsafe { *button_release }.event_y as i32,
-                };
+                let p = unsafe { Vec2 {
+                    x: (*button_release).event_x as i32,
+                    y: (*button_release).event_y as i32,
+                } };
                 let xcb_window = unsafe { *button_release }.event;
                 match unsafe { *button_release }.detail {
                     1 => { return Some((xcb_window as WindowId,Event::MouseRelease(p,MouseButton::Left))); },
@@ -555,8 +683,15 @@ impl Drop for System {
 #[cfg(gpu="vulkan")]
             {
                 sys::vkDestroyCommandPool(self.vk_device,self.vk_command_pool,null_mut());
-                //sys::vkDestroyDevice(self.vk_device,null_mut());
-                //sys::vkDestroyInstance(self.vk_instance,null_mut());
+                sys::vkDestroyDevice(self.vk_device,null_mut());
+                sys::vkDestroyInstance(self.vk_instance,null_mut());
+            }
+#[cfg(gpu="opengl")]            
+            {
+                sys::glXMakeCurrent(self.xdisplay,0,null_mut());
+                sys::xcb_unmap_window(self.xcb_connection,self.xcb_hidden_window);
+                sys::xcb_destroy_window(self.xcb_connection,self.xcb_hidden_window);
+                sys::glXDestroyContext(self.xdisplay,self.glx_context);
             }
             sys::XCloseDisplay(self.xdisplay);
         }

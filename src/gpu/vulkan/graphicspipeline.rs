@@ -16,73 +16,59 @@ use {
     },
 };
 
-fn attribute_format(field_type: FieldType) -> sys::VkFormat {
-    match field_type {
-        FieldType::U8 => sys::VK_FORMAT_R8_UINT,
-        FieldType::I8 => sys::VK_FORMAT_R8_SINT,
-        FieldType::U8N => sys::VK_FORMAT_R8_UNORM,
-        FieldType::I8N => sys::VK_FORMAT_R8_SNORM,
-        FieldType::U16 => sys::VK_FORMAT_R16_UINT,
-        FieldType::I16 => sys::VK_FORMAT_R16_SINT,
-        FieldType::U16N => sys::VK_FORMAT_R16_UNORM,
-        FieldType::I16N => sys::VK_FORMAT_R16_SNORM,
-        FieldType::F16 => sys::VK_FORMAT_R16_SFLOAT,
-        FieldType::U32 => sys::VK_FORMAT_R32_UINT,
-        FieldType::I32 => sys::VK_FORMAT_R32_SINT,
-        FieldType::F32 => sys::VK_FORMAT_R32_SFLOAT,
-        FieldType::U64 => sys::VK_FORMAT_R64_UINT,
-        FieldType::I64 => sys::VK_FORMAT_R64_SINT,
-        FieldType::F64 => sys::VK_FORMAT_R64_SFLOAT,
-        FieldType::U8XY => sys::VK_FORMAT_R8G8_UINT,
-        FieldType::I8XY => sys::VK_FORMAT_R8G8_SINT,
-        FieldType::U8NXY => sys::VK_FORMAT_R8G8_UNORM,
-        FieldType::I8NXY => sys::VK_FORMAT_R8G8_SNORM,
-        FieldType::U16XY => sys::VK_FORMAT_R16G16_UINT,
-        FieldType::I16XY => sys::VK_FORMAT_R16G16_SINT,
-        FieldType::U16NXY => sys::VK_FORMAT_R16G16_UNORM,
-        FieldType::I16NXY => sys::VK_FORMAT_R16G16_SNORM,
-        FieldType::F16XY => sys::VK_FORMAT_R16G16_SFLOAT,
-        FieldType::U32XY => sys::VK_FORMAT_R32G32_UINT,
-        FieldType::I32XY => sys::VK_FORMAT_R32G32_SINT,
-        FieldType::F32XY => sys::VK_FORMAT_R32G32_SFLOAT,
-        FieldType::U64XY => sys::VK_FORMAT_R64G64_UINT,
-        FieldType::I64XY => sys::VK_FORMAT_R64G64_SINT,
-        FieldType::F64XY => sys::VK_FORMAT_R64G64_SFLOAT,
-        FieldType::U8XYZ => sys::VK_FORMAT_R8G8B8_UINT,
-        FieldType::I8XYZ => sys::VK_FORMAT_R8G8B8_SINT,
-        FieldType::U8NXYZ => sys::VK_FORMAT_R8G8B8_UNORM,
-        FieldType::I8NXYZ => sys::VK_FORMAT_R8G8B8_SNORM,
-        FieldType::U16XYZ => sys::VK_FORMAT_R16G16B16_UINT,
-        FieldType::I16XYZ => sys::VK_FORMAT_R16G16B16_SINT,
-        FieldType::U16NXYZ => sys::VK_FORMAT_R16G16B16_UNORM,
-        FieldType::I16NXYZ => sys::VK_FORMAT_R16G16B16_SNORM,
-        FieldType::F16XYZ => sys::VK_FORMAT_R16G16B16_SFLOAT,
-        FieldType::U32XYZ => sys::VK_FORMAT_R32G32B32_UINT,
-        FieldType::I32XYZ => sys::VK_FORMAT_R32G32B32_SINT,
-        FieldType::F32XYZ => sys::VK_FORMAT_R32G32B32_SFLOAT,
-        FieldType::U64XYZ => sys::VK_FORMAT_R64G64B64_UINT,
-        FieldType::I64XYZ => sys::VK_FORMAT_R64G64B64_SINT,
-        FieldType::F64XYZ => sys::VK_FORMAT_R64G64B64_SFLOAT,
-        FieldType::U8XYZW => sys::VK_FORMAT_R8G8B8A8_UINT,
-        FieldType::I8XYZW => sys::VK_FORMAT_R8G8B8A8_SINT,
-        FieldType::U8NXYZW => sys::VK_FORMAT_R8G8B8A8_UNORM,
-        FieldType::I8NXYZW => sys::VK_FORMAT_R8G8B8A8_SNORM,
-        FieldType::U16XYZW => sys::VK_FORMAT_R16G16B16A16_UINT,
-        FieldType::I16XYZW => sys::VK_FORMAT_R16G16B16A16_SINT,
-        FieldType::U16NXYZW => sys::VK_FORMAT_R16G16B16A16_UNORM,
-        FieldType::I16NXYZW => sys::VK_FORMAT_R16G16B16A16_SNORM,
-        FieldType::F16XYZW => sys::VK_FORMAT_R16G16B16A16_SFLOAT,
-        FieldType::U32XYZW => sys::VK_FORMAT_R32G32B32A32_UINT,
-        FieldType::I32XYZW => sys::VK_FORMAT_R32G32B32A32_SINT,
-        FieldType::F32XYZW => sys::VK_FORMAT_R32G32B32A32_SFLOAT,
-        FieldType::U64XYZW => sys::VK_FORMAT_R64G64B64A64_UINT,
-        FieldType::I64XYZW => sys::VK_FORMAT_R64G64B64A64_SINT,
-        FieldType::F64XYZW => sys::VK_FORMAT_R64G64B64A64_SFLOAT,
-        FieldType::U8NRGBA => sys::VK_FORMAT_R8G8B8A8_UNORM,
-        FieldType::U16NRGBA => sys::VK_FORMAT_R16G16B16A16_UNORM,
-        FieldType::F16RGBA => sys::VK_FORMAT_R16G16B16A16_SFLOAT,
-        FieldType::F32RGBA => sys::VK_FORMAT_R32G32B32A32_SFLOAT,
-        FieldType::F64RGBA => sys::VK_FORMAT_R64G64B64A64_SFLOAT,
+impl BaseType {
+    pub fn format(&self) -> sys::VkFormat {
+        match self {
+            BaseType::U8 => sys::VK_FORMAT_R8_UINT,
+            BaseType::U16 => sys::VK_FORMAT_R16_UINT,
+            BaseType::U32 => sys::VK_FORMAT_R32_UINT,
+            BaseType::U64 => sys::VK_FORMAT_R64_UINT,
+            BaseType::I8 => sys::VK_FORMAT_R8_SINT,
+            BaseType::I16 => sys::VK_FORMAT_R16_SINT,
+            BaseType::I32 => sys::VK_FORMAT_R32_SINT,
+            BaseType::I64 => sys::VK_FORMAT_R64_SINT,
+            BaseType::F16 => sys::VK_FORMAT_R16_SFLOAT,
+            BaseType::F32 => sys::VK_FORMAT_R32_SFLOAT,
+            BaseType::F64 => sys::VK_FORMAT_R64_SFLOAT,
+            BaseType::Vec2U8 => sys::VK_FORMAT_R8G8_UINT,
+            BaseType::Vec2U16 => sys::VK_FORMAT_R16G16_UINT,
+            BaseType::Vec2U32 => sys::VK_FORMAT_R32G32_UINT,
+            BaseType::Vec2U64 => sys::VK_FORMAT_R64G64_UINT,
+            BaseType::Vec2I8 => sys::VK_FORMAT_R8G8_SINT,
+            BaseType::Vec2I16 => sys::VK_FORMAT_R16G16_SINT,
+            BaseType::Vec2I32 => sys::VK_FORMAT_R32G32_SINT,
+            BaseType::Vec2I64 => sys::VK_FORMAT_R64G64_SINT,
+            BaseType::Vec2F16 => sys::VK_FORMAT_R16G16_SFLOAT,
+            BaseType::Vec2F32 => sys::VK_FORMAT_R32G32_SFLOAT,
+            BaseType::Vec2F64 => sys::VK_FORMAT_R64G64_SFLOAT,
+            BaseType::Vec3U8 => sys::VK_FORMAT_R8G8B8_UINT,
+            BaseType::Vec3U16 => sys::VK_FORMAT_R16G16B16_UINT,
+            BaseType::Vec3U32 => sys::VK_FORMAT_R32G32B32_UINT,
+            BaseType::Vec3U64 => sys::VK_FORMAT_R64G64B64_UINT,
+            BaseType::Vec3I8 => sys::VK_FORMAT_R8G8B8_SINT,
+            BaseType::Vec3I16 => sys::VK_FORMAT_R16G16B16_SINT,
+            BaseType::Vec3I32 => sys::VK_FORMAT_R32G32B32_SINT,
+            BaseType::Vec3I64 => sys::VK_FORMAT_R64G64B64_SINT,
+            BaseType::Vec3F16 => sys::VK_FORMAT_R16G16B16_SFLOAT,
+            BaseType::Vec3F32 => sys::VK_FORMAT_R32G32B32_SFLOAT,
+            BaseType::Vec3F64 => sys::VK_FORMAT_R64G64B64_SFLOAT,
+            BaseType::Vec4U8 => sys::VK_FORMAT_R8G8B8A8_UINT,
+            BaseType::Vec4U16 => sys::VK_FORMAT_R16G16B16A16_UINT,
+            BaseType::Vec4U32 => sys::VK_FORMAT_R32G32B32A32_UINT,
+            BaseType::Vec4U64 => sys::VK_FORMAT_R64G64B64A64_UINT,
+            BaseType::Vec4I8 => sys::VK_FORMAT_R8G8B8A8_SINT,
+            BaseType::Vec4I16 => sys::VK_FORMAT_R16G16B16A16_SINT,
+            BaseType::Vec4I32 => sys::VK_FORMAT_R32G32B32A32_SINT,
+            BaseType::Vec4I64 => sys::VK_FORMAT_R64G64B64A64_SINT,
+            BaseType::Vec4F16 => sys::VK_FORMAT_R16G16B16A16_SFLOAT,
+            BaseType::Vec4F32 => sys::VK_FORMAT_R32G32B32A32_SFLOAT,
+            BaseType::Vec4F64 => sys::VK_FORMAT_R64G64B64A64_SFLOAT,
+            BaseType::ColorU8 => sys::VK_FORMAT_R8G8B8A8_UNORM,
+            BaseType::ColorU16 => sys::VK_FORMAT_R16G16B16A16_UNORM,
+            BaseType::ColorF16 => sys::VK_FORMAT_R16G16B16A16_SFLOAT,
+            BaseType::ColorF32 => sys::VK_FORMAT_R32G32B32A32_SFLOAT,
+            BaseType::ColorF64 => sys::VK_FORMAT_R64G64B64A64_SFLOAT,
+        }
     }
 }
 
@@ -94,7 +80,7 @@ pub struct GraphicsPipeline<'system> {
 impl System {
 
     /// Create a graphics pipeline.
-    pub fn create_graphics_pipeline<T: VertexFormat>(
+    pub fn create_graphics_pipeline<T: Vertex>(
         &self,
         window: &Window,
         pipeline_layout: &PipelineLayout,
@@ -121,6 +107,9 @@ impl System {
         write_mask: u8,
         blend_constant: Vec4<f32>,
     ) -> Option<GraphicsPipeline> {
+
+        let vertex_base_types = T::get_types();
+
         let shaders = [
             sys::VkPipelineShaderStageCreateInfo {
                 sType: sys::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -141,15 +130,18 @@ impl System {
                 pSpecializationInfo: null_mut(),
             }
         ];
+        let mut location = 0u32;
+        let mut stride = 0u32;
         let mut attribute_descriptions: Vec<sys::VkVertexInputAttributeDescription> = Vec::new();
-        for i in 0..T::attributes() {
-            let attribute = T::attribute(i);
+        for base_type in vertex_base_types {
             attribute_descriptions.push(sys::VkVertexInputAttributeDescription {
-                location: attribute.location as u32,
-                binding: attribute.binding as u32,
-                format: attribute_format(attribute.field_type),
-                offset: attribute.offset as u32,
+                location,
+                binding: 0,
+                format: base_type.format(),
+                offset: stride,
             });
+            location += 1;
+            stride += base_type.size() as u32;
         }
         let input = sys::VkPipelineVertexInputStateCreateInfo {
             // TODO: build entirely from T
@@ -160,7 +152,7 @@ impl System {
             pVertexBindingDescriptions: [  // binding 0 is a T::SIZE for each vertex
                 sys::VkVertexInputBindingDescription {
                     binding: 0,
-                    stride: T::stride() as u32,
+                    stride,
                     inputRate: sys::VK_VERTEX_INPUT_RATE_VERTEX,  // or RATE_INSTANCE
                 },
             ].as_ptr(),

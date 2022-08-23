@@ -2,6 +2,7 @@ use {
     crate::*,
 };
 
+#[allow(dead_code)]
 pub(crate) fn debug_token(token: &TokenTree) -> String {
     let mut debug = String::new();
     match token {

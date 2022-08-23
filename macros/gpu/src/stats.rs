@@ -8,7 +8,7 @@ use {
 };
 
 impl Parser {
-    pub fn parse_stat(&mut self) -> ast::Stat {
+    pub fn parse_stat(&mut self) -> sr::Stat {
         if self.ident("let") {
             let pat = self.parse_pat();
             let ty = if self.punct(':') {
@@ -23,20 +23,20 @@ impl Parser {
             else {
                 None
             };
-            ast::Stat::Let(pat,ty,expr)
+            sr::Stat::Let(pat,ty,expr)
         }
         else {
             let expr = self.parse_expr();
             self.punct(';');
-            ast::Stat::Expr(Box::new(expr))
+            sr::Stat::Expr(Box::new(expr))
         }
     }
 }
 
-impl Display for ast::Stat {
+impl Display for sr::Stat {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
-            ast::Stat::Let(pat,ty,expr) => {
+            sr::Stat::Let(pat,ty,expr) => {
                 write!(f,"let {}",pat)?;
                 if let Some(ty) = ty {
                     write!(f,": {}",ty)?;
@@ -46,7 +46,7 @@ impl Display for ast::Stat {
                 }
                 write!(f,";")
             },
-            ast::Stat::Expr(expr) => write!(f,"{}",expr),
+            sr::Stat::Expr(expr) => write!(f,"{}",expr),
         }
     }
 }

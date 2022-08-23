@@ -5,15 +5,8 @@ use {
         io::prelude::*,
         time::Instant,
     },
-    vertexformat::*,
-    shader::*,
+    gpu_macros::*,
 };
-
-struct MyUniform {
-    pub model: Mat4<f32>,
-    pub view: Mat4<f32>,
-    pub projection: Mat4<f32>,
-}
 
 #[derive(Vertex)]
 struct MyVertex {
@@ -21,31 +14,24 @@ struct MyVertex {
     pub color: Color<f32>,
 }
 
-//#[derive(Varying)]
-struct MyVarying {
-    pub color: Color<f32>,
-}
-
-#[shader(vertex,MyUniform,MyVertex,MyVarying)]
+#[vertex_shader(MyVertex)]
 mod my_vertex_shader {
-    fn main(vertex: MyVertex) -> (f32xyzw,MyVarying) {
+    fn main(vertex: MyVertex) -> (Vec4<f32>,Color<f32>) {
         (
-            f32xyzw {
+            Vec4::<f32> {
                 x: vertex.pos.x,
                 y: vertex.pos.y,
                 z: 0.0,
                 w: 1.0,
             },
-            MyVarying {
-                color: vertex.color,
-            },
+            vertex.color,
         )
     }
 }
 
-#[shader(fragment,MyUniform,MyVarying,Color<f32>)]
+#[fragment_shader]
 mod my_fragment_shader {
-    fn main(varying: MyVarying) -> Color<f32> {
+    fn main(varying: Color<f32>) -> Color<f32> {
         varying.color
     }
 }
@@ -92,9 +78,7 @@ fn main() {
     let pipeline_layout = system.create_pipeline_layout().expect("unable to create pipeline layout");
     
     // create graphics pipeline with this layout
-    // TODO: currenty doesn't work because of one of these settings
-    // TODO: compress settings further, so when a feature is not used, the parameters don't appear in this list
-    let graphics_pipeline = system.create_graphics_pipeline::<TestVertex>(
+    let graphics_pipeline = system.create_graphics_pipeline::<MyVertex>(
         &window,
         &pipeline_layout,
         &vertex_shader,
