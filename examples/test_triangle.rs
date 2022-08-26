@@ -1,8 +1,7 @@
 use {
     e::*,
     std::{
-        fs::File,
-        io::prelude::*,
+        rc::Rc,
         time::Instant,
     },
     gpu_macros::*,
@@ -49,8 +48,8 @@ fn main() {
     let count = window.get_framebuffer_count();
 
     // create command buffers, one for each framebuffer
-    let mut command_buffers: Vec<CommandBuffer> = Vec::new();
-    for i in 0..count {
+    let mut command_buffers: Vec<Rc<CommandBuffer>> = Vec::new();
+    for _ in 0..count {
         if let Some(command_buffer) = system.create_command_buffer() {
             command_buffers.push(command_buffer);
         }
@@ -77,24 +76,29 @@ fn main() {
     indices.push(3);
     let index_buffer = system.create_index_buffer(&indices).expect("unable to create index buffer");
 
-    // read vertex shader
-    let mut f = File::open("test_triangle_vert.spv").expect("unable to open vertex shader");
-    let mut b = Vec::<u8>::new();
-    f.read_to_end(&mut b).expect("unable to read vertex shader");
-    let vertex_shader = system.create_shader_module(&b).expect("unable to create vertex shader");
-
-    // read fragment shader
-    let mut f = File::open("test_triangle_frag.spv").expect("unable to open fragment shader");
-    let mut b = Vec::<u8>::new();
-    f.read_to_end(&mut b).expect("unable to read fragment shader");
-    let fragment_shader = system.create_shader_module(&b).expect("unable to create fragment shader");
-
     // create pipeline layout
     let pipeline_layout = system.create_pipeline_layout().expect("unable to create pipeline layout");
+
+    // read vertex shader
+    //let mut f = File::open("test_triangle_vert.spv").expect("unable to open vertex shader");
+    //let mut b = Vec::<u8>::new();
+    //f.read_to_end(&mut b).expect("unable to read vertex shader");
+    //let vertex_shader = system.create_shader_module(&b).expect("unable to create vertex shader");
+
+    // or the new way
+    let vertex_shader = system.create_vertex_shader(my_vertex_shader::code().expect("unable to compile vertex shader")).expect("unable to create vertex shader");
+
+    // read fragment shader
+    //let mut f = File::open("test_triangle_frag.spv").expect("unable to open fragment shader");
+    //let mut b = Vec::<u8>::new();
+    //f.read_to_end(&mut b).expect("unable to read fragment shader");
+    //let fragment_shader = system.create_shader_module(&b).expect("unable to create fragment shader");
+
+    // or the new way
+    let fragment_shader = system.create_fragment_shader(my_fragment_shader::code().expect("unable to compile fragment shader")).expect("unable to create fragment shader");
     
     // create graphics pipeline with this layout
     let graphics_pipeline = system.create_graphics_pipeline::<MyVertex>(
-        &window,
         &pipeline_layout,
         &vertex_shader,
         &fragment_shader,
@@ -112,11 +116,11 @@ fn main() {
         AlphaToCoverage::Disabled,
         AlphaToOne::Disabled,
         DepthTest::Disabled,
-        DepthWrite::Disabled,
+        false,
         StencilTest::Disabled,
         LogicOp::Disabled,
         Blend::Disabled,
-        0x0F,
+        (true,true,true,true),
         Color::<f32>::ZERO,
     ).expect("Unable to create graphics pipeline.");
     
@@ -164,7 +168,7 @@ fn main() {
         let index = window.acquire_next(&image_available);
 
         // start associated command buffer
-        let cb = &command_buffers[index];
+        let cb = &mut command_buffers[index];
         cb.begin();
 
         // set the viewport and scissor to whatever the current window rectangle is
@@ -183,8 +187,8 @@ fn main() {
         // bind the indexbuffer
         cb.bind_index_buffer(&index_buffer);
 
-        // render the triangle using the window's render pass
-        cb.begin_render_pass(Rect { o: Vec2::<isize>::ZERO,s: r.s, });
+        // render the triangle onto the window's framebuffer
+        cb.begin_render_pass(&window,index,Rect { o: Vec2::<isize>::ZERO,s: r.s, });
         cb.draw_indexed(6,1,0,0,0);
         cb.end_render_pass();
 

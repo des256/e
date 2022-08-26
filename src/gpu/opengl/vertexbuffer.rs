@@ -1,28 +1,19 @@
 use {
     crate::*,
-    std::{
-        ptr::{
-            null_mut,
-            copy_nonoverlapping,
-        },
-        mem::MaybeUninit,
-        ffi::c_void,
-    },
+    std::rc::Rc,
 };
 
-pub struct VertexBuffer<'system> {
-    pub system: &'system System,
+pub struct VertexBuffer {
+    pub system: Rc<System>,
+    pub(crate) vao: sys::GLuint,
+    pub(crate) vbo: sys::GLuint,
 }
 
-impl System {
-
-    /// create a vertex buffer.
-    pub fn create_vertex_buffer<T: Vertex>(&self,vertices: &Vec<T>) -> Option<VertexBuffer> {
-
-        // TODO
-
-        Some(VertexBuffer {
-            system: &self,
-        })
+impl Drop for VertexBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            sys::glDeleteBuffers(1,&self.vbo);
+            sys::glDeleteVertexArrays(1,&self.vao);
+        }
     }
 }

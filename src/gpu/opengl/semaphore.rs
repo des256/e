@@ -1,23 +1,8 @@
 use {
     crate::*,
-    std::{
-        ptr::null_mut,
-        mem::MaybeUninit,
-    },
+    std::rc::Rc,
 };
 
-pub struct Semaphore<'system> {
-    pub system: &'system System,
-}
-
-impl System {
-
-    /// Create a semaphore.
-    pub fn create_semaphore(&self) -> Option<Semaphore> {
-
-        // TODO
-        Some(Semaphore {
-            system: &self,
-        })
-    }
+pub struct Semaphore {
+    pub system: Rc<System>,
 }

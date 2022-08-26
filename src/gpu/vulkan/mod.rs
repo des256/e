@@ -1,8 +1,8 @@
 mod system;
-pub use system::*;
+pub(crate) use system::*;
 
 mod window;
-pub use window::*;
+pub(crate) use window::*;
 
 mod commandbuffer;
 pub use commandbuffer::*;
@@ -10,8 +10,11 @@ pub use commandbuffer::*;
 mod pipelinelayout;
 pub use pipelinelayout::*;
 
-mod shadermodule;
-pub use shadermodule::*;
+mod vertexshader;
+pub use vertexshader::*;
+
+mod fragmentshader;
+pub use fragmentshader::*;
 
 mod graphicspipeline;
 pub use graphicspipeline::*;

@@ -1,0 +1,8 @@
+[package]
+name = "gengl"
+version = "0.1.0"
+authors = ["Desmond Germans <desmond@germansmedia.nl>"]
+edition = "2018"
+
+[dependencies]
+xml-rs = "0.8.4"

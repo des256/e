@@ -303,7 +303,7 @@ pub(crate) fn open_system_gpu(xcb_screen: *mut sys::xcb_screen_t) -> Option<Syst
 impl System {
     
     /// Create swapchain resources for surface, render pass and rectangle.
-    pub(crate) fn create_swapchain_resources(&self,vk_surface: sys::VkSurfaceKHR,vk_render_pass: sys::VkRenderPass,r: Rect<i32,u32>) -> Option<SwapchainResources> {
+    pub(crate) fn create_swapchain_resources(&self,vk_surface: sys::VkSurfaceKHR,vk_render_pass: sys::VkRenderPass,r: Rect<isize,usize>) -> Option<SwapchainResources> {
 
         // get surface capabilities to calculate the extent and image count
         let mut capabilities = MaybeUninit::uninit();
@@ -608,7 +608,7 @@ impl System {
         let vk_render_pass = unsafe { vk_render_pass.assume_init() };
 
         // create swapchain resources
-        if let Some(swapchain_resources) = self.create_swapchain_resources(vk_surface,vk_render_pass,Rect { o: Vec2 { x: r.o.x as i32,y: r.o.y as i32, },s: Vec2 { x: r.s.x as u32,y: r.s.y as u32, } }) {
+        if let Some(swapchain_resources) = self.create_swapchain_resources(vk_surface,vk_render_pass,r) {
             Some(WindowGpu {
                 vk_surface,
                 vk_render_pass,
@@ -622,6 +622,592 @@ impl System {
             }
             return None;
         }
+    }
+
+
+    /// Create a graphics pipeline.
+    pub fn create_graphics_pipeline<T: Vertex>(
+        &self,
+        pipeline_layout: &PipelineLayout,
+        vertex_shader: &VertexShader,
+        fragment_shader: &FragmentShader,
+        topology: PrimitiveTopology,
+        restart: PrimitiveRestart,
+        patch_control_points: usize,
+        depth_clamp: DepthClamp,
+        primitive_discard: PrimitiveDiscard,
+        polygon_mode: PolygonMode,
+        cull_mode: CullMode,
+        depth_bias: DepthBias,
+        line_width: f32,
+        rasterization_samples: usize,
+        sample_shading: SampleShading,
+        alpha_to_coverage: AlphaToCoverage,
+        alpha_to_one: AlphaToOne,
+        depth_test: DepthTest,
+        depth_write_mask: bool,
+        stencil_test: StencilTest,
+        logic_op: LogicOp,
+        blend: Blend,
+        write_mask: (bool,bool,bool,bool),
+        blend_constant: Color<f32>,
+    ) -> Option<GraphicsPipeline> {
+
+        let vertex_base_types = T::get_types();
+
+        let shaders = [
+            sys::VkPipelineShaderStageCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                stage: sys::VK_SHADER_STAGE_VERTEX_BIT,
+                module: vertex_shader.vk_shader_module,
+                pName: b"main\0".as_ptr() as *const i8,
+                pSpecializationInfo: null_mut(),
+            },
+            sys::VkPipelineShaderStageCreateInfo {
+                sType: sys::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                pNext: null_mut(),
+                flags: 0,
+                stage: sys::VK_SHADER_STAGE_FRAGMENT_BIT,
+                module: fragment_shader.vk_shader_module,
+                pName: b"main\0".as_ptr() as *const i8,
+                pSpecializationInfo: null_mut(),
+            }
+        ];
+        let mut location = 0u32;
+        let mut stride = 0u32;
+        let mut attribute_descriptions: Vec<sys::VkVertexInputAttributeDescription> = Vec::new();
+        for base_type in &vertex_base_types {
+            attribute_descriptions.push(sys::VkVertexInputAttributeDescription {
+                location,
+                binding: 0,
+                format: base_type_format(base_type),
+                offset: stride,
+            });
+            location += 1;
+            stride += base_type.size() as u32;
+        }
+        let input = sys::VkPipelineVertexInputStateCreateInfo {
+            // TODO: build entirely from T
+            sType: sys::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            vertexBindingDescriptionCount: 1,
+            pVertexBindingDescriptions: [  // binding 0 is a T::SIZE for each vertex
+                sys::VkVertexInputBindingDescription {
+                    binding: 0,
+                    stride,
+                    inputRate: sys::VK_VERTEX_INPUT_RATE_VERTEX,  // or RATE_INSTANCE
+                },
+            ].as_ptr(),
+            vertexAttributeDescriptionCount: attribute_descriptions.len() as u32,
+            pVertexAttributeDescriptions: attribute_descriptions.as_ptr(),
+        };
+        let assembly = sys::VkPipelineInputAssemblyStateCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            topology: match topology {
+                PrimitiveTopology::Points => sys::VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
+                PrimitiveTopology::Lines => sys::VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+                PrimitiveTopology::LineStrip => sys::VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
+                PrimitiveTopology::Triangles => sys::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+                PrimitiveTopology::TriangleStrip => sys::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
+                PrimitiveTopology::TriangleFan => sys::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
+                PrimitiveTopology::LinesAdjacency => sys::VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY,
+                PrimitiveTopology::LineStripAdjacency => sys::VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY,
+                PrimitiveTopology::TrianglesAdjacency => sys::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY,
+                PrimitiveTopology::TriangleStripAdjacency => sys::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY,
+                PrimitiveTopology::Patches => sys::VK_PRIMITIVE_TOPOLOGY_PATCH_LIST,
+            },
+            primitiveRestartEnable: match restart {
+                PrimitiveRestart::Disabled => sys::VK_FALSE,
+                PrimitiveRestart::Enabled => sys::VK_TRUE,
+            },
+        };
+        let tesselation = sys::VkPipelineTessellationStateCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            patchControlPoints: patch_control_points as u32,
+        };
+        let viewport = sys::VkPipelineViewportStateCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            viewportCount: 1,
+            pViewports: null_mut(),
+            scissorCount: 1,
+            pScissors: null_mut(),
+        };
+        let depth_clamp = match depth_clamp {
+            DepthClamp::Disabled => sys::VK_FALSE,
+            DepthClamp::Enabled => sys::VK_TRUE,
+        };
+        let primitive_discard = match primitive_discard {
+            PrimitiveDiscard::Disabled => sys::VK_FALSE,
+            PrimitiveDiscard::Enabled => sys::VK_TRUE,
+        };
+        let polygon_mode = match polygon_mode {
+            PolygonMode::Point => sys::VK_POLYGON_MODE_POINT,
+            PolygonMode::Line => sys::VK_POLYGON_MODE_LINE,
+            PolygonMode::Fill => sys::VK_POLYGON_MODE_FILL,
+        };
+        let (cull_mode,front_face) = match cull_mode {
+            CullMode::None => (
+                sys::VK_CULL_MODE_NONE,
+                sys::VK_FRONT_FACE_CLOCKWISE
+            ),
+            CullMode::Front(front_face) => (
+                sys::VK_CULL_MODE_FRONT_BIT,
+                match front_face {
+                    FrontFace::CounterClockwise => sys::VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                    FrontFace::Clockwise => sys::VK_FRONT_FACE_CLOCKWISE,
+                },
+            ),
+            CullMode::Back(front_face) => (
+                sys::VK_CULL_MODE_BACK_BIT,
+                match front_face {
+                    FrontFace::CounterClockwise => sys::VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                    FrontFace::Clockwise => sys::VK_FRONT_FACE_CLOCKWISE,
+                },
+            ),
+            CullMode::FrontAndBack(front_face) => (
+                sys::VK_CULL_MODE_FRONT_AND_BACK,
+                match front_face {
+                    FrontFace::CounterClockwise => sys::VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                    FrontFace::Clockwise => sys::VK_FRONT_FACE_CLOCKWISE,
+                },
+            ),
+        };
+        let (depth_bias_enable,depth_bias_constant_factor,depth_bias_clamp,depth_bias_slope_factor) = match depth_bias {
+            DepthBias::Disabled => (sys::VK_FALSE,0.0,0.0,0.0),
+            DepthBias::Enabled(constant_factor,clamp,slope_factor) => (sys::VK_TRUE,constant_factor,clamp,slope_factor),
+        };
+        let rasterization = sys::VkPipelineRasterizationStateCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            depthClampEnable: depth_clamp,
+            rasterizerDiscardEnable: primitive_discard,
+            polygonMode: polygon_mode,
+            cullMode: cull_mode,
+            frontFace: front_face,
+            depthBiasEnable: depth_bias_enable,
+            depthBiasConstantFactor: depth_bias_constant_factor,
+            depthBiasClamp: depth_bias_clamp,
+            depthBiasSlopeFactor: depth_bias_slope_factor,
+            lineWidth: line_width,
+        };
+        let (sample_shading,min_sample_shading) = match sample_shading {
+            SampleShading::Disabled => (sys::VK_FALSE,0.0),
+            SampleShading::Enabled(min_sample_shading) => (sys::VK_TRUE,min_sample_shading),
+        };
+        let alpha_to_coverage = match alpha_to_coverage {
+            AlphaToCoverage::Disabled => sys::VK_FALSE,
+            AlphaToCoverage::Enabled => sys::VK_TRUE,
+        };
+        let alpha_to_one = match alpha_to_one {
+            AlphaToOne::Disabled => sys::VK_FALSE,
+            AlphaToOne::Enabled => sys::VK_TRUE,
+        };
+        let multisample = sys::VkPipelineMultisampleStateCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            rasterizationSamples: rasterization_samples as u32,
+            sampleShadingEnable: sample_shading,
+            minSampleShading: min_sample_shading,
+            pSampleMask: null_mut(),
+            alphaToCoverageEnable: alpha_to_coverage,
+            alphaToOneEnable: alpha_to_one,
+        };
+        let (depth_test,depth_compare,(depth_bounds,min_depth_bounds,max_depth_bounds)) = match depth_test {
+            DepthTest::Disabled => (sys::VK_FALSE,sys::VK_COMPARE_OP_ALWAYS,(sys::VK_FALSE,0.0,0.0)),
+            DepthTest::Enabled(depth_compare,depth_bounds) => (
+                sys::VK_TRUE,
+                match depth_compare {
+                    CompareOp::Never => sys::VK_COMPARE_OP_NEVER,
+                    CompareOp::Less => sys::VK_COMPARE_OP_LESS,
+                    CompareOp::Equal => sys::VK_COMPARE_OP_EQUAL,
+                    CompareOp::LessOrEqual => sys::VK_COMPARE_OP_LESS_OR_EQUAL,
+                    CompareOp::Greater => sys::VK_COMPARE_OP_GREATER,
+                    CompareOp::NotEqual => sys::VK_COMPARE_OP_NOT_EQUAL,
+                    CompareOp::GreaterOrEqual => sys::VK_COMPARE_OP_GREATER_OR_EQUAL,
+                    CompareOp::Always => sys::VK_COMPARE_OP_ALWAYS,
+                },
+                match depth_bounds {
+                    DepthBounds::Disabled => (sys::VK_FALSE,0.0,0.0),
+                    DepthBounds::Enabled(min,max) => (sys::VK_TRUE,min,max),
+                },
+            ),
+        };
+        let depth_write = match depth_write {
+            DepthWrite::Disabled => sys::VK_FALSE,
+            DepthWrite::Enabled => sys::VK_TRUE,
+        };
+        let (
+            stencil_test,
+            (front_fail,front_pass,front_depth_fail,front_compare,front_compare_mask,front_write_mask,front_reference),
+            (back_fail,back_pass,back_depth_fail,back_compare,back_compare_mask,back_write_mask,back_reference),
+        ) = match stencil_test {
+            StencilTest::Disabled => (
+                sys::VK_FALSE,
+                (sys::VK_STENCIL_OP_KEEP,sys::VK_STENCIL_OP_KEEP,sys::VK_STENCIL_OP_KEEP,sys::VK_COMPARE_OP_ALWAYS,0,0,0),
+                (sys::VK_STENCIL_OP_KEEP,sys::VK_STENCIL_OP_KEEP,sys::VK_STENCIL_OP_KEEP,sys::VK_COMPARE_OP_ALWAYS,0,0,0),
+            ),
+            StencilTest::Enabled(
+                (front_fail,front_pass,front_depth_fail,front_compare,front_compare_mask,front_write_mask,front_reference),
+                (back_fail,back_pass,back_depth_fail,back_compare,back_compare_mask,back_write_mask,back_reference),
+            ) => (
+                sys::VK_TRUE,
+                (
+                    match front_fail {
+                        StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
+                        StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
+                        StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
+                        StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
+                        StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
+                        StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
+                        StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
+                        StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
+                    },
+                    match front_pass {
+                        StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
+                        StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
+                        StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
+                        StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
+                        StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
+                        StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
+                        StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
+                        StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
+                    },
+                    match front_depth_fail {
+                        StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
+                        StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
+                        StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
+                        StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
+                        StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
+                        StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
+                        StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
+                        StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
+                    },
+                    match front_compare {
+                        CompareOp::Never => sys::VK_COMPARE_OP_NEVER,
+                        CompareOp::Less => sys::VK_COMPARE_OP_LESS,
+                        CompareOp::Equal => sys::VK_COMPARE_OP_EQUAL,
+                        CompareOp::LessOrEqual => sys::VK_COMPARE_OP_LESS_OR_EQUAL,
+                        CompareOp::Greater => sys::VK_COMPARE_OP_GREATER,
+                        CompareOp::NotEqual => sys::VK_COMPARE_OP_NOT_EQUAL,
+                        CompareOp::GreaterOrEqual => sys::VK_COMPARE_OP_GREATER_OR_EQUAL,
+                        CompareOp::Always => sys::VK_COMPARE_OP_ALWAYS,    
+                    },
+                    front_compare_mask,
+                    front_write_mask,
+                    front_reference,
+                ),
+                (
+                    match back_fail {
+                        StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
+                        StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
+                        StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
+                        StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
+                        StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
+                        StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
+                        StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
+                        StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
+                    },
+                    match back_pass {
+                        StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
+                        StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
+                        StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
+                        StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
+                        StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
+                        StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
+                        StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
+                        StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
+                    },
+                    match back_depth_fail {
+                        StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
+                        StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
+                        StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
+                        StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
+                        StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
+                        StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
+                        StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
+                        StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
+                    },
+                    match back_compare {
+                        CompareOp::Never => sys::VK_COMPARE_OP_NEVER,
+                        CompareOp::Less => sys::VK_COMPARE_OP_LESS,
+                        CompareOp::Equal => sys::VK_COMPARE_OP_EQUAL,
+                        CompareOp::LessOrEqual => sys::VK_COMPARE_OP_LESS_OR_EQUAL,
+                        CompareOp::Greater => sys::VK_COMPARE_OP_GREATER,
+                        CompareOp::NotEqual => sys::VK_COMPARE_OP_NOT_EQUAL,
+                        CompareOp::GreaterOrEqual => sys::VK_COMPARE_OP_GREATER_OR_EQUAL,
+                        CompareOp::Always => sys::VK_COMPARE_OP_ALWAYS,    
+                    },
+                    back_compare_mask,
+                    back_write_mask,
+                    back_reference,
+                ),
+            )
+        };
+        let depth_stencil = sys::VkPipelineDepthStencilStateCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            depthTestEnable: depth_test,
+            depthWriteEnable: depth_write,
+            depthCompareOp: depth_compare,
+            depthBoundsTestEnable: depth_bounds,
+            stencilTestEnable: stencil_test,
+            front: sys::VkStencilOpState {
+                failOp: front_fail,
+                passOp: front_pass,
+                depthFailOp: front_depth_fail,
+                compareOp: front_compare,
+                compareMask: front_compare_mask,
+                writeMask: front_write_mask,
+                reference: front_reference,
+            },
+            back: sys::VkStencilOpState {
+                failOp: back_fail,
+                passOp: back_pass,
+                depthFailOp: back_depth_fail,
+                compareOp: back_compare,
+                compareMask: back_compare_mask,
+                writeMask: back_write_mask,
+                reference: back_reference,
+            },
+            minDepthBounds: min_depth_bounds,
+            maxDepthBounds: max_depth_bounds,
+        };
+        let (logic_op_enable,logic_op) = match logic_op {
+            LogicOp::Disabled => (sys::VK_FALSE,sys::VK_LOGIC_OP_COPY),
+            LogicOp::Clear => (sys::VK_TRUE,sys::VK_LOGIC_OP_CLEAR),
+            LogicOp::And => (sys::VK_TRUE,sys::VK_LOGIC_OP_AND),
+            LogicOp::AndReverse => (sys::VK_TRUE,sys::VK_LOGIC_OP_AND_REVERSE),
+            LogicOp::Copy => (sys::VK_TRUE,sys::VK_LOGIC_OP_COPY),
+            LogicOp::AndInverted => (sys::VK_TRUE,sys::VK_LOGIC_OP_AND_INVERTED),
+            LogicOp::NoOp => (sys::VK_TRUE,sys::VK_LOGIC_OP_NO_OP),
+            LogicOp::Xor => (sys::VK_TRUE,sys::VK_LOGIC_OP_XOR),
+            LogicOp::Or => (sys::VK_TRUE,sys::VK_LOGIC_OP_OR),
+            LogicOp::Nor => (sys::VK_TRUE,sys::VK_LOGIC_OP_NOR),
+            LogicOp::Equivalent => (sys::VK_TRUE,sys::VK_LOGIC_OP_EQUIVALENT),
+            LogicOp::Invert => (sys::VK_TRUE,sys::VK_LOGIC_OP_INVERT),
+            LogicOp::OrReverse => (sys::VK_TRUE,sys::VK_LOGIC_OP_OR_REVERSE),
+            LogicOp::CopyInverted => (sys::VK_TRUE,sys::VK_LOGIC_OP_COPY_INVERTED),
+            LogicOp::OrInverted => (sys::VK_TRUE,sys::VK_LOGIC_OP_OR_INVERTED),
+            LogicOp::Nand => (sys::VK_TRUE,sys::VK_LOGIC_OP_NAND),
+            LogicOp::Set => (sys::VK_TRUE,sys::VK_LOGIC_OP_SET),
+        };
+        let (
+            blend,
+            (color_op,src_color,dst_color),
+            (alpha_op,src_alpha,dst_alpha),
+        ) = match blend {
+            Blend::Disabled => (
+                sys::VK_FALSE,
+                (sys::VK_BLEND_OP_ADD,sys::VK_BLEND_FACTOR_ONE,sys::VK_BLEND_FACTOR_ZERO),
+                (sys::VK_BLEND_OP_ADD,sys::VK_BLEND_FACTOR_ONE,sys::VK_BLEND_FACTOR_ZERO),
+            ),
+            Blend::Enabled((color_op,src_color,dst_color),(alpha_op,src_alpha,dst_alpha)) => (
+                sys::VK_TRUE,
+                (
+                    match color_op {
+                        BlendOp::Add => sys::VK_BLEND_OP_ADD,
+                        BlendOp::Subtract => sys::VK_BLEND_OP_SUBTRACT,
+                        BlendOp::ReverseSubtract => sys::VK_BLEND_OP_REVERSE_SUBTRACT,
+                        BlendOp::Min => sys::VK_BLEND_OP_MIN,
+                        BlendOp::Max => sys::VK_BLEND_OP_MAX,
+                    },
+                    match src_color {
+                        BlendFactor::Zero => sys::VK_BLEND_FACTOR_ZERO,
+                        BlendFactor::One => sys::VK_BLEND_FACTOR_ONE,
+                        BlendFactor::SrcColor => sys::VK_BLEND_FACTOR_SRC_COLOR,
+                        BlendFactor::OneMinusSrcColor => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
+                        BlendFactor::DstColor => sys::VK_BLEND_FACTOR_DST_COLOR,
+                        BlendFactor::OneMinusDstColor => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
+                        BlendFactor::SrcAlpha => sys::VK_BLEND_FACTOR_SRC_ALPHA,
+                        BlendFactor::OneMinusSrcAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                        BlendFactor::DstAlpha => sys::VK_BLEND_FACTOR_DST_ALPHA,
+                        BlendFactor::OneMinusDstAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
+                        BlendFactor::ConstantColor => sys::VK_BLEND_FACTOR_CONSTANT_COLOR,
+                        BlendFactor::OneMinusConstantColor => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR,
+                        BlendFactor::ConstantAlpha => sys::VK_BLEND_FACTOR_CONSTANT_ALPHA,
+                        BlendFactor::OneMinusConstantAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA,
+                        BlendFactor::SrcAlphaSaturate => sys::VK_BLEND_FACTOR_SRC_ALPHA_SATURATE,
+                        BlendFactor::Src1Color => sys::VK_BLEND_FACTOR_SRC1_COLOR,
+                        BlendFactor::OneMinusSrc1Color => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR,
+                        BlendFactor::Src1Alpha => sys::VK_BLEND_FACTOR_SRC1_ALPHA,
+                        BlendFactor::OneMinusSrc1Alpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA,
+                    },
+                    match dst_color {
+                        BlendFactor::Zero => sys::VK_BLEND_FACTOR_ZERO,
+                        BlendFactor::One => sys::VK_BLEND_FACTOR_ONE,
+                        BlendFactor::SrcColor => sys::VK_BLEND_FACTOR_SRC_COLOR,
+                        BlendFactor::OneMinusSrcColor => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
+                        BlendFactor::DstColor => sys::VK_BLEND_FACTOR_DST_COLOR,
+                        BlendFactor::OneMinusDstColor => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
+                        BlendFactor::SrcAlpha => sys::VK_BLEND_FACTOR_SRC_ALPHA,
+                        BlendFactor::OneMinusSrcAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                        BlendFactor::DstAlpha => sys::VK_BLEND_FACTOR_DST_ALPHA,
+                        BlendFactor::OneMinusDstAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
+                        BlendFactor::ConstantColor => sys::VK_BLEND_FACTOR_CONSTANT_COLOR,
+                        BlendFactor::OneMinusConstantColor => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR,
+                        BlendFactor::ConstantAlpha => sys::VK_BLEND_FACTOR_CONSTANT_ALPHA,
+                        BlendFactor::OneMinusConstantAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA,
+                        BlendFactor::SrcAlphaSaturate => sys::VK_BLEND_FACTOR_SRC_ALPHA_SATURATE,
+                        BlendFactor::Src1Color => sys::VK_BLEND_FACTOR_SRC1_COLOR,
+                        BlendFactor::OneMinusSrc1Color => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR,
+                        BlendFactor::Src1Alpha => sys::VK_BLEND_FACTOR_SRC1_ALPHA,
+                        BlendFactor::OneMinusSrc1Alpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA,
+                    },
+                ),
+                (
+                    match alpha_op {
+                        BlendOp::Add => sys::VK_BLEND_OP_ADD,
+                        BlendOp::Subtract => sys::VK_BLEND_OP_SUBTRACT,
+                        BlendOp::ReverseSubtract => sys::VK_BLEND_OP_REVERSE_SUBTRACT,
+                        BlendOp::Min => sys::VK_BLEND_OP_MIN,
+                        BlendOp::Max => sys::VK_BLEND_OP_MAX,
+                    },
+                    match src_alpha {
+                        BlendFactor::Zero => sys::VK_BLEND_FACTOR_ZERO,
+                        BlendFactor::One => sys::VK_BLEND_FACTOR_ONE,
+                        BlendFactor::SrcColor => sys::VK_BLEND_FACTOR_SRC_COLOR,
+                        BlendFactor::OneMinusSrcColor => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
+                        BlendFactor::DstColor => sys::VK_BLEND_FACTOR_DST_COLOR,
+                        BlendFactor::OneMinusDstColor => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
+                        BlendFactor::SrcAlpha => sys::VK_BLEND_FACTOR_SRC_ALPHA,
+                        BlendFactor::OneMinusSrcAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                        BlendFactor::DstAlpha => sys::VK_BLEND_FACTOR_DST_ALPHA,
+                        BlendFactor::OneMinusDstAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
+                        BlendFactor::ConstantColor => sys::VK_BLEND_FACTOR_CONSTANT_COLOR,
+                        BlendFactor::OneMinusConstantColor => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR,
+                        BlendFactor::ConstantAlpha => sys::VK_BLEND_FACTOR_CONSTANT_ALPHA,
+                        BlendFactor::OneMinusConstantAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA,
+                        BlendFactor::SrcAlphaSaturate => sys::VK_BLEND_FACTOR_SRC_ALPHA_SATURATE,
+                        BlendFactor::Src1Color => sys::VK_BLEND_FACTOR_SRC1_COLOR,
+                        BlendFactor::OneMinusSrc1Color => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR,
+                        BlendFactor::Src1Alpha => sys::VK_BLEND_FACTOR_SRC1_ALPHA,
+                        BlendFactor::OneMinusSrc1Alpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA,
+                    },
+                    match dst_alpha {
+                        BlendFactor::Zero => sys::VK_BLEND_FACTOR_ZERO,
+                        BlendFactor::One => sys::VK_BLEND_FACTOR_ONE,
+                        BlendFactor::SrcColor => sys::VK_BLEND_FACTOR_SRC_COLOR,
+                        BlendFactor::OneMinusSrcColor => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
+                        BlendFactor::DstColor => sys::VK_BLEND_FACTOR_DST_COLOR,
+                        BlendFactor::OneMinusDstColor => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
+                        BlendFactor::SrcAlpha => sys::VK_BLEND_FACTOR_SRC_ALPHA,
+                        BlendFactor::OneMinusSrcAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                        BlendFactor::DstAlpha => sys::VK_BLEND_FACTOR_DST_ALPHA,
+                        BlendFactor::OneMinusDstAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
+                        BlendFactor::ConstantColor => sys::VK_BLEND_FACTOR_CONSTANT_COLOR,
+                        BlendFactor::OneMinusConstantColor => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR,
+                        BlendFactor::ConstantAlpha => sys::VK_BLEND_FACTOR_CONSTANT_ALPHA,
+                        BlendFactor::OneMinusConstantAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA,
+                        BlendFactor::SrcAlphaSaturate => sys::VK_BLEND_FACTOR_SRC_ALPHA_SATURATE,
+                        BlendFactor::Src1Color => sys::VK_BLEND_FACTOR_SRC1_COLOR,
+                        BlendFactor::OneMinusSrc1Color => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR,
+                        BlendFactor::Src1Alpha => sys::VK_BLEND_FACTOR_SRC1_ALPHA,
+                        BlendFactor::OneMinusSrc1Alpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA,
+                    },
+                ),
+            ),
+        };
+        let blend = sys::VkPipelineColorBlendStateCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            logicOpEnable: logic_op_enable,
+            logicOp: logic_op,
+            attachmentCount: 1,
+            pAttachments: &sys::VkPipelineColorBlendAttachmentState {
+                blendEnable: blend,
+                srcColorBlendFactor: src_color,
+                dstColorBlendFactor: dst_color,
+                colorBlendOp: color_op,
+                srcAlphaBlendFactor: src_alpha,
+                dstAlphaBlendFactor: dst_alpha,
+                alphaBlendOp: alpha_op,
+                colorWriteMask: write_mask as u32,
+            },
+            blendConstants: [blend_constant.r,blend_constant.g,blend_constant.b,blend_constant.a],
+        };
+        let dynamic = sys::VkPipelineDynamicStateCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            pDynamicStates: [
+                sys::VK_DYNAMIC_STATE_VIEWPORT,
+                sys::VK_DYNAMIC_STATE_SCISSOR,
+            ].as_ptr(),
+            dynamicStateCount: 2,
+        };
+        let create_info = sys::VkGraphicsPipelineCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            stageCount: 2,
+            pStages: shaders.as_ptr(),
+            pVertexInputState: &input,
+            pInputAssemblyState: &assembly,
+            pTessellationState: &tesselation,
+            pViewportState: &viewport,
+            pRasterizationState: &rasterization,
+            pMultisampleState: &multisample,
+            pDepthStencilState: &depth_stencil,
+            pColorBlendState: &blend,
+            pDynamicState: &dynamic,
+            layout: pipeline_layout.vk_pipeline_layout,
+            renderPass: window.gpu.vk_render_pass,
+            subpass: 0,
+            basePipelineHandle: null_mut(),
+            basePipelineIndex: -1,
+        };
+        let mut vk_graphics_pipeline = MaybeUninit::uninit();
+        match unsafe { sys::vkCreateGraphicsPipelines(self.gpu.vk_device,null_mut(),1,&create_info,null_mut(),vk_graphics_pipeline.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to create graphics pipeline (error {})",code);
+                return None;
+            },
+        }
+
+        Some(GraphicsPipeline {
+            system: &self,
+            vk_graphics_pipeline: unsafe { vk_graphics_pipeline.assume_init() },
+        })
+    }
+
+    /// Create a pipeline layout.
+    pub fn create_pipeline_layout(&self) -> Option<PipelineLayout> {
+
+        let info = sys::VkPipelineLayoutCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            setLayoutCount: 0,
+            pSetLayouts: null_mut(),
+            pushConstantRangeCount: 0,
+            pPushConstantRanges: null_mut(),
+        };
+        let mut vk_pipeline_layout = MaybeUninit::uninit();
+        match unsafe { sys::vkCreatePipelineLayout(self.gpu.vk_device,&info,null_mut(),vk_pipeline_layout.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to create pipeline layout (error {})",code);
+                return None;
+            },
+        }
+        Some(PipelineLayout {
+            system: &self,
+            vk_pipeline_layout: unsafe { vk_pipeline_layout.assume_init() },
+        })
     }
 
     /// Create command buffer.
@@ -645,7 +1231,7 @@ impl System {
     }
 
     /// Wait for wait_semaphore before submitting command buffer to the queue, and signal signal_semaphore when ready.
-    pub fn submit(&mut self,command_buffer: &CommandBuffer,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
+    pub fn submit(&self,command_buffer: &CommandBuffer,wait_semaphore: &Semaphore,signal_semaphore: &Semaphore) -> bool {
         let wait_stage = sys::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         let info = sys::VkSubmitInfo {
             sType: sys::VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -665,6 +1251,261 @@ impl System {
                 false
             },
         }
+    }
+
+    /// Create a shader.
+    pub(crate) fn create_vertex_shader(self: &Rc<System>,code: &[u32]) -> Option<VertexShader> {
+        let create_info = sys::VkShaderModuleCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            codeSize: code.len() as u64,
+            pCode: code.as_ptr() as *const u32,
+        };
+
+        let mut vk_shader_module = MaybeUninit::uninit();
+        match unsafe { sys::vkCreateShaderModule(self.gpu.vk_device,&create_info,null_mut(),vk_shader_module.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to create shader (error {})",code);
+                return None;
+            },
+        }
+        let vk_shader_module = unsafe { vk_shader_module.assume_init() };
+
+        Some(VertexShader {
+            system: Rc::clone(self),
+            vk_shader_module: vk_shader_module,
+        })
+    }    
+
+    /// Create a fragment shader.
+    pub(crate) fn create_fragment_shader(self: &Rc<System>,code: &[u32]) -> Option<FragmentShader> {
+        let create_info = sys::VkShaderModuleCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            codeSize: code.len() as u64,
+            pCode: code.as_ptr() as *const u32,
+        };
+
+        let mut vk_shader_module = MaybeUninit::uninit();
+        match unsafe { sys::vkCreateShaderModule(self.gpu.vk_device,&create_info,null_mut(),vk_shader_module.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to create shader (error {})",code);
+                return None;
+            },
+        }
+        let vk_shader_module = unsafe { vk_shader_module.assume_init() };
+
+        Some(FragmentShader {
+            system: Rc::clone(self),
+            vk_shader_module: vk_shader_module,
+        })
+    }
+
+    /// create a vertex buffer.
+    pub fn create_vertex_buffer<T: Vertex>(&self,vertices: &Vec<T>) -> Option<VertexBuffer> {
+
+        // obtain vertex info
+        let vertex_base_types = T::get_types();
+        let mut vertex_stride = 0usize;
+        for base_type in &vertex_base_types {
+            vertex_stride += base_type.size();
+        }
+
+        // create vertex buffer
+        println!("creating vertex buffer");
+        let info = sys::VkBufferCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            size: (vertices.len() * vertex_stride) as u64,
+            usage: sys::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            sharingMode: sys::VK_SHARING_MODE_EXCLUSIVE,
+            queueFamilyIndexCount: 0,
+            pQueueFamilyIndices: null_mut(),
+        };
+        let mut vk_buffer = MaybeUninit::uninit();
+        match unsafe { sys::vkCreateBuffer(self.gpu.vk_device, &info, null_mut(), vk_buffer.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to create vertex buffer (error {})",code);
+                return None;
+            }
+        }
+        let vk_buffer = unsafe { vk_buffer.assume_init() };
+
+        // allocate shared memory
+        println!("allocating memory");
+        let info = sys::VkMemoryAllocateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            pNext: null_mut(),
+            allocationSize: (vertices.len() * vertex_stride) as u64,
+            memoryTypeIndex: self.gpu.shared_index as u32,
+        };
+        let mut vk_memory = MaybeUninit::<sys::VkDeviceMemory>::uninit();
+        match unsafe { sys::vkAllocateMemory(self.gpu.vk_device,&info,null_mut(),vk_memory.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to allocate memory (error {})",code);
+                return None;
+            }
+        }
+        let vk_memory = unsafe { vk_memory.assume_init() };
+
+        // map memory
+        println!("mapping memory");
+        let mut data_ptr = MaybeUninit::<*mut c_void>::uninit();
+        match unsafe { sys::vkMapMemory(
+            self.gpu.vk_device,
+            vk_memory,
+            0,
+            sys::VK_WHOLE_SIZE as u64,
+            0,
+            data_ptr.as_mut_ptr(),
+        ) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to map memory (error {})",code);
+                return None;
+            }
+        }
+        let data_ptr = unsafe { data_ptr.assume_init() } as *mut T;
+        println!("mapped pointer = {:?}",data_ptr);
+
+        // copy from the input vertices into data
+        unsafe { copy_nonoverlapping(vertices.as_ptr(),data_ptr,vertices.len()) };
+
+        // and unmap the memory again
+        println!("unmapping memory");
+        unsafe { sys::vkUnmapMemory(self.gpu.vk_device,vk_memory) };
+
+        // bind to vertex buffer
+        println!("binding memory buffer to vertex buffer");
+        match unsafe { sys::vkBindBufferMemory(self.gpu.vk_device,vk_buffer,vk_memory,0) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to bind memory to vertex buffer (error {})",code);
+                return None;
+            }
+        }
+
+        Some(VertexBuffer {
+            system: &self,
+            vk_buffer: vk_buffer,
+            vk_memory: vk_memory,
+        })
+    }
+
+    /// create an index buffer.
+    pub fn create_index_buffer<T>(&self,indices: &Vec<T>) -> Option<IndexBuffer> {
+
+        // create index buffer
+        println!("creating index buffer");
+        let info = sys::VkBufferCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+            size: (indices.len() * 4) as u64,
+            usage: sys::VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            sharingMode: sys::VK_SHARING_MODE_EXCLUSIVE,
+            queueFamilyIndexCount: 0,
+            pQueueFamilyIndices: null_mut(),
+        };
+        let mut vk_buffer = MaybeUninit::uninit();
+        match unsafe { sys::vkCreateBuffer(self.gpu.vk_device, &info, null_mut(), vk_buffer.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to create index buffer (error {})",code);
+                return None;
+            }
+        }
+        let vk_buffer = unsafe { vk_buffer.assume_init() };
+
+        // allocate shared memory
+        println!("allocating memory");
+        let info = sys::VkMemoryAllocateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            pNext: null_mut(),
+            allocationSize: (indices.len() * 4) as u64,
+            memoryTypeIndex: self.gpu.shared_index as u32,
+        };
+        let mut vk_memory = MaybeUninit::<sys::VkDeviceMemory>::uninit();
+        match unsafe { sys::vkAllocateMemory(self.gpu.vk_device,&info,null_mut(),vk_memory.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to allocate memory (error {})",code);
+                return None;
+            }
+        }
+        let vk_memory = unsafe { vk_memory.assume_init() };
+
+        // map memory
+        println!("mapping memory");
+        let mut data_ptr = MaybeUninit::<*mut c_void>::uninit();
+        match unsafe { sys::vkMapMemory(
+            self.gpu.vk_device,
+            vk_memory,
+            0,
+            sys::VK_WHOLE_SIZE as u64,
+            0,
+            data_ptr.as_mut_ptr(),
+        ) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to map memory (error {})",code);
+                return None;
+            }
+        }
+        let data_ptr = unsafe { data_ptr.assume_init() } as *mut T;
+        println!("mapped pointer = {:?}",data_ptr);
+
+        // copy from the input vertices into data
+        unsafe { copy_nonoverlapping(indices.as_ptr(),data_ptr,indices.len()) };
+
+        // and unmap the memory again
+        println!("unmapping memory");
+        unsafe { sys::vkUnmapMemory(self.gpu.vk_device,vk_memory) };
+
+        // bind to vertex buffer
+        println!("binding memory buffer to index buffer");
+        match unsafe { sys::vkBindBufferMemory(self.gpu.vk_device,vk_buffer,vk_memory,0) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to bind memory to index buffer (error {})",code);
+                return None;
+            }
+        }
+
+        Some(IndexBuffer {
+            system: &self,
+            vk_buffer: vk_buffer,
+            vk_memory: vk_memory,
+        })
+    }
+
+    /// Create a semaphore.
+    pub fn create_semaphore(&self) -> Option<Semaphore> {
+
+        let info = sys::VkSemaphoreCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+            pNext: null_mut(),
+            flags: 0,
+        };
+        let mut vk_semaphore = MaybeUninit::uninit();
+        match unsafe { sys::vkCreateSemaphore(self.gpu.vk_device,&info,null_mut(),vk_semaphore.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                println!("unable to create semaphore (error {})",code);
+                return None;
+            },
+        }
+        Some(Semaphore {
+            system: &self,
+            vk_semaphore: unsafe { vk_semaphore.assume_init() },
+        })
     }
 
     /// Drop all GPU-specific resources.

@@ -64,11 +64,13 @@ fn main() {
     println!("cargo:rustc-cfg=system=\"{}\"",system_name);
     println!("cargo:rustc-cfg=gpu=\"{}\"",gpu_name);
 
-    // create header file, but not for web
+    // create header files and system bindings, but not for web
     if let System::Web = system { } else {
         let out_dir_os = env::var_os("OUT_DIR").unwrap();
         let out_dir = out_dir_os.into_string().unwrap();
-        let path = path::Path::new(&out_dir).join("sys.h");
+
+        // sys.h: the needed includes
+        let header_path = path::Path::new("src/sys/sys.h");
         let mut header = String::new();
         match system {
             System::Linux => {
@@ -93,27 +95,45 @@ fn main() {
                 }
             },
             Gpu::Opengl => {
-                header.push_str("#include <GL/gl.h>\n");
                 println!("cargo:rustc-link-lib=GL");
                 if let System::Linux = system {
+                    header.push_str("#define GL_GLEXT_PROTOTYPES 1\n");
+                    header.push_str("#include <GL/glcorearb.h>\n");
+                    header.push_str("#define GLX_GLXEXT_PROTOTYPES 1\n");
                     header.push_str("#include <GL/glx.h>\n");
+                    header.push_str("#include <GL/glxext.h>\n");
+                }
+                else {
+                    header.push_str("#include <GL/gl.h>\n");
                 }
             },
             _ => {
                 panic!("missing include/lib for gpu=\"{}\"",gpu_name);
             }
         }
-        fs::write(&path,header).expect("Unable to write header file");
+        fs::write(&header_path,header).expect("Unable to write header file");
+
+        // sys.rs: the generated bindings
         process::Command::new("bindgen")
             .args(&[
-                &format!("{}/sys.h",out_dir),
-                "-o",&format!("{}/sys.rs",out_dir),
+                &format!("src/sys/sys.h"),
+                "-o",&format!("src/sys/sys.rs"),
                 "--disable-nested-struct-naming",
                 "--no-prepend-enum-name",
                 "--no-layout-tests",
             ])
             .status()
             .expect("unable to generate system FFI bindings");
+
+        // mod.rs: the sys module
+        let sysmod_path = path::Path::new("src/sys/mod.rs");
+        let mut sysmod = String::new();
+        sysmod.push_str("#![allow(non_camel_case_types)]\n");
+        sysmod.push_str("#![allow(non_upper_case_globals)]\n");
+        sysmod.push_str("#![allow(non_snake_case)]\n");
+        sysmod.push_str("#![allow(dead_code)]\n\n");
+        sysmod.push_str("include!(\"sys.rs\");\n");
+        fs::write(&sysmod_path,sysmod).expect("Unable to write module file");
     }
 
     // and indicate to rerun only if changed

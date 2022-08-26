@@ -1,27 +1,15 @@
 use {
     crate::*,
-    std::{
-        ptr::{
-            null_mut,
-            copy_nonoverlapping,
-        },
-        mem::MaybeUninit,
-        ffi::c_void,
-    },
+    std::rc::Rc,
 };
 
-pub struct IndexBuffer<'system> {
-    pub system: &'system System,
+pub struct IndexBuffer {
+    pub system: Rc<System>,
+    pub(crate) ibo: sys::GLuint,
 }
 
-impl System {
-
-    /// create a vertex buffer.
-    pub fn create_index_buffer<T>(&self,indices: &Vec<T>) -> Option<IndexBuffer> {
-
-        // TODO
-        Some(IndexBuffer {
-            system: &self,
-        })
+impl Drop for IndexBuffer {
+    fn drop(&mut self) {
+        unsafe { sys::glDeleteBuffers(1,&self.ibo) };
     }
 }

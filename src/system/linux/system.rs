@@ -13,7 +13,6 @@ pub struct System {
     pub(crate) xdisplay: *mut sys::Display,
     pub(crate) xcb_connection: *mut sys::xcb_connection_t,
     pub(crate) xcb_root_window: sys::xcb_window_t,
-    pub(crate) xcb_colormap: sys::xcb_colormap_t,
     pub(crate) epfd: c_int,
     pub(crate) wm_protocols: u32,
     pub(crate) wm_delete_window: u32,
@@ -64,7 +63,6 @@ pub fn open_system() -> Option<Rc<System>> {
     // start by assuming the root depth and visual
     let xcb_screen = unsafe { sys::xcb_setup_roots_iterator(xcb_setup) }.data;
     let xcb_root_window = unsafe { *xcb_screen }.root;
-    let xcb_colormap = unsafe { *xcb_screen }.default_colormap;
 
     // create epoll descriptor to be able to wait for UI events on a system level
     let fd = unsafe { sys::xcb_get_file_descriptor(xcb_connection) };
@@ -100,7 +98,6 @@ pub fn open_system() -> Option<Rc<System>> {
             xdisplay,
             xcb_connection,
             xcb_root_window,
-            xcb_colormap,
             epfd,
             wm_protocols,
             wm_delete_window,
@@ -118,13 +115,12 @@ pub fn open_system() -> Option<Rc<System>> {
     }
 
 #[cfg(gpu="opengl")]
-    if let Some(gpu) = open_system_gpu(xdisplay,xcb_connection,xcb_colormap,xcb_root_window) {
+    if let Some(gpu) = open_system_gpu(xdisplay,xcb_connection,xcb_root_window) {
         Some(Rc::new(System {
             gpu,
             xdisplay,
             xcb_connection,
             xcb_root_window,
-            xcb_colormap,
             epfd,
             wm_protocols,
             wm_delete_window,
@@ -290,6 +286,8 @@ impl System {
 
         // create window
         let xcb_window = unsafe { sys::xcb_generate_id(self.xcb_connection) };
+        let xcb_colormap = unsafe { sys::xcb_generate_id(self.xcb_connection) };
+        unsafe { sys::xcb_create_colormap(self.xcb_connection,sys::XCB_COLORMAP_ALLOC_NONE as u8,xcb_colormap,self.xcb_root_window,self.gpu.xcb_visual_id) };
         let values = [
             sys::XCB_EVENT_MASK_EXPOSURE
             | sys::XCB_EVENT_MASK_KEY_PRESS
@@ -298,7 +296,7 @@ impl System {
             | sys::XCB_EVENT_MASK_BUTTON_RELEASE
             | sys::XCB_EVENT_MASK_POINTER_MOTION
             | sys::XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-            self.xcb_colormap,
+            xcb_colormap,
         ];
         unsafe {
             sys::xcb_create_window(

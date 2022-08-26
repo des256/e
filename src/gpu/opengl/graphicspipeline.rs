@@ -10,51 +10,37 @@
 
 use {
     crate::*,
-    std::{
-        ptr::null_mut,
-        mem::MaybeUninit,
-    },
+    std::rc::Rc,
 };
 
-pub struct GraphicsPipeline<'system> {
-    pub(crate) system: &'system System,
+pub struct GraphicsPipeline {
+    pub(crate) system: Rc<System>,
+    pub(crate) pipeline_layout: Rc<PipelineLayout>,
+    pub(crate) shader_program: sys::GLuint,
+    pub(crate) topology: sys::GLenum,
+    pub(crate) restart: PrimitiveRestart,
+    pub(crate) patch_control_points: usize,
+    pub(crate) depth_clamp: bool,
+    pub(crate) primitive_discard: bool,
+    pub(crate) polygon_mode: sys::GLenum,
+    pub(crate) cull_mode: Option<(sys::GLenum,sys::GLenum)>,
+    pub(crate) polygon_offset: Option<(f32,f32)>,
+    pub(crate) line_width: f32,
+    pub(crate) rasterization_samples: usize,
+    pub(crate) sample_shading: SampleShading,
+    pub(crate) sample_alpha_to_coverage: bool,
+    pub(crate) sample_alpha_to_one: bool,
+    pub(crate) depth_test: Option<sys::GLenum>,
+    pub(crate) depth_mask: u8,
+    pub(crate) stencil_test: Option<(u32,sys::GLenum,i32,u32,sys::GLenum,sys::GLenum,sys::GLenum)>,
+    pub(crate) logic_op: Option<sys::GLenum>,
+    pub(crate) blend: Option<(sys::GLenum,sys::GLenum,sys::GLenum,sys::GLenum,sys::GLenum)>,
+    pub(crate) color_mask: (sys::GLboolean,sys::GLboolean,sys::GLboolean,sys::GLboolean),
+    pub(crate) blend_constant: Color<f32>,
 }
 
-impl System {
-
-    /// Create a graphics pipeline.
-    pub fn create_graphics_pipeline<T: Vertex>(
-        &self,
-        window: &Window,
-        pipeline_layout: &PipelineLayout,
-        vertex_shader: &ShaderModule,
-        fragment_shader: &ShaderModule,
-        topology: PrimitiveTopology,
-        restart: PrimitiveRestart,
-        patch_control_points: usize,
-        depth_clamp: DepthClamp,
-        primitive_discard: PrimitiveDiscard,
-        polygon_mode: PolygonMode,
-        cull_mode: CullMode,
-        depth_bias: DepthBias,
-        line_width: f32,
-        rasterization_samples: usize,
-        sample_shading: SampleShading,
-        alpha_to_coverage: AlphaToCoverage,
-        alpha_to_one: AlphaToOne,
-        depth_test: DepthTest,
-        depth_write: DepthWrite,
-        stencil_test: StencilTest,
-        logic_op: LogicOp,
-        blend: Blend,
-        write_mask: u8,
-        blend_constant: Color<f32>,
-    ) -> Option<GraphicsPipeline> {
-
-        // TODO
-
-        Some(GraphicsPipeline {
-            system: &self,
-        })
+impl Drop for GraphicsPipeline {
+    fn drop(&mut self) {
+        unsafe { sys::glDeleteProgram(self.shader_program) };
     }
 }

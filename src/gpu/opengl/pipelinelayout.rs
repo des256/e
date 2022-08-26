@@ -4,25 +4,9 @@
 
 use {
     crate::*,
-    std::{
-        ptr::null_mut,
-        mem::MaybeUninit,
-    },
+    std::rc::Rc,
 };
 
-pub struct PipelineLayout<'system> {
-    pub system: &'system System,
-}
-
-impl<'system> System {
-
-    /// Create a pipeline layout.
-    pub fn create_pipeline_layout(&self) -> Option<PipelineLayout> {
-
-        // TODO
-
-        Some(PipelineLayout {
-            system: &self,
-        })
-    }
+pub struct PipelineLayout {
+    pub(crate) system: Rc<System>,
 }

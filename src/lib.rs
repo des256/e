@@ -1,14 +1,6 @@
 #![feature(const_trait_impl)]
 #![feature(const_fn_floating_point_arithmetic)]
 
-mod sys {
-    #![allow(non_camel_case_types)]
-    #![allow(non_upper_case_globals)]
-    #![allow(non_snake_case)]
-    #![allow(dead_code)]
-    include!(concat!(env!("OUT_DIR"),"/sys.rs"));
-}
-
 #[cfg(build="debug")]
 #[macro_export]
 macro_rules! dprintln {
@@ -20,6 +12,8 @@ macro_rules! dprintln {
 macro_rules! dprintln {
     ($($arg:tt)*) => { };
 }
+
+mod sys;
 
 mod base;
 pub use base::*;

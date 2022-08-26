@@ -32,7 +32,7 @@ impl CommandBuffer {
     }
 
     /// Begin render pass.
-    pub fn begin_render_pass(&mut self,window: &Window,index: usize,r: Rect<i32,u32>) {
+    pub fn begin_render_pass(&self,window: &Window,index: usize,r: Rect<isize,usize>) {
         let clear_color = sys::VkClearValue {
             color: sys::VkClearColorValue {
                 float32: [0.0,0.0,0.0,1.0]
@@ -60,12 +60,12 @@ impl CommandBuffer {
     }
 
     /// End render pass.
-    pub fn end_render_pass(&mut self) {
+    pub fn end_render_pass(&self) {
         unsafe { sys::vkCmdEndRenderPass(self.vk_command_buffer) };
     }
 
     /// Specify current graphics pipeline.
-    pub fn bind_pipeline(&mut self,pipeline: &GraphicsPipeline) {
+    pub fn bind_pipeline(&self,pipeline: &GraphicsPipeline) {
         unsafe { sys::vkCmdBindPipeline(
             self.vk_command_buffer,
             sys::VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -74,7 +74,7 @@ impl CommandBuffer {
     }
 
     /// Specify current vertex buffer.
-    pub fn bind_vertex_buffer(&mut self,vertex_buffer: &VertexBuffer) {
+    pub fn bind_vertex_buffer(&self,vertex_buffer: &VertexBuffer) {
         unsafe { sys::vkCmdBindVertexBuffers(
             self.vk_command_buffer,
             0,
@@ -85,7 +85,7 @@ impl CommandBuffer {
     }
 
     /// Specify current index buffer.
-    pub fn bind_index_buffer(&mut self,index_buffer: &IndexBuffer) {
+    pub fn bind_index_buffer(&self,index_buffer: &IndexBuffer) {
         unsafe { sys::vkCmdBindIndexBuffer(
             self.vk_command_buffer,
             index_buffer.vk_buffer,
@@ -95,7 +95,7 @@ impl CommandBuffer {
     }
 
     /// Emit vertices.
-    pub fn draw(&mut self,vertex_count: usize,instance_count: usize,first_vertex: usize, first_instance: usize) {
+    pub fn draw(&self,vertex_count: usize,instance_count: usize,first_vertex: usize, first_instance: usize) {
         unsafe { sys::vkCmdDraw(
             self.vk_command_buffer,
             vertex_count as u32,
@@ -106,7 +106,7 @@ impl CommandBuffer {
     }
 
     /// Emit indexed vertices.
-    pub fn draw_indexed(&mut self,index_count: usize,instance_count: usize,first_index: usize,vertex_offset: isize,first_instance: usize) {
+    pub fn draw_indexed(&self,index_count: usize,instance_count: usize,first_index: usize,vertex_offset: isize,first_instance: usize) {
         unsafe { sys::vkCmdDrawIndexed(
             self.vk_command_buffer,
             index_count as u32,
@@ -118,7 +118,7 @@ impl CommandBuffer {
     }
 
     /// Specify current viewport transformation.
-    pub fn set_viewport(&mut self,h: Hyper<f32,f32>) {
+    pub fn set_viewport(&self,h: Hyper<f32,f32>) {
         unsafe { sys::vkCmdSetViewport(
             self.vk_command_buffer,
             0,
@@ -135,7 +135,7 @@ impl CommandBuffer {
     }
 
     /// Specify current scissor rectangle.
-    pub fn set_scissor(&mut self,r: Rect<i32,u32>) {
+    pub fn set_scissor(&self,r: Rect<isize,usize>) {
         unsafe { sys::vkCmdSetScissor(
             self.vk_command_buffer,
             0,

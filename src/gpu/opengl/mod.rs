@@ -10,8 +10,11 @@ pub use commandbuffer::*;
 mod pipelinelayout;
 pub use pipelinelayout::*;
 
-mod shadermodule;
-pub use shadermodule::*;
+mod vertexshader;
+pub use vertexshader::*;
+
+mod fragmentshader;
+pub use fragmentshader::*;
 
 mod graphicspipeline;
 pub use graphicspipeline::*;
