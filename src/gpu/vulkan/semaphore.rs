@@ -2,12 +2,12 @@ use {
     crate::*,
     std::{
         ptr::null_mut,
-        mem::MaybeUninit,
+        rc::Rc,
     },
 };
 
-pub struct Semaphore<'system> {
-    pub system: &'system System,
+pub struct Semaphore {
+    pub system: Rc<System>,
     pub(crate) vk_semaphore: sys::VkSemaphore,
 }
 

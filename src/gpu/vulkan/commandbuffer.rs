@@ -3,12 +3,16 @@ use {
     std::{
         rc::Rc,
         ptr::null_mut,
+        cell::Cell,
     }
 };
 
 pub struct CommandBuffer {
     pub system: Rc<System>,
-    pub vk_command_buffer: sys::VkCommandBuffer,
+    pub vertex_buffer: Cell<Option<Rc<VertexBuffer>>>,
+    pub index_buffer: Cell<Option<Rc<IndexBuffer>>>,
+    pub graphics_pipeline: Cell<Option<Rc<GraphicsPipeline>>>,
+    pub(crate) vk_command_buffer: sys::VkCommandBuffer,
 }
 
 impl CommandBuffer {
@@ -65,16 +69,17 @@ impl CommandBuffer {
     }
 
     /// Specify current graphics pipeline.
-    pub fn bind_pipeline(&self,pipeline: &GraphicsPipeline) {
+    pub fn bind_pipeline(&self,pipeline: &Rc<GraphicsPipeline>) {
         unsafe { sys::vkCmdBindPipeline(
             self.vk_command_buffer,
             sys::VK_PIPELINE_BIND_POINT_GRAPHICS,
             pipeline.vk_graphics_pipeline,
         ) };
+        self.graphics_pipeline.set(Some(Rc::clone(pipeline)));
     }
 
     /// Specify current vertex buffer.
-    pub fn bind_vertex_buffer(&self,vertex_buffer: &VertexBuffer) {
+    pub fn bind_vertex_buffer(&self,vertex_buffer: &Rc<VertexBuffer>) {
         unsafe { sys::vkCmdBindVertexBuffers(
             self.vk_command_buffer,
             0,
@@ -82,16 +87,18 @@ impl CommandBuffer {
             [ vertex_buffer.vk_buffer, ].as_ptr(),
             [ 0, ].as_ptr(),
         ) };
+        self.vertex_buffer.set(Some(Rc::clone(vertex_buffer)));
     }
 
     /// Specify current index buffer.
-    pub fn bind_index_buffer(&self,index_buffer: &IndexBuffer) {
+    pub fn bind_index_buffer(&self,index_buffer: &Rc<IndexBuffer>) {
         unsafe { sys::vkCmdBindIndexBuffer(
             self.vk_command_buffer,
             index_buffer.vk_buffer,
             0,
             sys::VK_INDEX_TYPE_UINT32,
         ) };
+        self.index_buffer.set(Some(Rc::clone(index_buffer)));
     }
 
     /// Emit vertices.

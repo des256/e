@@ -1,22 +1,21 @@
-use {
-    crate::*,
-    std::rc::Rc,
-};
-
-pub fn compile_vertex_shader(system: &Rc<System>,items: Vec<sr::Item>,_vertex: &'static str,_vertex_types: Vec<sr::BaseType>) -> Option<VertexShader> {
-    println!("create_vertex_shader called with:");
+pub fn compile_vertex_shader(items: Vec<sr::Item>,_vertex: Vec<(String,sr::BaseType)>) -> Option<Vec<u8>> {
+    println!("VERTEX SHADER:\ninput:");
     for item in items {
         println!("{}",item);
     }
-    let r: Vec<u32> = vec![0];
-    system.create_vertex_shader(&r)
+
+    let _r: Vec<u32> = vec![0];
+
+    Some(vec![0])
 }
 
-pub fn compile_fragment_shader(system: &Rc<System>,items: Vec<sr::Item>) -> Option<FragmentShader> {
-    println!("create_fragment_shader called with:");
+pub fn compile_fragment_shader(items: Vec<sr::Item>) -> Option<Vec<u8>> {
+    println!("FRAGMENT SHADER:\ninput:");
     for item in items {
         println!("{}",item);
     }
-    let r: Vec<u32> = vec![0];
-    system.create_fragment_shader(&r)
+
+    let _r: Vec<u32> = vec![0];
+
+    Some(vec![0])
 }

@@ -380,11 +380,11 @@ fn render_function(symbol: String,params: Vec<(sr::Pat,Box<sr::Type>)>,return_ty
 
 pub(crate) fn render_vertex_trait(item: sr::Item) -> String {
     if let sr::Item::Struct(symbol,fields) = item {
-        let mut types: Vec<sr::BaseType> = Vec::new();
-        for (_,ty) in fields {
+        let mut out_fields: Vec<(String,sr::BaseType)> = Vec::new();
+        for (name,ty) in fields {
             if let sr::Type::Symbol(symbol) = *ty {
                 if let Some(base_type) = sr::BaseType::from_rust(&symbol) {
-                    types.push(base_type);
+                    out_fields.push((name,base_type));
                 }
                 else {
                     panic!("only base types allowed (not {})",symbol);
@@ -394,13 +394,13 @@ pub(crate) fn render_vertex_trait(item: sr::Item) -> String {
                 panic!("only base types allowed");
             }
         }
-        let mut r = format!("impl Vertex for {} {{ fn get_types() -> Vec<sr::BaseType> {{ vec![",symbol);
+        let mut r = format!("impl Vertex for {} {{ fn get_fields() -> Vec<(String,sr::BaseType)> {{ vec![",symbol);
         let mut first_type = true;
-        for ty in types {
+        for (name,ty) in out_fields {
             if !first_type {
                 r += ",";
             }
-            r += &format!("sr::BaseType::{}",ty.variant());
+            r += &format!("(\"{}\".to_string(),sr::BaseType::{})",name,ty.variant());
             first_type = false;
         }
         r += "] } }";
@@ -418,8 +418,7 @@ pub(crate) fn render_vertex_shader(item: sr::Item,vertex: String) -> String {
     else {
         panic!("vertex shader should be module");
     };
-    // the -> String is temporary, should become -> VertexShader
-    let mut r = format!("pub mod {} {{ use super::*; pub fn code() -> Option<String> {{ compile_vertex_shader(vec![",symbol);
+    let mut r = format!("pub mod {} {{ use super::*; pub fn code() -> Option<Vec<u8>> {{ compile_vertex_shader(vec![",symbol);
     let mut first_function = true;
     for item in items {
         if !first_function {
@@ -434,7 +433,7 @@ pub(crate) fn render_vertex_shader(item: sr::Item,vertex: String) -> String {
         r += &render_function(symbol,params,return_ty,stats);
         first_function = false;
     }
-    r += &format!("],\"{}\",{}::get_types()) }} }}",vertex,vertex);
+    r += &format!("],{}::get_fields()) }} }}",vertex);
     r
 }
 
@@ -445,8 +444,7 @@ pub(crate) fn render_fragment_shader(item: sr::Item) -> String {
     else {
         panic!("fragment shader should be module");
     };
-    // the -> String is temporary, should become -> FragmentShader
-    let mut r = format!("pub mod {} {{ use super::*; pub fn code() -> Option<String> {{ compile_fragment_shader(vec![",symbol);
+    let mut r = format!("pub mod {} {{ use super::*; pub fn code() -> Option<Vec<u8>> {{ compile_fragment_shader(vec![",symbol);
     let mut first_function = true;
     for item in items {
         if !first_function {

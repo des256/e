@@ -2,10 +2,69 @@ use {
     crate::*,
     std::{
         rc::Rc,
-        ptr::null_mut,
+        ptr::{
+            null_mut,
+            copy_nonoverlapping,
+        },
         mem::MaybeUninit,
+        ffi::c_void,
+        cell::Cell,
     },
 };
+
+fn base_type_format(base_type: &sr::BaseType) -> sys::VkFormat {
+    match base_type {
+        sr::BaseType::U8 => sys::VK_FORMAT_R8_UINT,
+        sr::BaseType::U16 => sys::VK_FORMAT_R16_UINT,
+        sr::BaseType::U32 => sys::VK_FORMAT_R32_UINT,
+        sr::BaseType::U64 => sys::VK_FORMAT_R64_UINT,
+        sr::BaseType::I8 => sys::VK_FORMAT_R8_SINT,
+        sr::BaseType::I16 => sys::VK_FORMAT_R16_SINT,
+        sr::BaseType::I32 => sys::VK_FORMAT_R32_SINT,
+        sr::BaseType::I64 => sys::VK_FORMAT_R64_SINT,
+        sr::BaseType::F16 => sys::VK_FORMAT_R16_SFLOAT,
+        sr::BaseType::F32 => sys::VK_FORMAT_R32_SFLOAT,
+        sr::BaseType::F64 => sys::VK_FORMAT_R64_SFLOAT,
+        sr::BaseType::Vec2U8 => sys::VK_FORMAT_R8G8_UINT,
+        sr::BaseType::Vec2U16 => sys::VK_FORMAT_R16G16_UINT,
+        sr::BaseType::Vec2U32 => sys::VK_FORMAT_R32G32_UINT,
+        sr::BaseType::Vec2U64 => sys::VK_FORMAT_R64G64_UINT,
+        sr::BaseType::Vec2I8 => sys::VK_FORMAT_R8G8_SINT,
+        sr::BaseType::Vec2I16 => sys::VK_FORMAT_R16G16_SINT,
+        sr::BaseType::Vec2I32 => sys::VK_FORMAT_R32G32_SINT,
+        sr::BaseType::Vec2I64 => sys::VK_FORMAT_R64G64_SINT,
+        sr::BaseType::Vec2F16 => sys::VK_FORMAT_R16G16_SFLOAT,
+        sr::BaseType::Vec2F32 => sys::VK_FORMAT_R32G32_SFLOAT,
+        sr::BaseType::Vec2F64 => sys::VK_FORMAT_R64G64_SFLOAT,
+        sr::BaseType::Vec3U8 => sys::VK_FORMAT_R8G8B8_UINT,
+        sr::BaseType::Vec3U16 => sys::VK_FORMAT_R16G16B16_UINT,
+        sr::BaseType::Vec3U32 => sys::VK_FORMAT_R32G32B32_UINT,
+        sr::BaseType::Vec3U64 => sys::VK_FORMAT_R64G64B64_UINT,
+        sr::BaseType::Vec3I8 => sys::VK_FORMAT_R8G8B8_SINT,
+        sr::BaseType::Vec3I16 => sys::VK_FORMAT_R16G16B16_SINT,
+        sr::BaseType::Vec3I32 => sys::VK_FORMAT_R32G32B32_SINT,
+        sr::BaseType::Vec3I64 => sys::VK_FORMAT_R64G64B64_SINT,
+        sr::BaseType::Vec3F16 => sys::VK_FORMAT_R16G16B16_SFLOAT,
+        sr::BaseType::Vec3F32 => sys::VK_FORMAT_R32G32B32_SFLOAT,
+        sr::BaseType::Vec3F64 => sys::VK_FORMAT_R64G64B64_SFLOAT,
+        sr::BaseType::Vec4U8 => sys::VK_FORMAT_R8G8B8A8_UINT,
+        sr::BaseType::Vec4U16 => sys::VK_FORMAT_R16G16B16A16_UINT,
+        sr::BaseType::Vec4U32 => sys::VK_FORMAT_R32G32B32A32_UINT,
+        sr::BaseType::Vec4U64 => sys::VK_FORMAT_R64G64B64A64_UINT,
+        sr::BaseType::Vec4I8 => sys::VK_FORMAT_R8G8B8A8_SINT,
+        sr::BaseType::Vec4I16 => sys::VK_FORMAT_R16G16B16A16_SINT,
+        sr::BaseType::Vec4I32 => sys::VK_FORMAT_R32G32B32A32_SINT,
+        sr::BaseType::Vec4I64 => sys::VK_FORMAT_R64G64B64A64_SINT,
+        sr::BaseType::Vec4F16 => sys::VK_FORMAT_R16G16B16A16_SFLOAT,
+        sr::BaseType::Vec4F32 => sys::VK_FORMAT_R32G32B32A32_SFLOAT,
+        sr::BaseType::Vec4F64 => sys::VK_FORMAT_R64G64B64A64_SFLOAT,
+        sr::BaseType::ColorU8 => sys::VK_FORMAT_R8G8B8A8_UNORM,
+        sr::BaseType::ColorU16 => sys::VK_FORMAT_R16G16B16A16_UNORM,
+        sr::BaseType::ColorF16 => sys::VK_FORMAT_R16G16B16A16_SFLOAT,
+        sr::BaseType::ColorF32 => sys::VK_FORMAT_R32G32B32A32_SFLOAT,
+        sr::BaseType::ColorF64 => sys::VK_FORMAT_R64G64B64A64_SFLOAT,
+    }
+}
 
 // Supplemental fields for System
 pub(crate) struct SystemGpu {
@@ -315,7 +374,6 @@ impl System {
         let capabilities = unsafe { capabilities.assume_init() };
 
         let extent = if capabilities.currentExtent.width != 0xFFFFFFFF {
-            dprintln!("fixed extent = {} x {}",capabilities.currentExtent.width,capabilities.currentExtent.height);
             u32xy {
                 x: capabilities.currentExtent.width,
                 y: capabilities.currentExtent.height,
@@ -335,7 +393,6 @@ impl System {
             if extent.y > capabilities.maxImageExtent.height {
                 extent.y = capabilities.maxImageExtent.height;
             }
-            dprintln!("specified extent = {}",extent);
             extent
         };
 
@@ -379,10 +436,8 @@ impl System {
             println!("window does not support BGRA8UN");
             return None;
         }
-        dprintln!("format = {}",sys::VK_FORMAT_B8G8R8A8_SRGB);
 
         // create swap chain for this window
-        dprintln!("creating swap chain...");
         let info = sys::VkSwapchainCreateInfoKHR {
             sType: sys::VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
             pNext: null_mut(),
@@ -419,7 +474,6 @@ impl System {
         let vk_swapchain = unsafe { vk_swapchain.assume_init() };
 
         // get swapchain images
-        dprintln!("getting swap chain images...");
         let mut count = 0u32;
         match unsafe { sys::vkGetSwapchainImagesKHR(self.gpu.vk_device,vk_swapchain,&mut count,null_mut()) } {
             sys::VK_SUCCESS => { },
@@ -446,7 +500,6 @@ impl System {
         let vk_images = unsafe { std::mem::transmute::<_,Vec<sys::VkImage>>(vk_images) };
 
         // create image views for the swapchain images
-        dprintln!("creating image views onto swap chain images...");
         let mut vk_image_views = Vec::<sys::VkImageView>::new();
         for vk_image in &vk_images {
             let info = sys::VkImageViewCreateInfo {
@@ -488,7 +541,6 @@ impl System {
         }
 
         // create framebuffers for the image views
-        dprintln!("creating frame buffers for the image views...");
         let mut vk_framebuffers = Vec::<sys::VkFramebuffer>::new();
         for vk_image_view in &vk_image_views {
             let info = sys::VkFramebufferCreateInfo {
@@ -521,8 +573,6 @@ impl System {
             }
             vk_framebuffers.push(unsafe { vk_framebuffer.assume_init() });
         }
-
-        dprintln!("success.");
 
         Some(SwapchainResources {
             vk_swapchain,
@@ -624,13 +674,13 @@ impl System {
         }
     }
 
-
     /// Create a graphics pipeline.
     pub fn create_graphics_pipeline<T: Vertex>(
-        &self,
-        pipeline_layout: &PipelineLayout,
-        vertex_shader: &VertexShader,
-        fragment_shader: &FragmentShader,
+        self: &Rc<Self>,
+        window: &Window,
+        pipeline_layout: &Rc<PipelineLayout>,
+        vertex_shader: &Rc<VertexShader>,
+        fragment_shader: &Rc<FragmentShader>,
         topology: PrimitiveTopology,
         restart: PrimitiveRestart,
         patch_control_points: usize,
@@ -651,9 +701,9 @@ impl System {
         blend: Blend,
         write_mask: (bool,bool,bool,bool),
         blend_constant: Color<f32>,
-    ) -> Option<GraphicsPipeline> {
+    ) -> Option<Rc<GraphicsPipeline>> {
 
-        let vertex_base_types = T::get_types();
+        let vertex_base_fields = T::get_fields();
 
         let shaders = [
             sys::VkPipelineShaderStageCreateInfo {
@@ -675,19 +725,21 @@ impl System {
                 pSpecializationInfo: null_mut(),
             }
         ];
+
         let mut location = 0u32;
         let mut stride = 0u32;
         let mut attribute_descriptions: Vec<sys::VkVertexInputAttributeDescription> = Vec::new();
-        for base_type in &vertex_base_types {
+        for (_,ty) in &vertex_base_fields {
             attribute_descriptions.push(sys::VkVertexInputAttributeDescription {
                 location,
                 binding: 0,
-                format: base_type_format(base_type),
+                format: base_type_format(ty),
                 offset: stride,
             });
             location += 1;
-            stride += base_type.size() as u32;
+            stride += ty.size() as u32;
         }
+
         let input = sys::VkPipelineVertexInputStateCreateInfo {
             // TODO: build entirely from T
             sType: sys::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -704,6 +756,7 @@ impl System {
             vertexAttributeDescriptionCount: attribute_descriptions.len() as u32,
             pVertexAttributeDescriptions: attribute_descriptions.as_ptr(),
         };
+
         let assembly = sys::VkPipelineInputAssemblyStateCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
             pNext: null_mut(),
@@ -726,12 +779,14 @@ impl System {
                 PrimitiveRestart::Enabled => sys::VK_TRUE,
             },
         };
+
         let tesselation = sys::VkPipelineTessellationStateCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
             pNext: null_mut(),
             flags: 0,
             patchControlPoints: patch_control_points as u32,
         };
+
         let viewport = sys::VkPipelineViewportStateCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
             pNext: null_mut(),
@@ -741,6 +796,7 @@ impl System {
             scissorCount: 1,
             pScissors: null_mut(),
         };
+
         let depth_clamp = match depth_clamp {
             DepthClamp::Disabled => sys::VK_FALSE,
             DepthClamp::Enabled => sys::VK_TRUE,
@@ -800,6 +856,7 @@ impl System {
             depthBiasSlopeFactor: depth_bias_slope_factor,
             lineWidth: line_width,
         };
+
         let (sample_shading,min_sample_shading) = match sample_shading {
             SampleShading::Disabled => (sys::VK_FALSE,0.0),
             SampleShading::Enabled(min_sample_shading) => (sys::VK_TRUE,min_sample_shading),
@@ -823,6 +880,7 @@ impl System {
             alphaToCoverageEnable: alpha_to_coverage,
             alphaToOneEnable: alpha_to_one,
         };
+
         let (depth_test,depth_compare,(depth_bounds,min_depth_bounds,max_depth_bounds)) = match depth_test {
             DepthTest::Disabled => (sys::VK_FALSE,sys::VK_COMPARE_OP_ALWAYS,(sys::VK_FALSE,0.0,0.0)),
             DepthTest::Enabled(depth_compare,depth_bounds) => (
@@ -843,10 +901,7 @@ impl System {
                 },
             ),
         };
-        let depth_write = match depth_write {
-            DepthWrite::Disabled => sys::VK_FALSE,
-            DepthWrite::Enabled => sys::VK_TRUE,
-        };
+        let depth_write = if depth_write_mask { sys::VK_TRUE } else { sys::VK_FALSE };
         let (
             stencil_test,
             (front_fail,front_pass,front_depth_fail,front_compare,front_compare_mask,front_write_mask,front_reference),
@@ -984,6 +1039,7 @@ impl System {
             minDepthBounds: min_depth_bounds,
             maxDepthBounds: max_depth_bounds,
         };
+
         let (logic_op_enable,logic_op) = match logic_op {
             LogicOp::Disabled => (sys::VK_FALSE,sys::VK_LOGIC_OP_COPY),
             LogicOp::Clear => (sys::VK_TRUE,sys::VK_LOGIC_OP_CLEAR),
@@ -1119,6 +1175,7 @@ impl System {
                 ),
             ),
         };
+        let color_write_mask = if write_mask.0 { 8 } else { 0 } | if write_mask.1 { 4 } else { 0 } | if write_mask.2 { 2 } else { 0 } | if write_mask.3 { 1 } else { 0 };
         let blend = sys::VkPipelineColorBlendStateCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
             pNext: null_mut(),
@@ -1134,10 +1191,11 @@ impl System {
                 srcAlphaBlendFactor: src_alpha,
                 dstAlphaBlendFactor: dst_alpha,
                 alphaBlendOp: alpha_op,
-                colorWriteMask: write_mask as u32,
+                colorWriteMask: color_write_mask,
             },
             blendConstants: [blend_constant.r,blend_constant.g,blend_constant.b,blend_constant.a],
         };
+
         let dynamic = sys::VkPipelineDynamicStateCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
             pNext: null_mut(),
@@ -1148,6 +1206,7 @@ impl System {
             ].as_ptr(),
             dynamicStateCount: 2,
         };
+
         let create_info = sys::VkGraphicsPipelineCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
             pNext: null_mut(),
@@ -1169,6 +1228,7 @@ impl System {
             basePipelineHandle: null_mut(),
             basePipelineIndex: -1,
         };
+
         let mut vk_graphics_pipeline = MaybeUninit::uninit();
         match unsafe { sys::vkCreateGraphicsPipelines(self.gpu.vk_device,null_mut(),1,&create_info,null_mut(),vk_graphics_pipeline.as_mut_ptr()) } {
             sys::VK_SUCCESS => { },
@@ -1178,14 +1238,17 @@ impl System {
             },
         }
 
-        Some(GraphicsPipeline {
-            system: &self,
+        Some(Rc::new(GraphicsPipeline {
+            system: Rc::clone(self),
             vk_graphics_pipeline: unsafe { vk_graphics_pipeline.assume_init() },
-        })
+            vertex_shader: Rc::clone(vertex_shader),
+            fragment_shader: Rc::clone(fragment_shader),
+            pipeline_layout: Rc::clone(pipeline_layout),
+        }))
     }
 
     /// Create a pipeline layout.
-    pub fn create_pipeline_layout(&self) -> Option<PipelineLayout> {
+    pub fn create_pipeline_layout(self: &Rc<Self>) -> Option<Rc<PipelineLayout>> {
 
         let info = sys::VkPipelineLayoutCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -1204,14 +1267,14 @@ impl System {
                 return None;
             },
         }
-        Some(PipelineLayout {
-            system: &self,
+        Some(Rc::new(PipelineLayout {
+            system: Rc::clone(self),
             vk_pipeline_layout: unsafe { vk_pipeline_layout.assume_init() },
-        })
+        }))
     }
 
     /// Create command buffer.
-    pub fn create_command_buffer(self: &Rc<System>) -> Option<CommandBuffer> {
+    pub fn create_command_buffer(self: &Rc<Self>) -> Option<Rc<CommandBuffer>> {
 
         let info = sys::VkCommandBufferAllocateInfo {
             sType: sys::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -1224,10 +1287,13 @@ impl System {
         if unsafe { sys::vkAllocateCommandBuffers(self.gpu.vk_device,&info,vk_command_buffer.as_mut_ptr()) } != sys::VK_SUCCESS {
             return None;
         }
-        Some(CommandBuffer {
+        Some(Rc::new(CommandBuffer {
             system: Rc::clone(self),
             vk_command_buffer: unsafe { vk_command_buffer.assume_init() },
-        })
+            vertex_buffer: Cell::new(None),
+            index_buffer: Cell::new(None),
+            graphics_pipeline: Cell::new(None),
+        }))
     }
 
     /// Wait for wait_semaphore before submitting command buffer to the queue, and signal signal_semaphore when ready.
@@ -1254,7 +1320,7 @@ impl System {
     }
 
     /// Create a shader.
-    pub(crate) fn create_vertex_shader(self: &Rc<System>,code: &[u32]) -> Option<VertexShader> {
+    pub fn create_vertex_shader(self: &Rc<System>,code: &[u8]) -> Option<Rc<VertexShader>> {
         let create_info = sys::VkShaderModuleCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             pNext: null_mut(),
@@ -1273,14 +1339,14 @@ impl System {
         }
         let vk_shader_module = unsafe { vk_shader_module.assume_init() };
 
-        Some(VertexShader {
+        Some(Rc::new(VertexShader {
             system: Rc::clone(self),
             vk_shader_module: vk_shader_module,
-        })
+        }))
     }    
 
     /// Create a fragment shader.
-    pub(crate) fn create_fragment_shader(self: &Rc<System>,code: &[u32]) -> Option<FragmentShader> {
+    pub fn create_fragment_shader(self: &Rc<System>,code: &[u8]) -> Option<Rc<FragmentShader>> {
         let create_info = sys::VkShaderModuleCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             pNext: null_mut(),
@@ -1299,24 +1365,23 @@ impl System {
         }
         let vk_shader_module = unsafe { vk_shader_module.assume_init() };
 
-        Some(FragmentShader {
+        Some(Rc::new(FragmentShader {
             system: Rc::clone(self),
             vk_shader_module: vk_shader_module,
-        })
+        }))
     }
 
     /// create a vertex buffer.
-    pub fn create_vertex_buffer<T: Vertex>(&self,vertices: &Vec<T>) -> Option<VertexBuffer> {
+    pub fn create_vertex_buffer<T: Vertex>(self: &Rc<Self>,vertices: &Vec<T>) -> Option<Rc<VertexBuffer>> {
 
         // obtain vertex info
-        let vertex_base_types = T::get_types();
+        let vertex_base_fields = T::get_fields();
         let mut vertex_stride = 0usize;
-        for base_type in &vertex_base_types {
-            vertex_stride += base_type.size();
+        for (_,ty) in &vertex_base_fields {
+            vertex_stride += ty.size();
         }
 
         // create vertex buffer
-        println!("creating vertex buffer");
         let info = sys::VkBufferCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             pNext: null_mut(),
@@ -1338,7 +1403,6 @@ impl System {
         let vk_buffer = unsafe { vk_buffer.assume_init() };
 
         // allocate shared memory
-        println!("allocating memory");
         let info = sys::VkMemoryAllocateInfo {
             sType: sys::VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             pNext: null_mut(),
@@ -1356,7 +1420,6 @@ impl System {
         let vk_memory = unsafe { vk_memory.assume_init() };
 
         // map memory
-        println!("mapping memory");
         let mut data_ptr = MaybeUninit::<*mut c_void>::uninit();
         match unsafe { sys::vkMapMemory(
             self.gpu.vk_device,
@@ -1373,17 +1436,14 @@ impl System {
             }
         }
         let data_ptr = unsafe { data_ptr.assume_init() } as *mut T;
-        println!("mapped pointer = {:?}",data_ptr);
 
         // copy from the input vertices into data
         unsafe { copy_nonoverlapping(vertices.as_ptr(),data_ptr,vertices.len()) };
 
         // and unmap the memory again
-        println!("unmapping memory");
         unsafe { sys::vkUnmapMemory(self.gpu.vk_device,vk_memory) };
 
         // bind to vertex buffer
-        println!("binding memory buffer to vertex buffer");
         match unsafe { sys::vkBindBufferMemory(self.gpu.vk_device,vk_buffer,vk_memory,0) } {
             sys::VK_SUCCESS => { },
             code => {
@@ -1392,18 +1452,17 @@ impl System {
             }
         }
 
-        Some(VertexBuffer {
-            system: &self,
+        Some(Rc::new(VertexBuffer {
+            system: Rc::clone(self),
             vk_buffer: vk_buffer,
             vk_memory: vk_memory,
-        })
+        }))
     }
 
     /// create an index buffer.
-    pub fn create_index_buffer<T>(&self,indices: &Vec<T>) -> Option<IndexBuffer> {
+    pub fn create_index_buffer<T>(self: &Rc<Self>,indices: &Vec<T>) -> Option<Rc<IndexBuffer>> {
 
         // create index buffer
-        println!("creating index buffer");
         let info = sys::VkBufferCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             pNext: null_mut(),
@@ -1425,7 +1484,6 @@ impl System {
         let vk_buffer = unsafe { vk_buffer.assume_init() };
 
         // allocate shared memory
-        println!("allocating memory");
         let info = sys::VkMemoryAllocateInfo {
             sType: sys::VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             pNext: null_mut(),
@@ -1443,7 +1501,6 @@ impl System {
         let vk_memory = unsafe { vk_memory.assume_init() };
 
         // map memory
-        println!("mapping memory");
         let mut data_ptr = MaybeUninit::<*mut c_void>::uninit();
         match unsafe { sys::vkMapMemory(
             self.gpu.vk_device,
@@ -1460,17 +1517,14 @@ impl System {
             }
         }
         let data_ptr = unsafe { data_ptr.assume_init() } as *mut T;
-        println!("mapped pointer = {:?}",data_ptr);
 
         // copy from the input vertices into data
         unsafe { copy_nonoverlapping(indices.as_ptr(),data_ptr,indices.len()) };
 
         // and unmap the memory again
-        println!("unmapping memory");
         unsafe { sys::vkUnmapMemory(self.gpu.vk_device,vk_memory) };
 
         // bind to vertex buffer
-        println!("binding memory buffer to index buffer");
         match unsafe { sys::vkBindBufferMemory(self.gpu.vk_device,vk_buffer,vk_memory,0) } {
             sys::VK_SUCCESS => { },
             code => {
@@ -1479,15 +1533,15 @@ impl System {
             }
         }
 
-        Some(IndexBuffer {
-            system: &self,
+        Some(Rc::new(IndexBuffer {
+            system: Rc::clone(self),
             vk_buffer: vk_buffer,
             vk_memory: vk_memory,
-        })
+        }))
     }
 
     /// Create a semaphore.
-    pub fn create_semaphore(&self) -> Option<Semaphore> {
+    pub fn create_semaphore(self: &Rc<Self>) -> Option<Rc<Semaphore>> {
 
         let info = sys::VkSemaphoreCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -1502,10 +1556,10 @@ impl System {
                 return None;
             },
         }
-        Some(Semaphore {
-            system: &self,
+        Some(Rc::new(Semaphore {
+            system: Rc::clone(self),
             vk_semaphore: unsafe { vk_semaphore.assume_init() },
-        })
+        }))
     }
 
     /// Drop all GPU-specific resources.

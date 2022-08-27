@@ -1,9 +1,4 @@
-use {
-    crate::*,
-    std::rc::Rc,
-};
-
-fn _gl_basetype_name(ty: sr::BaseType) -> &'static str {
+fn _gl_basetype_name(ty: &sr::BaseType) -> &'static str {
     match ty {
         sr::BaseType::U8 => "uint",
         sr::BaseType::U16 => "uint",
@@ -57,20 +52,67 @@ fn _gl_basetype_name(ty: sr::BaseType) -> &'static str {
     }    
 }
 
-pub fn compile_vertex_shader(items: Vec<sr::Item>,_vertex: &'static str,_vertex_types: Vec<sr::BaseType>) -> Option<String> {
-    println!("compile_vertex_shader called with:");
+pub fn compile_vertex_shader(items: Vec<sr::Item>,vertex: Vec<(String,sr::BaseType)>) -> Option<Vec<u8>> {
+    println!("VERTEX SHADER:\ninput:");
     for item in items {
         println!("{}",item);
     }
-    let r = "TODO".to_string();
-    Some(r)
+
+    // begin rendering
+    let mut r = "#version 450\n".to_string();
+
+    // input locations
+    for i in 0..vertex.len() {
+        r += &format!("layout(location={}) in {} {};\n",i,_gl_basetype_name(&vertex[i].1),vertex[i].0);
+    }
+
+    // TODO: output locations
+    r += "layout(location=0) out vec4 todo;\n";
+
+    // main code
+    r += "void main() {\n";
+
+    // TODO: the actual code
+    r += &format!("    gl_Position = vec4({}.x,{}.y,0.0,1.0);\n",vertex[0].0,vertex[0].0);
+    r += &format!("    todo = {};\n",vertex[1].0);
+
+    r += "}\n";
+
+    // TODO: convert r to raw C string in Vec<u8>
+
+    println!("output:\n{}",r);
+
+    r += "\0";
+    Some(r.into_bytes())
 }
 
-pub fn compile_fragment_shader(items: Vec<sr::Item>) -> Option<String> {
-    println!("compile_fragment_shader called with:");
+pub fn compile_fragment_shader(items: Vec<sr::Item>) -> Option<Vec<u8>> {
+    println!("FRAGMENT SHADER:\ninput:");
     for item in items {
         println!("{}",item);
     }
-    let r = "TODO".to_string();
-    Some(r)
+
+    // begin rendering
+    let mut r = "#version 450\n".to_string();
+
+    // TODO: input locations
+    r += "layout(location=0) in vec4 varying_;\n";
+
+    // TODO: output locations
+    r += "layout(location=0) out vec4 fragment;\n";
+
+    // main code
+    r += "void main() {\n";
+
+    // TODO: the actual code
+    r += "    fragment = varying_;\n";
+
+    r += "}\n";
+
+    println!("output:\n{}",r);
+
+    // TODO: convert r to raw C string in Vec<u8>
+
+    r += "\0";
+    Some(r.into_bytes())
 }

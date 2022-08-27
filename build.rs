@@ -66,8 +66,6 @@ fn main() {
 
     // create header files and system bindings, but not for web
     if let System::Web = system { } else {
-        let out_dir_os = env::var_os("OUT_DIR").unwrap();
-        let out_dir = out_dir_os.into_string().unwrap();
 
         // sys.h: the needed includes
         let header_path = path::Path::new("src/sys/sys.h");

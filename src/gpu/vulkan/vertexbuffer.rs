@@ -1,17 +1,13 @@
 use {
     crate::*,
     std::{
-        ptr::{
-            null_mut,
-            copy_nonoverlapping,
-        },
-        mem::MaybeUninit,
-        ffi::c_void,
+        ptr::null_mut,
+        rc::Rc,
     },
 };
 
-pub struct VertexBuffer<'system> {
-    pub system: &'system System,
+pub struct VertexBuffer {
+    pub system: Rc<System>,
     pub(crate) vk_buffer: sys::VkBuffer,
     pub(crate) vk_memory: sys::VkDeviceMemory,
 }

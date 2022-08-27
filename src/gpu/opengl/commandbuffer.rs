@@ -8,7 +8,7 @@ use {
 };
 
 pub enum Command {
-    BeginRenderPass(Rect<isize,usize>),
+    BeginRenderPass(WindowId,Rect<isize,usize>),
     EndRenderPass,
     BindGraphicsPipeline(Rc<GraphicsPipeline>),
     BindVertexBuffer(Rc<VertexBuffer>),
@@ -34,9 +34,9 @@ impl CommandBuffer {
     }
 
     /// Begin render pass on a rectangle on one of window's framebuffers.
-    pub fn begin_render_pass(&self,_window: &Window,_index: usize,r: Rect<isize,usize>) {
+    pub fn begin_render_pass(&self,window: &Window,_index: usize,r: Rect<isize,usize>) {
         let mut commands = self.commands.borrow_mut();
-        commands.push(Command::BeginRenderPass(r));
+        commands.push(Command::BeginRenderPass(window.id(),r));
     }
 
     /// End render pass.
@@ -94,17 +94,21 @@ impl CommandBuffer {
     }
 
     pub(crate) fn execute(&self) {
-        let mut topology: sys::GLenum = 0;
+        let mut topology: sys::GLenum = sys::GL_POINTS;
         let commands = self.commands.borrow();
         for command in commands.iter() {
             match command {
-                Command::BeginRenderPass(r) => {
-                    // TODO: begin render pass
+                Command::BeginRenderPass(window_id,_) => {
+                    unsafe { sys::glXMakeCurrent(
+                        self.system.xdisplay,
+                        *window_id,
+                        self.system.gpu.glx_context,
+                    ) };
                 },
                 Command::EndRenderPass => {
-                    // TODO: end render pass
                 },
                 Command::BindGraphicsPipeline(graphics_pipeline) => {
+                    topology = graphics_pipeline.topology;
                     // TODO: primitive restart
                     // TODO: patch control points
                     unsafe {
@@ -115,7 +119,7 @@ impl CommandBuffer {
                         else {
                             sys::glDisable(sys::GL_DEPTH_CLAMP);
                         }
-                        if graphics_pipeline.primitive_discard {
+                        if graphics_pipeline.rasterizer_discard {
                             sys::glEnable(sys::GL_RASTERIZER_DISCARD);
                         }
                         else {
@@ -183,12 +187,10 @@ impl CommandBuffer {
                             None => sys::glDisable(sys::GL_COLOR_LOGIC_OP),
                         }
                         match graphics_pipeline.blend {
-                            Some((op,color_src,color_dst,_alpha_src,_alpha_dst)) => {
+                            Some((color_op,color_src,color_dst,alpha_op,alpha_src,alpha_dst)) => {
                                 sys::glEnable(sys::GL_BLEND);
-                                sys::glBlendEquation(op);
-                                // TODO: separate blendfunc and blendequation
-                                //sys::glBlendFuncSeparate(color_src,color_dst,alpha_src,alpha_dst);
-                                sys::glBlendFunc(color_src,color_dst);
+                                sys::glBlendEquationSeparate(color_op,alpha_op);
+                                sys::glBlendFuncSeparate(color_src,color_dst,alpha_src,alpha_dst);
                             },
                             None => sys::glDisable(sys::GL_BLEND),
                         }
@@ -202,14 +204,16 @@ impl CommandBuffer {
                 Command::BindIndexBuffer(index_buffer) => {
                     unsafe { sys::glBindBuffer(sys::GL_ELEMENT_ARRAY_BUFFER,index_buffer.ibo) };
                 },
-                Command::Draw(vertices,instances,first_vertex,first_instance) => {
+                Command::Draw(vertices,_instances,first_vertex,_first_instance) => {
                     // TODO: first_instance not supported
-                    unsafe { sys::glDrawArraysInstanced(topology,*first_vertex as sys::GLint,*vertices as sys::GLsizei,*instances as sys::GLsizei) };
+                    //unsafe { sys::glDrawArraysInstanced(topology,*first_vertex as sys::GLint,*vertices as sys::GLsizei,*instances as sys::GLsizei) };
+                    unsafe { sys::glDrawArrays(topology,*first_vertex as sys::GLint,*vertices as sys::GLsizei) };
                 },
-                Command::DrawIndexed(indices,instances,first_index,vertex_offset,first_instance) => {
+                Command::DrawIndexed(indices,_instances,_first_index,_vertex_offset,_first_instance) => {
                     // TODO: first_instance not supported
                     // TODO: connect to bound instance buffer instead of direct access
-                    unsafe { sys::glDrawElementsInstancedBaseVertex(topology,*indices as sys::GLsizei,sys::GL_UNSIGNED_INT,null_mut(),*instances as sys::GLsizei,*vertex_offset as sys::GLint) };
+                    //unsafe { sys::glDrawElementsInstancedBaseVertex(topology,*indices as sys::GLsizei,sys::GL_UNSIGNED_INT,null_mut(),*instances as sys::GLsizei,*vertex_offset as sys::GLint) };
+                    unsafe { sys::glDrawElements(topology,*indices as sys::GLsizei,sys::GL_UNSIGNED_INT,null_mut()) };
                 },
                 Command::SetViewport(viewport) => {
                     unsafe {

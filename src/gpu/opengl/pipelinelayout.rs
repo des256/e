@@ -8,5 +8,5 @@ use {
 };
 
 pub struct PipelineLayout {
-    pub(crate) system: Rc<System>,
+    pub(crate) _system: Rc<System>,
 }

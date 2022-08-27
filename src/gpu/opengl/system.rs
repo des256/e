@@ -10,10 +10,7 @@ use {
             c_int,
             c_void,
         },
-        ffi::{
-            CStr,
-            CString,
-        },
+        ffi::CStr,
         ptr::null_mut,
         mem::size_of,
     },
@@ -137,6 +134,7 @@ impl System {
     /// Create a graphics pipeline.
     pub fn create_graphics_pipeline<T: Vertex>(
         self: &Rc<System>,
+        _window: &Window,
         pipeline_layout: &Rc<PipelineLayout>,
         vertex_shader: &Rc<VertexShader>,
         fragment_shader: &Rc<FragmentShader>,
@@ -193,7 +191,7 @@ impl System {
             PrimitiveTopology::Patches => sys::GL_PATCHES,
         };
         let gl_depth_clamp = if let DepthClamp::Enabled = depth_clamp { true } else { false };
-        let gl_primitive_discard = if let PrimitiveDiscard::Disabled = primitive_discard { true } else { false };
+        let gl_rasterizer_discard = if let PrimitiveDiscard::Enabled = primitive_discard { true } else { false };
         let gl_polygon_mode = match polygon_mode {
             PolygonMode::Point => sys::GL_POINT,
             PolygonMode::Line => sys::GL_LINE,
@@ -201,11 +199,8 @@ impl System {
         };
         let gl_polygon_offset = match depth_bias {
             DepthBias::Disabled => None,
-            DepthBias::Enabled(c,cl,s) => Some((s,c)),
+            DepthBias::Enabled(c,_cl,s) => Some((s,c)),
         };
-        let mut gl_cull_mode = false;
-        let mut gl_cull_face: sys::GLuint = sys::GL_BACK;
-        let mut gl_front_face: sys::GLuint = sys::GL_CCW;
         let gl_cull_mode = match cull_mode {
             CullMode::None => None,
             CullMode::Front(front) => Some((sys::GL_FRONT,if let FrontFace::Clockwise = front { sys::GL_CW } else { sys::GL_CCW })),
@@ -349,6 +344,13 @@ impl System {
                     BlendFactor::Src1Alpha => sys::GL_SRC1_ALPHA,
                     BlendFactor::OneMinusSrc1Alpha => sys::GL_ONE_MINUS_SRC1_ALPHA,
                 },
+                match alpha_op {
+                    BlendOp::Add => sys::GL_FUNC_ADD,
+                    BlendOp::Subtract => sys::GL_FUNC_SUBTRACT,
+                    BlendOp::ReverseSubtract => sys::GL_FUNC_REVERSE_SUBTRACT,
+                    BlendOp::Min => sys::GL_MIN,
+                    BlendOp::Max => sys::GL_MAX,
+                },
                 match alpha_src {
                     BlendFactor::Zero => sys::GL_ZERO,
                     BlendFactor::One => sys::GL_ONE,
@@ -401,20 +403,20 @@ impl System {
         );
 
         Some(Rc::new(GraphicsPipeline {
-            system: Rc::clone(self),
-            pipeline_layout: Rc::clone(pipeline_layout),
+            _system: Rc::clone(self),
+            _pipeline_layout: Rc::clone(pipeline_layout),
             shader_program: shader_program,
             topology: gl_topology,
-            restart,
-            patch_control_points,
+            _restart: restart,
+            _patch_control_points: patch_control_points,
             depth_clamp: gl_depth_clamp,
-            primitive_discard: gl_primitive_discard,
+            rasterizer_discard: gl_rasterizer_discard,
             polygon_mode: gl_polygon_mode,
             cull_mode: gl_cull_mode,
             polygon_offset: gl_polygon_offset,
             line_width,
-            rasterization_samples,
-            sample_shading,
+            _rasterization_samples: rasterization_samples,
+            _sample_shading: sample_shading,
             sample_alpha_to_coverage: gl_sample_alpha_to_coverage,
             sample_alpha_to_one: gl_sample_alpha_to_one,
             depth_test: gl_depth_test,
@@ -433,7 +435,7 @@ impl System {
         // TODO
 
         Some(Rc::new(PipelineLayout {
-            system: Rc::clone(self),
+            _system: Rc::clone(self),
         }))
     }
 
@@ -454,11 +456,12 @@ impl System {
     }
 
     /// Create a vertex shader.
-    pub fn create_vertex_shader(self: &Rc<System>,code: String) -> Option<Rc<VertexShader>> {
+    pub fn create_vertex_shader(self: &Rc<System>,code: &[u8]) -> Option<Rc<VertexShader>> {
         let vs = unsafe { sys::glCreateShader(sys::GL_VERTEX_SHADER) };
-        let vcstr = CString::new(code.as_bytes()).unwrap();
+        //let vcstr = CString::new(code.as_bytes()).unwrap();
         unsafe {
-            sys::glShaderSource(vs,1,&vcstr.as_ptr(),null_mut());
+            //sys::glShaderSource(vs,1,&vcstr.as_ptr(),null_mut());
+            sys::glShaderSource(vs,1,&code.as_ptr() as *const *const u8 as *const *const i8,null_mut());
             sys::glCompileShader(vs);
         }
         let mut success = sys::GL_FALSE as sys::GLint;
@@ -470,7 +473,7 @@ impl System {
         }
         let c_str: &CStr = unsafe { CStr::from_ptr(info_log.as_ptr()) };
         let str_slice: &str = c_str.to_str().unwrap();
-        if str_slice.len() > 0 { panic!("vertex shader errors:\n{}\nvertex shader source:\n{}",str_slice,code); }
+        if str_slice.len() > 0 { panic!("vertex shader errors:\n{}\nvertex shader source:\n{:?}",str_slice,code); }
         if success != sys::GL_TRUE as sys::GLint { panic!("unable to compile vertex shader"); }
         Some(Rc::new(VertexShader {
             system: Rc::clone(self),
@@ -479,11 +482,12 @@ impl System {
     }    
 
     /// Create a fragment shader.
-    pub fn create_fragment_shader(self: &Rc<System>,code: String) -> Option<Rc<FragmentShader>> {
-        let fs = unsafe { sys::glCreateShader(sys::GL_VERTEX_SHADER) };
-        let vcstr = CString::new(code.as_bytes()).unwrap();
+    pub fn create_fragment_shader(self: &Rc<System>,code: &[u8]) -> Option<Rc<FragmentShader>> {
+        let fs = unsafe { sys::glCreateShader(sys::GL_FRAGMENT_SHADER) };
+        //let vcstr = CString::new(code.as_bytes()).unwrap();
         unsafe {
-            sys::glShaderSource(fs,1,&vcstr.as_ptr(),null_mut());
+            //sys::glShaderSource(fs,1,&vcstr.as_ptr(),null_mut());
+            sys::glShaderSource(fs,1,&code.as_ptr() as *const *const u8 as *const *const i8,null_mut());
             sys::glCompileShader(fs);
         }
         let mut success = sys::GL_FALSE as sys::GLint;
@@ -495,7 +499,7 @@ impl System {
         }
         let c_str: &CStr = unsafe { CStr::from_ptr(info_log.as_ptr()) };
         let str_slice: &str = c_str.to_str().unwrap();
-        if str_slice.len() > 0 { panic!("fragment shader errors:\n{}\nfragment shader source:\n{}",str_slice,code); }
+        if str_slice.len() > 0 { panic!("fragment shader errors:\n{}\nfragment shader source:\n{:?}",str_slice,code); }
         if success != sys::GL_TRUE as sys::GLint { panic!("unable to compile fragment shader"); }
         Some(Rc::new(FragmentShader {
             system: Rc::clone(self),
@@ -508,73 +512,78 @@ impl System {
 
         let mut vao: sys::GLuint = 0;
         let mut vbo: sys::GLuint = 0;
-        let types = T::get_types();
+        let fields = T::get_fields();
         let mut i = 0usize;
-        let mut size = 0usize;
+        let mut size = 0i32;
+        for (_,ty) in &fields {
+            size += ty.size() as i32;
+        }
+        println!("vertex size: {} bytes",size);
+        let mut offset = 0usize;
         unsafe {
             sys::glGenVertexArrays(1,&mut vao);
             sys::glBindVertexArray(vao);
             sys::glGenBuffers(1,&mut vbo);
             sys::glBindBuffer(sys::GL_ARRAY_BUFFER,vbo);
             //sys::glBufferData(sys::GL_ARRAY_BUFFER,1,null_mut() as *const c_void,sys::GL_STATIC_DRAW);
-            for ty in types {
+            for (_,ty) in &fields {
                 sys::glEnableVertexAttribArray(i as u32);
                 match ty {
-                    sr::BaseType::U8 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_BYTE,0,0 as *const sys::GLvoid),
-                    sr::BaseType::U16 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_SHORT,0,0 as *const sys::GLvoid),
-                    sr::BaseType::U32 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_INT,0,0 as *const sys::GLvoid),
+                    sr::BaseType::U8 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_BYTE,size,offset as *const sys::GLvoid),
+                    sr::BaseType::U16 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_SHORT,size,offset as *const sys::GLvoid),
+                    sr::BaseType::U32 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_INT,size,offset as *const sys::GLvoid),
                     //sr::BaseType::U64,
-                    sr::BaseType::I8 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_BYTE,0,0 as *const sys::GLvoid),
-                    sr::BaseType::I16 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_SHORT,0,0 as *const sys::GLvoid),
-                    sr::BaseType::I32 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_INT,0,0 as *const sys::GLvoid),
+                    sr::BaseType::I8 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_BYTE,size,offset as *const sys::GLvoid),
+                    sr::BaseType::I16 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_SHORT,size,offset as *const sys::GLvoid),
+                    sr::BaseType::I32 => sys::glVertexAttribIPointer(i as u32,1,sys::GL_INT,size,offset as *const sys::GLvoid),
                     //sr::BaseType::I64,
-                    sr::BaseType::F16 => sys::glVertexAttribPointer(i as u32,1,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::F32 => sys::glVertexAttribPointer(i as u32,1,sys::GL_FLOAT,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::F64 => sys::glVertexAttribPointer(i as u32,1,sys::GL_DOUBLE,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec2U8 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_UNSIGNED_BYTE,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec2U16 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_UNSIGNED_SHORT,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec2U32 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_UNSIGNED_INT,0,0 as *const sys::GLvoid),
+                    sr::BaseType::F16 => sys::glVertexAttribPointer(i as u32,1,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::F32 => sys::glVertexAttribPointer(i as u32,1,sys::GL_FLOAT,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::F64 => sys::glVertexAttribPointer(i as u32,1,sys::GL_DOUBLE,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec2U8 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_UNSIGNED_BYTE,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec2U16 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_UNSIGNED_SHORT,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec2U32 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_UNSIGNED_INT,size,offset as *const sys::GLvoid),
                     //sr::BaseType::Vec2U64,
-                    sr::BaseType::Vec2I8 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_BYTE,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec2I16 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_SHORT,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec2I32 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_INT,0,0 as *const sys::GLvoid),
+                    sr::BaseType::Vec2I8 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_BYTE,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec2I16 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_SHORT,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec2I32 => sys::glVertexAttribIPointer(i as u32,2,sys::GL_INT,size,offset as *const sys::GLvoid),
                     //sr::BaseType::Vec2I64,
-                    sr::BaseType::Vec2F16 => sys::glVertexAttribPointer(i as u32,2,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec2F32 => sys::glVertexAttribPointer(i as u32,2,sys::GL_FLOAT,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec2F64 => sys::glVertexAttribPointer(i as u32,2,sys::GL_DOUBLE,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec3U8 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_UNSIGNED_BYTE,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec3U16 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_UNSIGNED_SHORT,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec3U32 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_UNSIGNED_INT,0,0 as *const sys::GLvoid),
+                    sr::BaseType::Vec2F16 => sys::glVertexAttribPointer(i as u32,2,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec2F32 => sys::glVertexAttribPointer(i as u32,2,sys::GL_FLOAT,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec2F64 => sys::glVertexAttribPointer(i as u32,2,sys::GL_DOUBLE,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec3U8 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_UNSIGNED_BYTE,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec3U16 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_UNSIGNED_SHORT,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec3U32 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_UNSIGNED_INT,size,offset as *const sys::GLvoid),
                     //sr::BaseType::Vec3U64,
-                    sr::BaseType::Vec3I8 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_BYTE,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec3I16 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_SHORT,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec3I32 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_INT,0,0 as *const sys::GLvoid),
+                    sr::BaseType::Vec3I8 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_BYTE,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec3I16 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_SHORT,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec3I32 => sys::glVertexAttribIPointer(i as u32,3,sys::GL_INT,size,offset as *const sys::GLvoid),
                     //sr::BaseType::Vec3I64,
-                    sr::BaseType::Vec3F16 => sys::glVertexAttribPointer(i as u32,3,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec3F32 => sys::glVertexAttribPointer(i as u32,3,sys::GL_FLOAT,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec3F64 => sys::glVertexAttribPointer(i as u32,3,sys::GL_DOUBLE,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec4U8 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_UNSIGNED_BYTE,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec4U16 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_UNSIGNED_SHORT,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec4U32 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_UNSIGNED_INT,0,0 as *const sys::GLvoid),
+                    sr::BaseType::Vec3F16 => sys::glVertexAttribPointer(i as u32,3,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec3F32 => sys::glVertexAttribPointer(i as u32,3,sys::GL_FLOAT,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec3F64 => sys::glVertexAttribPointer(i as u32,3,sys::GL_DOUBLE,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec4U8 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_UNSIGNED_BYTE,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec4U16 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_UNSIGNED_SHORT,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec4U32 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_UNSIGNED_INT,size,offset as *const sys::GLvoid),
                     //sr::BaseType::Vec4U64,
-                    sr::BaseType::Vec4I8 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_BYTE,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec4I16 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_SHORT,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec4I32 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_INT,0,0 as *const sys::GLvoid),
+                    sr::BaseType::Vec4I8 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_BYTE,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec4I16 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_SHORT,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec4I32 => sys::glVertexAttribIPointer(i as u32,4,sys::GL_INT,size,offset as *const sys::GLvoid),
                     //sr::BaseType::Vec4I64,
-                    sr::BaseType::Vec4F16 => sys::glVertexAttribPointer(i as u32,4,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec4F32 => sys::glVertexAttribPointer(i as u32,4,sys::GL_FLOAT,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::Vec4F64 => sys::glVertexAttribPointer(i as u32,4,sys::GL_DOUBLE,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::ColorU8 => sys::glVertexAttribPointer(i as u32,4,sys::GL_UNSIGNED_BYTE,sys::GL_TRUE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::ColorU16 => sys::glVertexAttribPointer(i as u32,4,sys::GL_UNSIGNED_SHORT,sys::GL_TRUE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::ColorF16 => sys::glVertexAttribPointer(i as u32,4,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::ColorF32 => sys::glVertexAttribPointer(i as u32,4,sys::GL_FLOAT,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
-                    sr::BaseType::ColorF64 => sys::glVertexAttribPointer(i as u32,4,sys::GL_DOUBLE,sys::GL_FALSE as u8,0,0 as *const sys::GLvoid),
+                    sr::BaseType::Vec4F16 => sys::glVertexAttribPointer(i as u32,4,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec4F32 => sys::glVertexAttribPointer(i as u32,4,sys::GL_FLOAT,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::Vec4F64 => sys::glVertexAttribPointer(i as u32,4,sys::GL_DOUBLE,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::ColorU8 => sys::glVertexAttribPointer(i as u32,4,sys::GL_UNSIGNED_BYTE,sys::GL_TRUE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::ColorU16 => sys::glVertexAttribPointer(i as u32,4,sys::GL_UNSIGNED_SHORT,sys::GL_TRUE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::ColorF16 => sys::glVertexAttribPointer(i as u32,4,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::ColorF32 => sys::glVertexAttribPointer(i as u32,4,sys::GL_FLOAT,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
+                    sr::BaseType::ColorF64 => sys::glVertexAttribPointer(i as u32,4,sys::GL_DOUBLE,sys::GL_FALSE as u8,size,offset as *const sys::GLvoid),
                     _ => panic!("type not supported"),
                 }
+                offset += ty.size();
                 i += 1;
-                size += ty.size();
             }
-            sys::glBufferData(sys::GL_ARRAY_BUFFER,(size * vertices.len()) as i64,vertices.as_ptr() as *const c_void,sys::GL_STATIC_DRAW);
+            sys::glBufferData(sys::GL_ARRAY_BUFFER,(size as usize * vertices.len()) as sys::GLsizeiptr,vertices.as_ptr() as *const c_void,sys::GL_STATIC_DRAW);
         }
 
         Some(Rc::new(VertexBuffer {
@@ -590,7 +599,7 @@ impl System {
         unsafe {
             sys::glGenBuffers(1,&mut ibo);
             sys::glBindBuffer(sys::GL_ELEMENT_ARRAY_BUFFER,ibo);
-            sys::glBufferData(sys::GL_ELEMENT_ARRAY_BUFFER,(size_of::<T>() * indices.len()) as sys::GLsizeiptr,indices.as_ptr() as *const c_void,sys::GL_DYNAMIC_DRAW);
+            sys::glBufferData(sys::GL_ELEMENT_ARRAY_BUFFER,(size_of::<T>() * indices.len()) as sys::GLsizeiptr,indices.as_ptr() as *const c_void,sys::GL_STATIC_DRAW);
         }
         Some(Rc::new(IndexBuffer {
             system: Rc::clone(self),

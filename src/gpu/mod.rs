@@ -1,7 +1,7 @@
 use sr;
 
 pub trait Vertex where Self: Sized {
-    fn get_types() -> Vec<sr::BaseType>;
+    fn get_fields() -> Vec<(String,sr::BaseType)>;
 }
 
 pub trait Uniform where Self: Sized {

@@ -6,12 +6,12 @@ use {
     crate::*,
     std::{
         ptr::null_mut,
-        mem::MaybeUninit,
+        rc::Rc,
     },
 };
 
-pub struct PipelineLayout<'system> {
-    pub system: &'system System,
+pub struct PipelineLayout {
+    pub system: Rc<System>,
     pub(crate) vk_pipeline_layout: sys::VkPipelineLayout,
 }
 

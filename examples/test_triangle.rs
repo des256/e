@@ -3,6 +3,8 @@ use {
     std::{
         rc::Rc,
         time::Instant,
+        //io::prelude::*,
+        //fs::File,
     },
     gpu_macros::*,
 };
@@ -40,8 +42,9 @@ fn main() {
     // initial rectangle
     let mut r = Rect { o: Vec2::<isize>::ZERO,s: Vec2::<usize> { x: 640,y: 480, }, };
 
-    // create frame window
     let system = open_system().expect("unable to access system");
+
+    // create frame window
     let mut window = system.create_frame_window(Rect { o: Vec2::<isize> { x: 100,y: 100, },s: r.s, },"test triangle").expect("unable to create frame window");
 
     // get number of associated framebuffers
@@ -81,24 +84,27 @@ fn main() {
 
     // read vertex shader
     //let mut f = File::open("test_triangle_vert.spv").expect("unable to open vertex shader");
-    //let mut b = Vec::<u8>::new();
-    //f.read_to_end(&mut b).expect("unable to read vertex shader");
-    //let vertex_shader = system.create_shader_module(&b).expect("unable to create vertex shader");
+    //let mut code = Vec::<u8>::new();
+    //f.read_to_end(&mut code).expect("unable to read vertex shader");
 
-    // or the new way
-    let vertex_shader = system.create_vertex_shader(my_vertex_shader::code().expect("unable to compile vertex shader")).expect("unable to create vertex shader");
+    let code = my_vertex_shader::code().expect("unable to compile vertex shader");
+
+    // create vertex shader
+    let vertex_shader = system.create_vertex_shader(&code).expect("unable to create vertex shader");
 
     // read fragment shader
     //let mut f = File::open("test_triangle_frag.spv").expect("unable to open fragment shader");
-    //let mut b = Vec::<u8>::new();
-    //f.read_to_end(&mut b).expect("unable to read fragment shader");
-    //let fragment_shader = system.create_shader_module(&b).expect("unable to create fragment shader");
+    //let mut code = Vec::<u8>::new();
+    //f.read_to_end(&mut code).expect("unable to read fragment shader");
 
-    // or the new way
-    let fragment_shader = system.create_fragment_shader(my_fragment_shader::code().expect("unable to compile fragment shader")).expect("unable to create fragment shader");
+    let code = my_fragment_shader::code().expect("unable to compile fragment shader");
+
+    // create fragment shader
+    let fragment_shader = system.create_fragment_shader(&code).expect("unable to create fragment shader");
     
     // create graphics pipeline with this layout
     let graphics_pipeline = system.create_graphics_pipeline::<MyVertex>(
+        &window,
         &pipeline_layout,
         &vertex_shader,
         &fragment_shader,
@@ -138,8 +144,11 @@ fn main() {
         println!("{} FPS",fps);
         time = Instant::now();
 
-        // get all UX events that might have gathered
+        // wait for UX events to happen
+        println!("waiting for UX events...");
+        system.wait();
         let events = system.flush();
+        println!("done waiting.");
 
         // process the UX events
         for (id,event) in events {
@@ -171,13 +180,6 @@ fn main() {
         let cb = &mut command_buffers[index];
         cb.begin();
 
-        // set the viewport and scissor to whatever the current window rectangle is
-        cb.set_viewport(Hyper {
-            o: Vec3::<f32>::ZERO,
-            s: Vec3 { x: r.s.x as f32,y: r.s.y as f32,z: 1.0, },
-        });
-        cb.set_scissor(Rect { o: Vec2::<isize>::ZERO,s: r.s, });
-
         // switch to the shader pipeline (select the shaders and blending, etc.)
         cb.bind_pipeline(&graphics_pipeline);
 
@@ -189,7 +191,16 @@ fn main() {
 
         // render the triangle onto the window's framebuffer
         cb.begin_render_pass(&window,index,Rect { o: Vec2::<isize>::ZERO,s: r.s, });
+
+        cb.set_viewport(Hyper {
+            o: Vec3::<f32>::ZERO,
+            s: Vec3 { x: r.s.x as f32,y: r.s.y as f32,z: 1.0, },
+        });
+
+        cb.set_scissor(Rect { o: Vec2::<isize>::ZERO,s: r.s, });
+
         cb.draw_indexed(6,1,0,0,0);
+        
         cb.end_render_pass();
 
         // end the command buffer
