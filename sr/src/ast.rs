@@ -1,3 +1,5 @@
+use crate::*;
+
 // Literals
 #[allow(dead_code)]
 pub enum Literal {
@@ -21,7 +23,8 @@ pub enum Pat {
 pub enum Type {
     Array(Box<Type>,Box<Expr>),  // array specification `Type[Expr]`
     Tuple(Vec<Type>),  // tuple specification `(Type,...,Type)`
-    Symbol(String),  // defined or built-in type `String`
+    Symbol(String),  // reference to external type
+    BaseType(BaseType),  // built-in type
     Inferred,  // inferred type `_`
 }
 

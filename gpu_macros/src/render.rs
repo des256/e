@@ -1,464 +1,50 @@
 use crate::*;
 
-fn render_type(ty: sr::Type) -> String {
-    match ty {
-        sr::Type::Array(ty,expr) => format!("sr::Type::Array({},{})",render_type(*ty),render_expr(*expr)),
-        sr::Type::Tuple(types) => {
-            let mut r = format!("sr::Type::Tuple(vec![");
-            let mut first_type = true;
-            for ty in types {
-                if !first_type {
-                    r += ",";
-                }
-                r += &render_type(ty);
-                first_type = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Type::Symbol(symbol) => format!("sr::Type::Symbol(\"{}\".to_string())",symbol),
-        sr::Type::Inferred => "sr::Type::Inferred".to_string(),
-    }
-}
 
-fn render_pat(pat: sr::Pat) -> String {
-    match pat {
-        sr::Pat::Wildcard => "sr::Pat::Wildcard".to_string(),
-        sr::Pat::Rest => "sr::Pat::Rest".to_string(),
-        sr::Pat::Literal(literal) => format!("sr::Pat::Literal(\"{}\".to_string())",literal),
-        sr::Pat::Slice(pats) => {
-            let mut r = "sr::Pat::Slice(vec![".to_string();
-            let mut first_pat = true;
-            for pat in pats {
-                if !first_pat {
-                    r += ",";
-                }
-                r += &render_pat(pat);
-                first_pat = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Pat::Symbol(symbol) => format!("sr::Pat::Symbol(\"{}\".to_string())",symbol),
-    }
-}
 
-fn render_expr(expr: sr::Expr) -> String {
-    match expr {
-        sr::Expr::Literal(literal) => format!("sr::Expr::Literal(\"{}\".to_string())",literal),
-        sr::Expr::Symbol(symbol) => format!("sr::Expr::Symbol(\"{}\".to_string())",symbol),
-        sr::Expr::AnonArray(exprs) => {
-            let mut r = "sr::Expr::AnonArray(vec![".to_string();
-            let mut first_expr = true;
-            for expr in exprs {
-                if !first_expr {
-                    r += ",";
-                }
-                r += &render_expr(expr);
-                first_expr = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Expr::AnonTuple(exprs) => {
-            let mut r = "sr::Expr::AnonTuple(vec![".to_string();
-            let mut first_expr = true;
-            for expr in exprs {
-                if !first_expr {
-                    r += ",";
-                }
-                r += &render_expr(expr);
-                first_expr = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Expr::AnonCloned(expr,expr2) => format!("sr::Expr::AnonCloned(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Struct(symbol,fields) => {
-            let mut r = format!("sr::Expr::Struct(\"{}\".to_string(),vec![",symbol);
-            let mut first_field = true;
-            for (symbol,expr) in fields {
-                if !first_field {
-                    r += ",";
-                }
-                r += &format!("(\"{}\".to_string(),{})",symbol,render_expr(expr));
-                first_field = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Expr::Tuple(symbol,exprs) => {
-            let mut r = format!("sr::Expr::Tuple(\"{}\".to_string(),vec![",symbol);
-            let mut first_expr = true;
-            for expr in exprs {
-                if !first_expr {
-                    r += ",";
-                }
-                r += &render_expr(expr);
-                first_expr = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Expr::Field(expr,symbol) => format!("sr::Expr::Field(Box::new({}),\"{}\".to_string())",render_expr(*expr),symbol),
-        sr::Expr::Index(expr,expr2) => format!("sr::Expr::Index(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Call(expr,exprs) => {
-            let mut r = format!("sr::Expr::Call(Box::new({}),vec![",render_expr(*expr));
-            let mut first_expr = true;
-            for expr in exprs {
-                if !first_expr {
-                    r += ",";
-                }
-                r += &render_expr(expr);
-                first_expr = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Expr::Error(expr) => format!("sr::Expr::Error(Box::new({}))",render_expr(*expr)),
-        sr::Expr::Cast(expr,ty) => format!("sr::Expr::Cast(Box::new({}),Box::new({}))",render_expr(*expr),render_type(*ty)),
-        sr::Expr::Neg(expr) => format!("sr::Expr::Neg(Box::new({}))",render_expr(*expr)),
-        sr::Expr::Not(expr) => format!("sr::Expr::Not(Box::new({}))",render_expr(*expr)),
-        sr::Expr::Mul(expr,expr2) => format!("sr::Expr::Mul(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Div(expr,expr2) => format!("sr::Expr::Div(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Mod(expr,expr2) => format!("sr::Expr::Mod(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Add(expr,expr2) => format!("sr::Expr::Add(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Sub(expr,expr2) => format!("sr::Expr::Sub(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Shl(expr,expr2) => format!("sr::Expr::Shl(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Shr(expr,expr2) => format!("sr::Expr::Shr(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::And(expr,expr2) => format!("sr::Expr::And(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Xor(expr,expr2) => format!("sr::Expr::Xor(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Or(expr,expr2) => format!("sr::Expr::Or(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Eq(expr,expr2) => format!("sr::Expr::Eq(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::NotEq(expr,expr2) => format!("sr::Expr::NotEq(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Gt(expr,expr2) => format!("sr::Expr::Gt(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::NotGt(expr,expr2) => format!("sr::Expr::NotGt(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Lt(expr,expr2) => format!("sr::Expr::Lt(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::NotLt(expr,expr2) => format!("sr::Expr::NotLt(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::LogAnd(expr,expr2) => format!("sr::Expr::LogAnd(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::LogOr(expr,expr2) => format!("sr::Expr::LogOr(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Assign(expr,expr2) => format!("sr::Expr::Assign(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::AddAssign(expr,expr2) => format!("sr::Expr::AddAssign(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::SubAssign(expr,expr2) => format!("sr::Expr::SubAssign(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::MulAssign(expr,expr2) => format!("sr::Expr::MulAssign(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::DivAssign(expr,expr2) => format!("sr::Expr::DivAssign(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::ModAssign(expr,expr2) => format!("sr::Expr::ModAssign(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::AndAssign(expr,expr2) => format!("sr::Expr::AndAssign(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::XorAssign(expr,expr2) => format!("sr::Expr::XorAssign(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::OrAssign(expr,expr2) => format!("sr::Expr::OrAssign(Box::new({}),Box::new({}))",render_expr(*expr),render_expr(*expr2)),
-        sr::Expr::Block(stats) => {
-            let mut r = "sr::Expr::Block(vec![".to_string();
-            let mut first_stat = true;
-            for stat in stats {
-                if !first_stat {
-                    r += ",";
-                }
-                r += &render_stat(stat);
-                first_stat = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Expr::Continue => "sr::Expr::Continue".to_string(),
-        sr::Expr::Break(expr) => {
-            let mut r = "sr::Expr::Break(".to_string();
-            if let Some(expr) = expr {
-                r += &format!("Some(Box::new({}))",render_expr(*expr));
-            }
-            else {
-                r += "None";
-            }
-            r += ")";
-            r
-        },
-        sr::Expr::Return(expr) => {
-            let mut r = "sr::Expr::Return(".to_string();
-            if let Some(expr) = expr {
-                r += &format!("Some(Box::new({}))",render_expr(*expr));
-            }
-            else {
-                r += "None";
-            }
-            r += ")";
-            r
-        },
-        sr::Expr::Loop(stats) => {
-            let mut r = "sr::Expr::Loop(vec![".to_string();
-            let mut first_stat = true;
-            for stat in stats {
-                if !first_stat {
-                    r += ",";
-                }
-                r += &render_stat(stat);
-                first_stat = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Expr::For(pat,expr,stats) => {
-            let mut r = format!("sr::Expr::For({},Box::new({}),vec![",render_pat(pat),render_expr(*expr));
-            let mut first_stat = true;
-            for stat in stats {
-                if !first_stat {
-                    r += ",";
-                }
-                r += &render_stat(stat);
-                first_stat = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Expr::If(expr,stats,else_expr) => {
-            let mut r = format!("sr::Expr::If(Box::new({}),vec![",render_expr(*expr));
-            let mut first_stat = true;
-            for stat in stats {
-                if !first_stat {
-                    r += ",";
-                }
-                r += &render_stat(stat);
-                first_stat = false;
-            }
-            r += "],";
-            if let Some(expr) = else_expr {
-                r += &format!("Some(Box::new({}))",render_expr(*expr));
-            }
-            else {
-                r += "None";
-            }
-            r += ")";
-            r
-        },
-        sr::Expr::IfLet(pats,expr,stats,else_expr) => {
-            let mut r = "sr::Expr::IfLet(vec![".to_string();
-            let mut first_pat = true;
-            for pat in pats {
-                if !first_pat {
-                    r += ",";
-                }
-                r += &render_pat(pat);
-                first_pat = false;
-            }
-            r += &format!("],Box::new({}),vec![",render_expr(*expr));
-            let mut first_stat = true;
-            for stat in stats {
-                if !first_stat {
-                    r += ",";
-                }
-                r += &render_stat(stat);
-                first_stat = false;
-            }
-            r += "],";
-            if let Some(expr) = else_expr {
-                r += &format!("Some(Box::new({}))",render_expr(*expr));
-            }
-            else {
-                r += "None";
-            }
-            r += ")";
-            r
-        },
-        sr::Expr::While(expr,stats) => {
-            let mut r = format!("sr::Expr::While(Box::new({}),vec![",render_expr(*expr));
-            let mut first_stat = true;
-            for stat in stats {
-                if !first_stat {
-                    r += ",";
-                }
-                r += &render_stat(stat);
-                first_stat = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Expr::WhileLet(pats,expr,stats) => {
-            let mut r = "sr::Expr::WhileLet(vec![".to_string();
-            let mut first_pat = true;
-            for pat in pats {
-                if !first_pat {
-                    r += ",";
-                }
-                r += &render_pat(pat);
-                first_pat = false;
-            }
-            r += &format!("],Box::new({}),vec![",render_expr(*expr));
-            let mut first_stat = true;
-            for stat in stats {
-                if !first_stat {
-                    r += ",";
-                }
-                r += &render_stat(stat);
-                first_stat = false;
-            }
-            r += "])";
-            r
-        },
-        sr::Expr::Match(expr,arms) => {
-            let mut r = format!("sr::Expr::Match(Box::new({}),vec![",render_expr(*expr));
-            let mut first_arm = true;
-            for (pats,is_expr,expr) in arms {
-                if !first_arm {
-                    r += ",";
-                }
-                r += "(vec![";
-                let mut first_pat = true;
-                for pat in pats {
-                    if !first_pat {
-                        r += ",";
-                    }
-                    r += &render_pat(pat);
-                    first_pat = false;
-                }
-                r += "],";
-                if let Some(expr) = is_expr {
-                    r += &format!("Some(Box::new({}))",render_expr(*expr));
-                }
-                else {
-                    r += "None";
-                }
-                r += &format!(",Box::new({}))",render_expr(*expr));
-                first_arm = false;
-            }
-            r += "])";
-            r
-        },
-    }
-}
+pub(crate) fn render_vertex_trait(ident: &str,fields: &Vec<(String,Type)>) -> String {
 
-fn render_stat(stat: sr::Stat) -> String {
-    match stat {
-        sr::Stat::Expr(expr) => format!("sr::Stat::Expr(Box::new({}))",render_expr(*expr)),
-        sr::Stat::Let(pat,ty,expr) => {
-            let mut r = format!("sr::Stat::Let({}",render_pat(pat));
-            if let Some(ty) = ty {
-                r += &format!(",Some(Box::new({}))",render_type(*ty));
-            }
-            else {
-                r += ",None";
-            }
-            if let Some(expr) = expr {
-                r += &format!(",Some(Box::new({}))",render_expr(*expr));
-            }
-            else {
-                r += ",None";
-            }
-            r += ")";
-            r
-        },
-    }
-}
-
-fn render_function(symbol: String,params: Vec<(sr::Pat,Box<sr::Type>)>,return_ty: Option<Box<sr::Type>>,stats: Vec<sr::Stat>,) -> String {
-    let mut r = String::new();
-    r += &format!("sr::Item::Function(\"{}\".to_string(),vec![",symbol);
-    let mut first_param = true;
-    for (pat,ty) in params {
-        if !first_param {
-            r += ",";
+    // make sure all fields are base types
+    let mut out_fields: Vec<(String,BaseType)> = Vec::new();
+    for (ident,r#type) in fields {
+        if let Type::Base(base_type) = *r#type {
+            out_fields.push((*ident,base_type));
         }
-        r += &format!("({},Box::new({}))",&render_pat(pat),&render_type(*ty));
-        first_param = false;
     }
-    r += "],";
-    if let Some(return_ty) = return_ty {
-        r += &format!("Some(Box::new({})),",&render_type(*return_ty));
-    }
-    else {
-        r += "None,";
-    }
-    r += "vec![";
-    let mut first_stat = true;
-    for stat in stats {
-        if !first_stat {
-            r += ",";
+
+    let mut r = format!("impl Vertex for {} {{\n",ident);
+    r += "    fn get_fields() -> Vec<(String,BaseType)> {{\n";
+    r += "        vec![\n";
+    let mut first_type = true;
+    for (ident,base_type) in out_fields {
+        if !first_type {
+            r += ",\n";
         }
-        r += &render_stat(stat);
-        first_stat = false;
+        r += &format!("            (\"{}\".to_string(),BaseType::{})",ident,base_type.variant());
+        first_type = false;
     }
-    r += "])";
+    r += "        ]\n";
+    r += "    }\n";
+    r += "}";
     r
 }
 
-pub(crate) fn render_vertex_trait(item: sr::Item) -> String {
-    if let sr::Item::Struct(symbol,fields) = item {
-        let mut out_fields: Vec<(String,sr::BaseType)> = Vec::new();
-        for (name,ty) in fields {
-            if let sr::Type::Symbol(symbol) = *ty {
-                if let Some(base_type) = sr::BaseType::from_rust(&symbol) {
-                    out_fields.push((name,base_type));
-                }
-                else {
-                    panic!("only base types allowed (not {})",symbol);
-                }
-            }
-            else {
-                panic!("only base types allowed");
-            }
-        }
-        let mut r = format!("impl Vertex for {} {{ fn get_fields() -> Vec<(String,sr::BaseType)> {{ vec![",symbol);
-        let mut first_type = true;
-        for (name,ty) in out_fields {
-            if !first_type {
-                r += ",";
-            }
-            r += &format!("(\"{}\".to_string(),sr::BaseType::{})",name,ty.variant());
-            first_type = false;
-        }
-        r += "] } }";
-        r
-    }
-    else {
-        panic!("Vertex can only be derived from structs");
-    }
-}
-
-pub(crate) fn render_vertex_shader(item: sr::Item,vertex: String) -> String {
-    let (symbol,items) = if let sr::Item::Module(symbol,items) = item {
-        (symbol,items)
-    }
-    else {
-        panic!("vertex shader should be module");
-    };
-    let mut r = format!("pub mod {} {{ use super::*; pub fn code() -> Option<Vec<u8>> {{ compile_vertex_shader(vec![",symbol);
-    let mut first_function = true;
-    for item in items {
-        if !first_function {
-            r += ",";
-        }
-        let (symbol,params,return_ty,stats) = if let sr::Item::Function(symbol,params,return_ty,stats) = item {
-            (symbol,params,return_ty,stats)
-        }
-        else {
-            panic!("vertex shader module can only contain functions");
-        };
-        r += &render_function(symbol,params,return_ty,stats);
-        first_function = false;
-    }
-    r += &format!("],{}::get_fields()) }} }}",vertex);
+pub(crate) fn render_vertex_shader(module: &Module,vertex: &str) -> String {
+    let mut r = format!("pub mod {} {{\n",module.ident);
+    r += "    use super::*;\n\n";
+    r += "    pub fn code() -> Option<Vec<u8>> {{\n";
+    r += &format!("        compile_vertex_shader({},\"{}\",{}::get_fields())\n",render_module(module),vertex,vertex);
+    r += "    }}\n";
+    r += "}}\n";
     r
 }
 
-pub(crate) fn render_fragment_shader(item: sr::Item) -> String {
-    let (symbol,items) = if let sr::Item::Module(symbol,items) = item {
-        (symbol,items)
-    }
-    else {
-        panic!("fragment shader should be module");
-    };
-    let mut r = format!("pub mod {} {{ use super::*; pub fn code() -> Option<Vec<u8>> {{ compile_fragment_shader(vec![",symbol);
-    let mut first_function = true;
-    for item in items {
-        if !first_function {
-            r += ",";
-        }
-        let (symbol,params,return_ty,stats) = if let sr::Item::Function(symbol,params,return_ty,stats) = item {
-            (symbol,params,return_ty,stats)
-        }
-        else {
-            panic!("vertex shader module can only contain functions");
-        };
-        r += &render_function(symbol,params,return_ty,stats);
-        first_function = false;
-    }
-    r += "]) } }";
+pub(crate) fn render_fragment_shader(module: &Module) -> String {
+    let mut r = format!("pub mod {} {{\n",module.ident);
+    r += "    use super::*;\n\n";
+    r += "    pub fn code() -> Option<Vec<u8>> {{\n";
+    r += &format!("        compile_fragment_shader({})\n",render_module(module));
+    r += "    }}\n";
+    r += "}}\n";
     r
 }

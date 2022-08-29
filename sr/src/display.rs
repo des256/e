@@ -322,6 +322,7 @@ impl Display for Type {
                 write!(f,")")
             },
             Type::Symbol(symbol) => write!(f,"{}",symbol),
+            Type::BaseType(base_type) => write!(f,"{}",base_type.to_rust()),
             Type::Inferred => write!(f,"_"),
         }
     }

@@ -1,432 +1,230 @@
-# Reduced Rust Grammar
+# Revised Reduced Rust Grammar
 
-Ultimately we want to describe shaders in Rust, so this grammar is without:
+## Shader
 
-- macros
-- module hierarchy
-- use declarations
-- lifetimes
-- traits
-- closures
-- where clauses
-- methods and implementations
-- async/await
-- labels
-- type aliasing, only fixed type names
-- generics
-- references
-- pointers
-- function types
+shader = module_def | function_def .
 
-And ignore:
+## Commonly Used
 
-- InnerAttribute = `#` `!` `[` Attr `]` .
-- OuterAttribute = `#` `[` Attr `]` .
-- Visibility = `pub` [ `(` `crate` | `self` | `super` | ( `in` SimplePath ) `)` ] .
-- unsafe keyword
+ident_types = [ IDENT ':' type { ',' IDENT ':' type } [ ',' ] ] .
 
-Also, the Rust compiler itself is compiling the shader too, so this parser will not have to fix errors, only generate a parse tree.
+paren_ident_types = '(' ident_types ')' .
 
-Are we going to support structures from elsewhere to be accessible here? No, due to limitations of rustc.
+brace_ident_types = '{' ident_types '}' .
 
-How can we specify input and output formats from the shaders then? By using fixed types in tuples.
+types = [ type { ',' type } [ ',' ] ] .
 
-The fixed types are (and should be the same outside the shader):
+paren_types = '(' types ')' .
 
-    bool
-    u8
-    u16
-    u32
-    u64
-    i8
-    i16
-    i32
-    i64
-    f16
-    f32
-    f64
-    Vec2<bool>
-    Vec2<u8>
-    Vec2<u16>
-    Vec2<u32>
-    Vec2<u64>
-    Vec2<i8>
-    Vec2<i16>
-    Vec2<i32>
-    Vec2<i64>
-    Vec2<f16>
-    Vec2<f32>
-    Vec2<f64>
-    Vec3<bool>
-    Vec3<u8>
-    Vec3<u16>
-    Vec3<u32>
-    Vec3<u64>
-    Vec3<i8>
-    Vec3<i16>
-    Vec3<i32>
-    Vec3<i64>
-    Vec3<f16>
-    Vec3<f32>
-    Vec3<f64>
-    Vec4<bool>
-    Vec4<u8>
-    Vec4<u16>
-    Vec4<u32>
-    Vec4<u64>
-    Vec4<i8>
-    Vec4<i16>
-    Vec4<i32>
-    Vec4<i64>
-    Vec4<f16>
-    Vec4<f32>
-    Vec4<f64>
-    Color<u8>
-    Color<u16>
-    Color<u32>
-    Color<u64>
-    Color<f16>
-    Color<f32>
-    Color<f64>
-    Mat2<f32>
-    Mat2<f64>
-    Mat2x3<f32>
-    Mat2x3<f64>
-    Mat2x4<f32>
-    Mat2x4<f64>
-    Mat3x2<f32>
-    Mat3x2<f64>
-    Mat3<f32>
-    Mat3<f64>
-    Mat3x4<f32>
-    Mat3x4<f64>
-    Mat4x2<f32>
-    Mat4x2<f64>
-    Mat4x3<f32>
-    Mat4x3<f64>
-    Mat4<f32>
-    Mat4<f64>
+exprs = [ expr { ',' expr } [ ',' ] ] .
 
-How to deal with Uniform structures?
+paren_exprs = '(' exprs ')' .
 
-How to deal with Uniform arrays?
+bracket_exprs = '[' exprs ']' .
 
-Perhaps it is possible to supply types in the macro attribute that implement Vertex, Uniform, Varying or Fragment traits. And then bind these as layouts in the resulting shader code (GLSL, MSL, etc.), and pass through down to the graphics pipeline as well.
+brace_field_exprs = '{' [ FIELD ':' expr { ',' FIELD ':' expr } [ ',' ] ] '}' .
 
-Specify vertex_shader and fragment_shader separately, and have fixed parameters:
+brace_field_pats = '{' [ ( FIELD [ ':' pat ] | '_' { ',' FIELD [ ':' pat ] | '_' } [ ',' [ '..' ] ] ) | '..' ] '}' .
 
-vertex_shader: [Uniform,...],Vertex,Varying
-fragment_shader: [Uniform,...],Varying,Fragment
+paren_pats = '(' [ ( pat | '_' { ',' pat | '_' } [ ',' [ '..' ] ] ) | '..' ] ')' .
 
-possible to implement Uniform on arrays as well as structs?
-
-enum Literal {
-    Bool(bool),
-    Char(char),
-    String(String),
-    Byte(u8),
-    ByteString(Vec<u8>),
-    Integer(u64),
-    Float(f64),
-}
-
-We implement stuff in stages. Structs later, enums later or maybe not, ranges later.
-
-## Pats
-
-enum PatField {
-    Ident(String),
-    Index(usize,Pat),
-    Field(String,Pat),  // later
-}
-
-enum Pat {
-    Wildcard,
-    Rest,
-    Literal(Literal),
-    Tuple(Vec<Pat>),
-    Slice(Vec<Pat>),
-    Struct(String,Vec<PatField>),  // later
-    TupleStruct(String,Vec<Pat>),
-    Ident(String),
-    Range(Pat,Pat),  // later
-}
-
-### Grammar
-
-StructPatField =
-    ( TUPLE_INDEX `:` Pat ) |
-    ( IDENT `:` Pat ) |
-    ( [ `ref` ] [ `mut` ] IDENT ) .
-
-PrimaryPat =
-    `_` |
-    `..` |
-    `true` |
-    `false` |
-    `'C'` |
-    `b'C'` |
-    `"STRING"` |
-    `b"STRING"` |
-    `r#"STRING"#` |
-    `br#"STRING"#` |
-    ( [ `-` ] DEC_LITERAL | OCT_LITERAL | HEX_LITERAL | BIN_LITERAL | FLOAT_LITERAL ) .
-    ( `(` [
-        `..` |
-        ( Pat { `,` Pat } [ `,` ] )
-    ] `)` ) |
-    ( `[` [ Pat { `,` Pat } [ `,` ] ] `]` ) |
-    ( IDENT [
-        ( `@` Pat ) |
-        ( `{` [ StructPatField { `,` StructPatField } ] [ `,` `..` ] `}` ) |  // later
-        ( `(` [ Pat { `,` Pat } [ `,` ] ] `)` )
-    ] ) |
-
-Pat = PrimaryPat [ `..=`
-    `'C'` |
-    `b'C'` |
-    IDENT |
-    ( [ `-` ] DEC_LITERAL | OCT_LITERAL | HEX_LITERAL | BIN_LITERAL | FLOAT_LITERAL )
-] .
-
-## Types
-
-enum Type {
-    Tuple(Vec<Type>),
-    Array(Type,Expr),
-    Ident(String),
-    Never,
-    Inferred,
-}
-
-### Grammar
-
-Type = 
-    ( `(` [ Type { `,` Type } [ `,` ] ] `)` ) |
-    ( `[` Type [ `;` Expr ] `]` ) |
-    IDENT |
-    `!` |
-    `_` .
-
-## Exprs
-
-enum ExprField {  // later
-    LiteralExpr(Literal,Expr),
-    IdentExpr(String,Expr),
-    Ident(String),
-}
-
-enum Expr {
-    Literal(Literal),
-    Ident(String),
-    Array(Vec<Expr>),
-    Cloned(Expr,Expr),
-    Tuple(Vec<Expr>),
-    EnumStruct(Expr,Vec<ExprField>,Option<Expr>),  // later
-    EnumTuple(Expr,Vec<Expr>),
-    Enum(Expr),
-    TupleIndex(Expr,usize),
-    Field(Expr,String),
-    Index(Expr,Expr),
-    Call(Expr,Vec<Expr>),
-    Error(Expr),
-    Neg(Expr),
-    Not(Expr),
-    Cast(Expr,Type),
-    Mul(Expr,Expr),
-    Div(Expr,Expr),
-    Mod(Expr,Expr),
-    Add(Expr,Expr),
-    Sub(Expr,Expr),
-    Shl(Expr,Expr),
-    Shr(Expr,Expr),
-    And(Expr,Expr),
-    Xor(Expr,Expr),
-    Or(Expr,Expr),
-    Eq(Expr,Expr),
-    NotEq(Expr,Expr),
-    Gt(Expr,Expr),
-    NotGt(Expr,Expr),
-    Lt(Expr,Expr),
-    NotLt(Expr,Expr),
-    LogAnd(Expr,Expr),
-    LogOr(Expr,Expr),
-    RangeFromTo(Expr,Expr),  // later
-    RangeFromToIncl(Expr,Expr),  // later
-    RangeFrom(Expr),  // later
-    RangeTo(Expr),  // later
-    RangeToIncl(Expr),  // later
-    Range,  // later
-    Assign(Expr,Expr),
-    AddAssign(Expr,Expr),
-    SubAssign(Expr,Expr),
-    MulAssign(Expr,Expr),
-    DivAssign(Expr,Expr),
-    ModAssign(Expr,Expr),
-    AndAssign(Expr,Expr),
-    XorAssign(Expr,Expr),
-    OrAssign(Expr,Expr),
-    Block(Vec<Stat>),
-    Continue,
-    Break(Option<Expr>),
-    Return(Option<Expr>),
-    Loop(Vec<Stat>),
-    For(Pat,Expr,Vec<Stat>),
-    IfLet(Vec<Pat>,Expr,Vec<Stat>,Option<Expr>),
-    If(Expr,Vec<Stat>,Option<Expr>),
-    WhileLet(Vec<Pat>,Expr,Vec<Stat>),
-    While(Expr,Vec<Stat>),
-    Match(Expr,Vec<Arm>),
-}
-
-### Grammar
-
-LiteralExpr =
-    `true` |
-    `false` |
-    `'C'` |
-    `b'C'` |
-    `"STRING"` |
-    `b"STRING"` |
-    `r#"STRING"#` |
-    `br#"STRING"#` |
-    ( DEC_LITERAL | OCT_LITERAL | HEX_LITERAL | BIN_LITERAL | FLOAT_LITERAL ) .
-
-PrimaryExpr =
-    LiteralExpr |
-    IDENT .
-
-ExprField =  // later
-    IDENT |
-    ( IDENT | TUPLE_INDEX `:` Expr ) .
-
-StructExprStruct = PrimaryExpr `{` [ ( ExprField { `,` ExprField } [ `,` `..` Expr [ `,` ] ] ) | `..` Expr ] `}` .  // later
-
-EnumExprStruct = PrimaryExpr `{` [ ExprField { `,` ExprField } [ `,` ] ] `}` .  // later
-
-ExprTuple = PrimaryExpr `(` [ Expr { `,` Expr } [ `,` ] ] `)` .
-
-DirectExpr =
-    ( `[` [ Expr { `,` Expr } [ `,` ] [ `;` Expr ] ] `]` ) |
-    ( `(` [ Expr { `,` Expr } [ `,` ] ] `)` ) |
-    StructExprStruct |  // later
-    EnumExprStruct |  // later
-    ExprTuple |
-    PrimaryExpr .
-
-TupleIndexingExpr = DirectExpr { `.` TUPLE_INDEX } .
-
-FieldExpr = TupleIndexingExpr { `.` IDENT } .  // only for .x, .y, .r, etc.
-
-IndexExpr = FieldExpr { `[` Expr `]` } .
-
-CallParams = Expr { `,` Expr } [ `,` ] .
-CallExpr = IndexExpr { `(` [ CallParams ] `)` } .
-
-ErrorPropagationExpr = CallExpr { `?` } .
-
-NegationExpr = { `-` | `!` } ErrorPropagationExpr .
-
-TypeCastExpr = NegationExpr { `as` Type } .
-
-MulExpr = TypeCastExpr { `*` | `/` | `%` TypeCastExpr } .
-
-AddExpr = MulExpr { `+` | `-` MulExpr } .
-
-ShiftExpr = AddExpr { `<<` | `>>` AddExpr } .
-
-AndExpr = ShiftExpr { `&` ShiftExpr } .
-
-XorExpr = AndExpr { `^` AndExpr } .
-
-OrExpr = XorExpr { `|` XorExpr } .
-
-ComparisonExpr = OrExpr { `==` | `!=` | `>` | `<` | `>=` | `<=` OrExpr } .
-
-LogAndExpr = ComparisonExpr { `&&` ComparisonExpr } .
-
-LogOrExpr = LogAndExpr { `||` LogAndExpr } .
-
-RangeFromToExpr = LogOrExpr [ `..` LogOrExpr ] .  // later
-RangeFromExpr = LogOrExpr [ `..` ] .  // later
-RangeToExpr = `..` LogOrExpr .  // later
-RangeFullExpr = `..` .  // later
-RangeInclusiveExpr = LogOrExpr [ `..=` LogOrExpr ] .  // later
-RangeToInclusiveExpr = `..=` LogOrExpr .  // later
-RangeExpr = RangeFromToExpr | RangeFromExpr | RangeToExpr | RangeFullExpr | RangeInclusiveExpr | RangeToInclusiveExpr .  // later
-
-//AssignmentExpr = RangeExpr [ `=` | `+=` | `-=` | `*=` | `/=` | `%=` | `&=` | `|=` | `^=` | `<<=` | `>>=` RangeExpr ] .  // later
-AssignmentExpr = LogOrExpr [ `=` | `+=` | `-=` | `*=` | `/=` | `%=` | `&=` | `|=` | `^=` | `<<=` | `>>=` LogOrExpr ] .
-
-IfExpr = `if` Expr `{` { Stat } `}` [ `else` ( `{` { Stat } `}` ) | IfExpr | IfLetExpr ] .
-
-IfLetExpr = `if` `let` [ `|` ] Pat { `|` Pat } `=` Expr `{` { Stat } `}` [ `else` ( `{` { Stat } `}` ) | IfExpr | IfLetExpr ] .
-
-MatchArm = [ `|` ] Pat { `|` Pat } [ `if` Expr ] `=>` Expr .
-
-Expr =
-    AssignmentExpr |
-    `continue` |
-    ( `break` [ Expr ] ) |
-    ( `return` [ Expr ] ) |
-    ( `{` { Stat } `}` ) |
-    ( `loop` `{` { Stat } `}` ) |
-    ( `while` Expr `{` { Stat } `}` ) |
-    ( `while` `let` [ `|` ] Pat { `|` Pat } `=` Expr `{` { Stat } `}` ) |
-    ( `for` Pat `in` Expr `{` { Stat } `}` ) |
-    IfExpr |
-    IfLetExpr |
-    ( `match` Expr `{` [ { MatchArm `,` } MatchArm [ `,` ] ] `}` ) .
-
-## Stats
-
-ExprStat = Expr [ `;` ] .
-
-LetStat = `let` Pat [ `:` Type ] [ `=` Expr ] `;` .
-
-Stat = `;` | Item | LetStat | ExprStat .
+bracket_pats = '[' { pat [ ',' ] } ']' .
 
 ## Items
 
-enum Variant {  // later
-    Ident(String),
-    IdentExpr(String,Expr),
-    Struct(String,Vec<(String,Type)>),
-    Tuple(String,Vec<Type>),
-}
+function_def = 'fn' IDENT paren_ident_types [ '->' type ] block .
 
-enum Item {
-    Module(String,Vec<Item>),
-    Function(String,Vec<(Pat,Type)>,Option<Type>,Vec<Stat>),
-    Struct(String,Vec<(String,Type)>),  // later
-    Tuple(String,Vec<Type>),
-    Enum(String,Vec<Variant>),  // later
-    Union(String,Vec<(String,Type)>),  // later
-    Constant(Option<String>,Type,Expr),  // later
-    Static(String,Type,Expr),  // later
-}
+struct_def = 'struct' IDENT brace_ident_types .
 
-### Grammar
+tuple_def = 'struct' IDENT paren_types .
 
-Module = `mod` IDENT `;` | ( `{` { Item } `}` ) .
+variant = IDENT [ brace_ident_types | paren_types | ( '=' NUMBER ) ] .
 
-Function = `fn` IDENT `(` [ Pat `:` Type { `,` Pat `:` Type } [ `,` ] ] `)` [ `->` Type ] `{` { Stat } `}` .
+enum_def = 'enum' IDENT '{' [ variant { ',' variant } [ ',' ] ] '}' .
 
-StructStruct = `struct` IDENT ( `{` [ IDENT `:` Type { `,` IDENT `:` Type } [ `,` ] ] `}` ) | `;` .
+const_def = 'const' IDENT ':' type '=' expr .
 
-TupleStruct = `struct` IDENT `(` [ Type { `,` Type } [ `,` ] ] `)` `;` .
+module_def = 'mod' IDENT '{' { function_def | struct_def | tuple_def | enum_def | const_def } '}' .
 
-EnumItem = IDENT [
-    ( `(` [ Type { `,` Type } [ `,` ] ] `)` ) |
-    ( `{` [ IDENT `:` Type { `,` IDENT `:` Type } [ `,` ] ] `}` ) |
-    ( `=` Expr )
-] .
-Enum = `enum` IDENT `{` [ EnumItem { `,` EnumItem } [ `,` ] ] `}` .
+## Literals and Identifiers
 
-Union = `union` IDENT `{` IDENT `:` Type { `,` IDENT `:` Type } [ `,` ] `}` .
+BOOLEAN = 'true' | 'false' .    
 
-Constant = `const` IDENT | `_` `:` Type `=` Expr `;` .
+NUMBER = numeric literal
 
-Static = `static` [ `mut` ] IDENT `:` Type `=` Expr `;` .
+FIELD = field name
 
-Item = Module | Function | StructStruct | TupleStruct | Enum | Union | Constant | Static .
+GLOBAL = global variable name
+
+LOCAL = local variable name
+
+PARAM = function parameter name
+
+CONST = global constant name
+
+FUNCTION = function name
+
+BASETYPE = base shader type (see elsewhere)
+
+STRUCT = name of a struct
+
+TUPLE = name of a tuple
+
+ENUM = name of an enum
+
+## Types
+
+type = 
+    '_' |
+    BASETYPE |
+    STRUCT |
+    TUPLE |
+    ENUM |
+    ( '[' type ']' ) |
+    paren_types .
+
+## Patterns
+
+pat =
+    '_' |
+    BOOLEAN |
+    NUMBER |
+    CONST |
+    ( IDENT [ brace_field_pats | paren_pats ] ) |
+    bracket_pats |
+    paren_pats |
+    ( ENUM '::' VARIANT [ brace_field_pats | paren_pats ] ) .
+
+ranged_pat = pat [ '..=' pat ] .
+
+pats = [ '|' ] ranged_pat { '|' ranged_pat } .
+
+## Expressions
+
+array = bracket_exprs .
+
+cloned_array = '[' expr ';' expr ']' .
+
+struct = STRUCT brace_field_exprs .
+
+tuple = TUPLE paren_exprs .
+
+anon_tuple = paren_exprs .
+
+struct_enum = brace_field_exprs .
+
+tuple_enum = paren_exprs .
+
+enum = ENUM '::' VARIANT [ struct_enum | tuple_enum ] .
+
+call = FUNCTION paren_exprs .
+
+primary =
+    BOOLEAN |
+    NUMBER |
+    GLOBAL |
+    LOCAL |
+    PARAM |
+    CONST |
+    array |
+    cloned_array |
+    struct |
+    tuple |
+    anon_tuple |
+    enum |
+    call .
+
+postfix_field = '.' FIELD .
+
+pustfix_tuple = '.' NUMBER .
+
+postfix_index = '[' expr ']' .
+
+postfix_cast = 'as' type .
+
+postfix = primary {
+    postfix_field |
+    postfix_tuple |
+    postfix_index |
+    postfix_cast
+} .
+
+prefix = { '-' | '!' } postfix .
+
+mul = prefix { '*' | '/' | '%' prefix } .
+
+add = mul { '+' | '-' mul } .
+
+shift = add { '<<' | '>>' add } .
+
+and = shift { '&' shift } .
+
+or = and { '|' and } .
+
+xor = or { '^' or } .
+
+comp = xor { '==' | '!=' | '>' | '<' | '>=' | '<=' xor } .
+
+logand = comp { '&&' comp } .
+
+logor = logand { '||' logand } .
+
+assign = logor { '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' logor } .
+
+continue = 'continue' .
+
+break = 'break' [ expr ] .
+
+return = 'return' [ expr ] .
+
+block = '{' { stat } [ expr ] '}' .
+
+if = 'if' expr block [ 'else' else ] .
+
+if_let = 'if' 'let' pats '=' expr block [ 'else' else ] .
+
+else = block | if | if_let .
+
+loop = 'loop' block .
+
+range_from_to = expr '..' expr .
+
+range_from_to_incl = expr '..=' expr .
+
+range_from = expr '..' .
+
+range_to = '..' expr .
+
+range_to_incl = '..=' expr .
+
+range = '..' .
+
+for = 'for' pats 'in' range block .
+
+while = 'while' expr block .
+
+while_let = 'while' 'let' pats '=' expr block .
+
+match = 'match' expr '{' { pats [ 'if' expr ] '=>' expr [ ',' ] } '}' .
+
+expr =
+    assign |
+    continue |
+    break |
+    return |
+    block |
+    if |
+    if_let |
+    loop |
+    for |
+    while |
+    while_let |
+    match .
+
+## Statements
+
+let = 'let' pat [ ':' type ] '=' expr ';' .
+
+expr_stat = expr ';' .
+
+stat = let | expr_stat .
