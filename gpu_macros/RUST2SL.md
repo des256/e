@@ -1,77 +1,24 @@
-use std::collections::HashMap;
+# Rust to SPIR-V, GLSL, HLSL and MSL
 
-pub enum BaseType {
-    Bool,
-    U8,
-    U16,
-    U32,
-    U64,
-    I8,
-    I16,
-    I32,
-    I64,
-    F16,
-    F32,
-    F64,
-    Vec2Bool,
-    Vec2U8,
-    Vec2U16,
-    Vec2U32,
-    Vec2U64,
-    Vec2I8,
-    Vec2I16,
-    Vec2I32,
-    Vec2I64,
-    Vec2F16,
-    Vec2F32,
-    Vec2F64,
-    Vec3Bool,
-    Vec3U8,
-    Vec3U16,
-    Vec3U32,
-    Vec3U64,
-    Vec3I8,
-    Vec3I16,
-    Vec3I32,
-    Vec3I64,
-    Vec3F16,
-    Vec3F32,
-    Vec3F64,
-    Vec4Bool,
-    Vec4U8,
-    Vec4U16,
-    Vec4U32,
-    Vec4U64,
-    Vec4I8,
-    Vec4I16,
-    Vec4I32,
-    Vec4I64,
-    Vec4F16,
-    Vec4F32,
-    Vec4F64,
-    ColorU8,
-    ColorU16,
-    ColorF16,
-    ColorF32,
-    ColorF64,
-}
+## Types
 
-pub enum Literal {
-    Boolean(bool),
-    Integer(u64),
-    Double(f64),
-}
+The base types have direct mapping to all shading languages.
 
-pub enum Type {
-    Inferred,
-    Base(BaseType),
-    Ident(String),  // unknown type, should be resolved to Struct, Tuple or Enum
-    Struct(String),
-    Tuple(String),
-    Enum(String),
-    Array(Box<Type>,Box<Expr>),
-    AnonTuple(Vec<Type>),
-}
+Tuples can be refactored into structs with systematic names. Structs also
+have a direct mapping to all shading languages.
+
+Arrays seem to be available in all shading languages as well.
+
+Enums will be harder, might be refactored into structs with systematic names.
+
+## Literals
+
+All literals are supported everywhere.
+
+## Patterns, For, If Let, While Let and Match
+
+This is the hardest problem to solve.
+
 
 pub enum IdentPat {
     Wildcard,
