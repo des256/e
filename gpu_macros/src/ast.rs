@@ -82,8 +82,8 @@ pub enum IdentPat {
 
 pub enum VariantPat {
     Naked(String),
-    Struct(String,Vec<IdentPat>),
     Tuple(String,Vec<Pat>),
+    Struct(String,Vec<IdentPat>),
 }
 
 pub enum Pat {
@@ -102,8 +102,8 @@ pub enum Pat {
 
 pub enum VariantExpr {
     Naked(String),
-    Struct(String,Vec<(String,Expr)>),
     Tuple(String,Vec<Expr>),
+    Struct(String,Vec<(String,Expr)>),
 }
 
 pub struct Block {
@@ -123,7 +123,7 @@ pub enum Range {
 
 pub enum Expr {
     Literal(Literal),
-    Ident(String),  // unknown identifier, resolves to Local, Param or Const
+    Ident(String),  // unknown identifier, resolves to Global, Local, Param or Const
     Local(String),
     Param(String),
     Const(String),
@@ -189,8 +189,8 @@ pub enum Stat {
 
 pub enum Variant {
     Naked(String),
-    Struct(String,Vec<(String,Type)>),
     Tuple(String,Vec<Type>),
+    Struct(String,Vec<(String,Type)>),
 }
 
 pub struct Module {
@@ -201,7 +201,3 @@ pub struct Module {
     pub enums: HashMap<String,Vec<Variant>>,
     pub consts: HashMap<String,(Type,Expr)>,
 }
-
-// replace ident with according local, param, const
-// detuplication
-// render out pattern matching for if let, while let and patch
