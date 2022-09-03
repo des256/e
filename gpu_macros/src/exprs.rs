@@ -8,8 +8,14 @@ impl Parser {
     fn parse_primary_expr(&mut self) -> Expr {
 
         // Literal
-        if let Some(literal) = self.literal() {
-            Expr::Literal(literal)
+        if let Some(value) = self.boolean_literal() {
+            Expr::Boolean(value)
+        }
+        else if let Some(value) = self.integer_literal() {
+            Expr::Integer(value)
+        }
+        else if let Some(value) = self.float_literal() {
+            Expr::Float(value)
         }
 
         // Local, Param, Const, Struct, Tuple, Variant, Call
@@ -86,13 +92,8 @@ impl Parser {
                 }
 
                 // Tuple
-                else if let Some(literal) = self.literal() {
-                    if let Literal::Integer(i) = literal {
-                        expr = Expr::TupleIndex(Box::new(expr),i);
-                    }
-                    else {
-                        panic!("tuple index should be integer");
-                    }
+                else if let Some(value) = self.integer_literal() {
+                    expr = Expr::TupleIndex(Box::new(expr),value);
                 }
 
                 else {
@@ -191,12 +192,12 @@ impl Parser {
 
             // Shl
             if self.punct2('<','<') {
-                expr = Expr::Add(Box::new(expr),Box::new(self.parse_add_expr()));
+                expr = Expr::Shl(Box::new(expr),Box::new(self.parse_add_expr()));
             }
 
             // Shr
             else if self.punct2('>','>') {
-                expr = Expr::Sub(Box::new(expr),Box::new(self.parse_add_expr()));
+                expr = Expr::Shr(Box::new(expr),Box::new(self.parse_add_expr()));
             }
 
             else {
@@ -540,7 +541,7 @@ impl Parser {
                 }
             }
             else {
-                panic!("{{ expected");
+                panic!("{}","{ expected");
             }
             Expr::Match(Box::new(expr),arms)
         }

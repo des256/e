@@ -1,71 +1,16 @@
-use std::collections::HashMap;
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+};
 
-pub enum BaseType {
-    Bool,
-    U8,
-    U16,
-    U32,
-    U64,
-    I8,
-    I16,
-    I32,
-    I64,
-    F16,
-    F32,
-    F64,
-    Vec2Bool,
-    Vec2U8,
-    Vec2U16,
-    Vec2U32,
-    Vec2U64,
-    Vec2I8,
-    Vec2I16,
-    Vec2I32,
-    Vec2I64,
-    Vec2F16,
-    Vec2F32,
-    Vec2F64,
-    Vec3Bool,
-    Vec3U8,
-    Vec3U16,
-    Vec3U32,
-    Vec3U64,
-    Vec3I8,
-    Vec3I16,
-    Vec3I32,
-    Vec3I64,
-    Vec3F16,
-    Vec3F32,
-    Vec3F64,
-    Vec4Bool,
-    Vec4U8,
-    Vec4U16,
-    Vec4U32,
-    Vec4U64,
-    Vec4I8,
-    Vec4I16,
-    Vec4I32,
-    Vec4I64,
-    Vec4F16,
-    Vec4F32,
-    Vec4F64,
-    ColorU8,
-    ColorU16,
-    ColorF16,
-    ColorF32,
-    ColorF64,
-}
-
-pub enum Literal {
-    Boolean(bool),
-    Integer(u64),
-    Double(f64),
-}
-
+#[derive(Clone,Debug,PartialEq)]
 pub enum Type {
     Inferred,
-    Base(BaseType),
-    Ident(String),  // unknown type, should be resolved to Struct, Tuple or Enum
+    Integer,
+    Float,
+    Void,
+    Base(sr::BaseType),
+    Ident(String),
     Struct(String),
     Tuple(String),
     Enum(String),
@@ -73,6 +18,25 @@ pub enum Type {
     AnonTuple(Vec<Type>),
 }
 
+/*impl PartialEq for Type {
+    fn eq(&self,other: &Type) -> bool {
+        match self {
+            Type::Inferred => if let Type::Inferred = other { true } else { false },
+            Type::Integer => if let Type::Integer = other { true } else { false },
+            Type::Float => if let Type::Float = other { true } else { false },
+            Type::Void => if let Type::Void = other { true } else { false },
+            Type::Base(base_type) => if let Type::Base(base_type) = other { true } else { false },
+            Type::Ident(ident) => if let Type::Ident(ident) = other { true } else { false },
+            Type::Struct(ident) => if let Type::Struct(ident) = other { true } else { false },
+            Type::Tuple(ident) => if let Type::Tuple(ident) = other { true } else { false },
+            Type::Enum(ident) => if let Type::Enum(ident) = other { true } else { false },
+            Type::Array(ty,expr) => if let Type::Array(ty,expr) = other { true } else { false },
+            Type::AnonTuple(types) => if let Type::AnonTuple(types) = other { true } else { false },
+        }
+    }
+}*/
+
+#[derive(Clone,Debug,PartialEq)]
 pub enum IdentPat {
     Wildcard,
     Rest,
@@ -80,18 +44,22 @@ pub enum IdentPat {
     IdentPat(String,Pat),
 }
 
+#[derive(Clone,Debug,PartialEq)]
 pub enum VariantPat {
     Naked(String),
     Tuple(String,Vec<Pat>),
     Struct(String,Vec<IdentPat>),
 }
 
+#[derive(Clone,Debug,PartialEq)]
 pub enum Pat {
     Wildcard,
     Rest,
-    Literal(Literal),
-    Const(String),
-    Ident(String),  // unknown pattern, either resolves to Const, or remains a matchable identifier
+    Boolean(bool),
+    Integer(u64),
+    Float(f64),
+    Ident(String),
+    Const(String,Type),
     Struct(String,Vec<IdentPat>),
     Tuple(String,Vec<Pat>),
     Array(Vec<Pat>),
@@ -100,17 +68,20 @@ pub enum Pat {
     Range(Box<Pat>,Box<Pat>),
 }
 
+#[derive(Clone,Debug,PartialEq)]
 pub enum VariantExpr {
     Naked(String),
     Tuple(String,Vec<Expr>),
     Struct(String,Vec<(String,Expr)>),
 }
 
+#[derive(Clone,Debug,PartialEq)]
 pub struct Block {
     pub stats: Vec<Stat>,
     pub expr: Option<Box<Expr>>,
 }
 
+#[derive(Clone,Debug,PartialEq)]
 pub enum Range {
     Only(Box<Expr>),
     FromTo(Box<Expr>,Box<Expr>),
@@ -121,12 +92,15 @@ pub enum Range {
     All,
 }
 
+#[derive(Clone,Debug,PartialEq)]
 pub enum Expr {
-    Literal(Literal),
+    Boolean(bool),
+    Integer(u64),
+    Float(f64),
     Ident(String),  // unknown identifier, resolves to Global, Local, Param or Const
-    Local(String),
-    Param(String),
-    Const(String),
+    Local(String,Type),
+    Param(String,Type),
+    Const(String,Type),
     Array(Vec<Expr>),
     Cloned(Box<Expr>,Box<Expr>),
     Struct(String,Vec<(String,Expr)>),
@@ -182,22 +156,26 @@ pub enum Expr {
     Match(Box<Expr>,Vec<(Vec<Pat>,Option<Box<Expr>>,Box<Expr>)>),
 }
 
+#[derive(Clone,Debug,PartialEq)]
 pub enum Stat {
     Let(Pat,Option<Type>,Box<Expr>),
     Expr(Box<Expr>),
 }
 
+#[derive(Clone,Debug)]
 pub enum Variant {
     Naked(String),
     Tuple(String,Vec<Type>),
     Struct(String,Vec<(String,Type)>),
 }
 
+#[derive(Clone,Debug)]
 pub struct Module {
     pub ident: String,
-    pub functions: HashMap<String,(Vec<(String,Type)>,Option<Type>,Block)>,
-    pub structs: HashMap<String,Vec<(String,Type)>>,
-    pub tuples: HashMap<String,Vec<Type>>,
-    pub enums: HashMap<String,Vec<Variant>>,
-    pub consts: HashMap<String,(Type,Expr)>,
+    pub functions: RefCell<HashMap<String,(Vec<(String,Type)>,RefCell<Type>,RefCell<Block>)>>,
+    pub structs: RefCell<HashMap<String,Vec<(String,RefCell<Type>)>>>,
+    pub tuples: RefCell<HashMap<String,Vec<RefCell<Type>>>>,
+    pub enums: RefCell<HashMap<String,Vec<Variant>>>,
+    pub consts: RefCell<HashMap<String,(RefCell<Type>,RefCell<Expr>)>>,
+    pub anon_tuple_count: RefCell<usize>,
 }

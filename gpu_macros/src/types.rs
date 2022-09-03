@@ -9,36 +9,36 @@ impl Parser {
         // identifier (base type or anything named)
         if let Some(ident) = self.ident() {
             match ident.as_str() {
-                "bool" => Type::Base(BaseType::Bool),
-                "u8" => Type::Base(BaseType::U8),
-                "u16" => Type::Base(BaseType::U16),
-                "u32" => Type::Base(BaseType::U32),
-                "u64" => Type::Base(BaseType::U64),
-                "i8" => Type::Base(BaseType::I8),
-                "i16" => Type::Base(BaseType::I16),
-                "i32" => Type::Base(BaseType::I32),
-                "i64" => Type::Base(BaseType::I64),
-                "f16" => Type::Base(BaseType::F16),
-                "f32" => Type::Base(BaseType::F32),
-                "f64" => Type::Base(BaseType::F64),
+                "bool" => Type::Base(sr::BaseType::Bool),
+                "u8" => Type::Base(sr::BaseType::U8),
+                "u16" => Type::Base(sr::BaseType::U16),
+                "u32" => Type::Base(sr::BaseType::U32),
+                "u64" => Type::Base(sr::BaseType::U64),
+                "i8" => Type::Base(sr::BaseType::I8),
+                "i16" => Type::Base(sr::BaseType::I16),
+                "i32" => Type::Base(sr::BaseType::I32),
+                "i64" => Type::Base(sr::BaseType::I64),
+                "f16" => Type::Base(sr::BaseType::F16),
+                "f32" => Type::Base(sr::BaseType::F32),
+                "f64" => Type::Base(sr::BaseType::F64),
                 "Vec2" => {
                     if !self.punct('<') {
                         panic!("< expected after Vec2");
                     }
                     if let Some(ident) = self.ident() {
                         let result = match ident.as_str() {
-                            "bool" => Type::Base(BaseType::Vec2Bool),
-                            "u8" => Type::Base(BaseType::Vec2U8),
-                            "u16" => Type::Base(BaseType::Vec2U16),
-                            "u32" => Type::Base(BaseType::Vec2U32),
-                            "u64" => Type::Base(BaseType::Vec2U64),
-                            "i8" => Type::Base(BaseType::Vec2I8),
-                            "i16" => Type::Base(BaseType::Vec2I16),
-                            "i32" => Type::Base(BaseType::Vec2I32),
-                            "i64" => Type::Base(BaseType::Vec2I64),
-                            "f16" => Type::Base(BaseType::Vec2F16),
-                            "f32" => Type::Base(BaseType::Vec2F32),
-                            "f64" => Type::Base(BaseType::Vec2F64),
+                            "bool" => Type::Base(sr::BaseType::Vec2Bool),
+                            "u8" => Type::Base(sr::BaseType::Vec2U8),
+                            "u16" => Type::Base(sr::BaseType::Vec2U16),
+                            "u32" => Type::Base(sr::BaseType::Vec2U32),
+                            "u64" => Type::Base(sr::BaseType::Vec2U64),
+                            "i8" => Type::Base(sr::BaseType::Vec2I8),
+                            "i16" => Type::Base(sr::BaseType::Vec2I16),
+                            "i32" => Type::Base(sr::BaseType::Vec2I32),
+                            "i64" => Type::Base(sr::BaseType::Vec2I64),
+                            "f16" => Type::Base(sr::BaseType::Vec2F16),
+                            "f32" => Type::Base(sr::BaseType::Vec2F32),
+                            "f64" => Type::Base(sr::BaseType::Vec2F64),
                             _ => panic!("Vec2<> can not be made from {}",ident),
                         };
                         if !self.punct('>') {
@@ -56,18 +56,18 @@ impl Parser {
                     }
                     if let Some(ident) = self.ident() {
                         let result = match ident.as_str() {
-                            "bool" => Type::Base(BaseType::Vec3Bool),
-                            "u8" => Type::Base(BaseType::Vec3U8),
-                            "u16" => Type::Base(BaseType::Vec3U16),
-                            "u32" => Type::Base(BaseType::Vec3U32),
-                            "u64" => Type::Base(BaseType::Vec3U64),
-                            "i8" => Type::Base(BaseType::Vec3I8),
-                            "i16" => Type::Base(BaseType::Vec3I16),
-                            "i32" => Type::Base(BaseType::Vec3I32),
-                            "i64" => Type::Base(BaseType::Vec3I64),
-                            "f16" => Type::Base(BaseType::Vec3F16),
-                            "f32" => Type::Base(BaseType::Vec3F32),
-                            "f64" => Type::Base(BaseType::Vec3F64),
+                            "bool" => Type::Base(sr::BaseType::Vec3Bool),
+                            "u8" => Type::Base(sr::BaseType::Vec3U8),
+                            "u16" => Type::Base(sr::BaseType::Vec3U16),
+                            "u32" => Type::Base(sr::BaseType::Vec3U32),
+                            "u64" => Type::Base(sr::BaseType::Vec3U64),
+                            "i8" => Type::Base(sr::BaseType::Vec3I8),
+                            "i16" => Type::Base(sr::BaseType::Vec3I16),
+                            "i32" => Type::Base(sr::BaseType::Vec3I32),
+                            "i64" => Type::Base(sr::BaseType::Vec3I64),
+                            "f16" => Type::Base(sr::BaseType::Vec3F16),
+                            "f32" => Type::Base(sr::BaseType::Vec3F32),
+                            "f64" => Type::Base(sr::BaseType::Vec3F64),
                             _ => panic!("Vec3<> can not be made from {}",ident),
                         };
                         if !self.punct('>') {
@@ -85,18 +85,18 @@ impl Parser {
                     }
                     if let Some(ident) = self.ident() {
                         let result = match ident.as_str() {
-                            "bool" => Type::Base(BaseType::Vec4Bool),
-                            "u8" => Type::Base(BaseType::Vec4U8),
-                            "u16" => Type::Base(BaseType::Vec4U16),
-                            "u32" => Type::Base(BaseType::Vec4U32),
-                            "u64" => Type::Base(BaseType::Vec4U64),
-                            "i8" => Type::Base(BaseType::Vec4I8),
-                            "i16" => Type::Base(BaseType::Vec4I16),
-                            "i32" => Type::Base(BaseType::Vec4I32),
-                            "i64" => Type::Base(BaseType::Vec4I64),
-                            "f16" => Type::Base(BaseType::Vec4F16),
-                            "f32" => Type::Base(BaseType::Vec4F32),
-                            "f64" => Type::Base(BaseType::Vec4F64),
+                            "bool" => Type::Base(sr::BaseType::Vec4Bool),
+                            "u8" => Type::Base(sr::BaseType::Vec4U8),
+                            "u16" => Type::Base(sr::BaseType::Vec4U16),
+                            "u32" => Type::Base(sr::BaseType::Vec4U32),
+                            "u64" => Type::Base(sr::BaseType::Vec4U64),
+                            "i8" => Type::Base(sr::BaseType::Vec4I8),
+                            "i16" => Type::Base(sr::BaseType::Vec4I16),
+                            "i32" => Type::Base(sr::BaseType::Vec4I32),
+                            "i64" => Type::Base(sr::BaseType::Vec4I64),
+                            "f16" => Type::Base(sr::BaseType::Vec4F16),
+                            "f32" => Type::Base(sr::BaseType::Vec4F32),
+                            "f64" => Type::Base(sr::BaseType::Vec4F64),
                             _ => panic!("Vec4<> can not be made from {}",ident),
                         };
                         if !self.punct('>') {
@@ -114,11 +114,11 @@ impl Parser {
                     }
                     if let Some(ident) = self.ident() {
                         let result = match ident.as_str() {
-                            "u8" => Type::Base(BaseType::ColorU8),
-                            "u16" => Type::Base(BaseType::ColorU16),
-                            "f16" => Type::Base(BaseType::ColorF16),
-                            "f32" => Type::Base(BaseType::ColorF32),
-                            "f64" => Type::Base(BaseType::ColorF64),
+                            "u8" => Type::Base(sr::BaseType::ColorU8),
+                            "u16" => Type::Base(sr::BaseType::ColorU16),
+                            "f16" => Type::Base(sr::BaseType::ColorF16),
+                            "f32" => Type::Base(sr::BaseType::ColorF32),
+                            "f64" => Type::Base(sr::BaseType::ColorF64),
                             _ => panic!("Color<> can not be made from {}",ident),
                         };
                         if !self.punct('>') {
@@ -150,7 +150,7 @@ impl Parser {
         }
 
         else {
-            panic!("type expected");
+            panic!("type expected (instead of {:?})",self.current);
         }
     }
 }

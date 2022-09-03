@@ -233,6 +233,7 @@ impl Parser {
     pub(crate) fn parse_ident_types(&mut self) -> Vec<(String,Type)> {
         let mut ident_types: Vec<(String,Type)> = Vec::new();
         while !self.done() {
+            self.keyword("pub");  // just skip it if it occurs here
             let ident = self.ident().expect("identifier expected");
             if !self.punct(':') {
                 panic!(": expected");
@@ -258,7 +259,7 @@ impl Parser {
             parser.parse_ident_types()
         }
         else {
-            panic!("{ expected");
+            panic!("{}","{ expected");
         }
     }
 
@@ -293,15 +294,6 @@ impl Parser {
 
     pub(crate) fn parse_paren_exprs(&mut self) -> Option<Vec<Expr>> {
         if let Some(mut parser) = self.group('(') {
-            Some(parser.parse_exprs())
-        }
-        else {
-            None
-        }
-    }
-
-    pub(crate) fn parse_bracket_exprs(&mut self) -> Option<Vec<Expr>> {
-        if let Some(mut parser) = self.group('[') {
             Some(parser.parse_exprs())
         }
         else {
@@ -386,31 +378,47 @@ impl Parser {
         }
     }
 
-    pub(crate) fn literal(&mut self) -> Option<Literal> {
-        let result = match &self.current {
-            Some(TokenTree::Ident(ident)) => {
-                match ident.to_string().as_str() {
-                    "true" => Some(Literal::Boolean(true)),
-                    "false" => Some(Literal::Boolean(false)),    
-                    _ => None,
-                }
-            },
-            Some(TokenTree::Literal(literal)) => {
-                if let Ok(value) = literal.to_string().parse::<u64>() {
-                    Some(Literal::Integer(value))
-                }
-                else if let Ok(value) = literal.to_string().parse::<f64>() {
-                    Some(Literal::Double(value))
-                }
-                else {
-                    None
-                }
-            },
-            _ => None,
-        };
-        if let Some(_) = result {
+    pub(crate) fn boolean_literal(&mut self) -> Option<bool> {
+        if self.keyword("true") {
             self.consume();
+            Some(true)
         }
-        result
+        else if self.keyword("false") {
+            self.consume();
+            Some(false)
+        }
+        else {
+            None
+        }
+    }
+
+    pub(crate) fn integer_literal(&mut self) -> Option<u64> {
+        if let Some(TokenTree::Literal(literal)) = &self.current {
+            if let Ok(value) = literal.to_string().parse::<u64>() {
+                self.consume();
+                Some(value)
+            }
+            else {
+                None
+            }
+        }
+        else {
+            None
+        }
+    }
+
+    pub(crate) fn float_literal(&mut self) -> Option<f64> {
+        if let Some(TokenTree::Literal(literal)) = &self.current {
+            if let Ok(value) = literal.to_string().parse::<f64>() {
+                self.consume();
+                Some(value)
+            }
+            else {
+                None
+            }
+        }
+        else {
+            None
+        }
     }
 }

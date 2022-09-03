@@ -1,4 +1,6 @@
+#[derive(Clone,Debug,PartialEq)]
 pub enum BaseType {
+    Bool,
     U8,
     U16,
     U32,
@@ -10,6 +12,7 @@ pub enum BaseType {
     F16,
     F32,
     F64,
+    Vec2Bool,
     Vec2U8,
     Vec2U16,
     Vec2U32,
@@ -21,6 +24,7 @@ pub enum BaseType {
     Vec2F16,
     Vec2F32,
     Vec2F64,
+    Vec3Bool,
     Vec3U8,
     Vec3U16,
     Vec3U32,
@@ -32,6 +36,7 @@ pub enum BaseType {
     Vec3F16,
     Vec3F32,
     Vec3F64,
+    Vec4Bool,
     Vec4U8,
     Vec4U16,
     Vec4U32,
@@ -53,6 +58,7 @@ pub enum BaseType {
 impl BaseType {
     pub fn size(&self) -> usize {
         match self {
+            BaseType::Bool => 1,
             BaseType::U8 => 1,
             BaseType::U16 => 2,
             BaseType::U32 => 4,
@@ -64,6 +70,7 @@ impl BaseType {
             BaseType::F16 => 2,
             BaseType::F32 => 4,
             BaseType::F64 => 8,
+            BaseType::Vec2Bool => 2,
             BaseType::Vec2U8 => 2,
             BaseType::Vec2U16 => 4,
             BaseType::Vec2U32 => 8,
@@ -75,6 +82,7 @@ impl BaseType {
             BaseType::Vec2F16 => 4,
             BaseType::Vec2F32 => 8,
             BaseType::Vec2F64 => 16,
+            BaseType::Vec3Bool => 3,
             BaseType::Vec3U8 => 3,
             BaseType::Vec3U16 => 6,
             BaseType::Vec3U32 => 12,
@@ -86,6 +94,7 @@ impl BaseType {
             BaseType::Vec3F16 => 6,
             BaseType::Vec3F32 => 12,
             BaseType::Vec3F64 => 24,
+            BaseType::Vec4Bool => 4,
             BaseType::Vec4U8 => 4,
             BaseType::Vec4U16 => 8,
             BaseType::Vec4U32 => 16,
@@ -107,6 +116,7 @@ impl BaseType {
 
     pub fn variant(&self) -> &'static str {
         match self {
+            BaseType::Bool => "Bool",
             BaseType::U8 => "U8",
             BaseType::U16 => "U16",
             BaseType::U32 => "U32",
@@ -118,6 +128,7 @@ impl BaseType {
             BaseType::F16 => "F16",
             BaseType::F32 => "F32",
             BaseType::F64 => "F64",
+            BaseType::Vec2Bool => "Vec2Bool",
             BaseType::Vec2U8 => "Vec2U8",
             BaseType::Vec2U16 => "Vec2U16",
             BaseType::Vec2U32 => "Vec2U32",
@@ -129,6 +140,7 @@ impl BaseType {
             BaseType::Vec2F16 => "Vec2F16",
             BaseType::Vec2F32 => "Vec2F32",
             BaseType::Vec2F64 => "Vec2F64",
+            BaseType::Vec3Bool => "Vec3Bool",
             BaseType::Vec3U8 => "Vec3U8",
             BaseType::Vec3U16 => "Vec3U16",
             BaseType::Vec3U32 => "Vec3U32",
@@ -140,6 +152,7 @@ impl BaseType {
             BaseType::Vec3F16 => "Vec3F16",
             BaseType::Vec3F32 => "Vec3F32",
             BaseType::Vec3F64 => "Vec3F64",
+            BaseType::Vec4Bool => "Vec4Bool",
             BaseType::Vec4U8 => "Vec4U8",
             BaseType::Vec4U16 => "Vec4U16",
             BaseType::Vec4U32 => "Vec4U32",
@@ -161,6 +174,7 @@ impl BaseType {
 
     pub fn to_rust(&self) -> &'static str {
         match self {
+            BaseType::Bool => "bool",
             BaseType::U8 => "u8",
             BaseType::U16 => "u16",
             BaseType::U32 => "u32",
@@ -172,6 +186,7 @@ impl BaseType {
             BaseType::F16 => "f16",
             BaseType::F32 => "f32",
             BaseType::F64 => "f64",
+            BaseType::Vec2Bool => "Vec2<bool>",
             BaseType::Vec2U8 => "Vec2<u8>",
             BaseType::Vec2U16 => "Vec2<u16>",
             BaseType::Vec2U32 => "Vec2<u32>",
@@ -183,6 +198,7 @@ impl BaseType {
             BaseType::Vec2F16 => "Vec2<f16>",
             BaseType::Vec2F32 => "Vec2<f32>",
             BaseType::Vec2F64 => "Vec2<f64>",
+            BaseType::Vec3Bool => "Vec3<bool>",
             BaseType::Vec3U8 => "Vec3<u8>",
             BaseType::Vec3U16 => "Vec3<u16>",
             BaseType::Vec3U32 => "Vec3<u32>",
@@ -194,6 +210,7 @@ impl BaseType {
             BaseType::Vec3F16 => "Vec3<f16>",
             BaseType::Vec3F32 => "Vec3<f32>",
             BaseType::Vec3F64 => "Vec3<f64>",
+            BaseType::Vec4Bool => "Vec4<bool>",
             BaseType::Vec4U8 => "Vec4<u8>",
             BaseType::Vec4U16 => "Vec4<u16>",
             BaseType::Vec4U32 => "Vec4<u32>",
@@ -215,6 +232,7 @@ impl BaseType {
 
     pub fn from_rust(symbol: &str) -> Option<BaseType> {
         Some(match symbol {
+            "bool" => BaseType::Bool,
             "u8" => BaseType::U8,
             "u16" => BaseType::U16,
             "u32" => BaseType::U32,
@@ -226,6 +244,7 @@ impl BaseType {
             "f16" => BaseType::F16,
             "f32" => BaseType::F32,
             "f64" => BaseType::F64,
+            "Vec2<bool>" => BaseType::Vec2Bool,
             "Vec2<u8>" => BaseType::Vec2U8,
             "Vec2<u16>" => BaseType::Vec2U16,
             "Vec2<u32>" => BaseType::Vec2U32,
@@ -237,6 +256,7 @@ impl BaseType {
             "Vec2<f16>" => BaseType::Vec2F16,
             "Vec2<f32>" => BaseType::Vec2F32,
             "Vec2<f64>" => BaseType::Vec2F64,
+            "Vec3<bool>" => BaseType::Vec3Bool,
             "Vec3<u8>" => BaseType::Vec3U8,
             "Vec3<u16>" => BaseType::Vec3U16,
             "Vec3<u32>" => BaseType::Vec3U32,
@@ -248,6 +268,7 @@ impl BaseType {
             "Vec3<f16>" => BaseType::Vec3F16,
             "Vec3<f32>" => BaseType::Vec3F32,
             "Vec3<f64>" => BaseType::Vec3F64,
+            "Vec4<bool>" => BaseType::Vec4Bool,
             "Vec4<u8>" => BaseType::Vec4U8,
             "Vec4<u16>" => BaseType::Vec4U16,
             "Vec4<u32>" => BaseType::Vec4U32,

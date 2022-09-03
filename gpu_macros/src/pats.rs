@@ -18,8 +18,14 @@ impl Parser {
         }
 
         // Literal
-        else if let Some(literal) = self.literal() {
-            Pat::Literal(literal)
+        else if let Some(value) = self.boolean_literal() {
+            Pat::Boolean(value)
+        }
+        else if let Some(value) = self.integer_literal() {
+            Pat::Integer(value)
+        }
+        else if let Some(value) = self.float_literal() {
+            Pat::Float(value)
         }
 
         // Ident (Const), Struct, Tuple, Variant
@@ -84,9 +90,9 @@ impl Parser {
     pub(crate) fn parse_or_pats(&mut self) -> Vec<Pat> {
         self.punct('|');
         let mut pats: Vec<Pat> = Vec::new();
-        pats.push(self.parse_pat());
+        pats.push(self.parse_ranged_pat());
         while self.punct('|') {
-            pats.push(self.parse_pat());
+            pats.push(self.parse_ranged_pat());
         }
         pats
     }
