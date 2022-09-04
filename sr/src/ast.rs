@@ -10,9 +10,11 @@ pub enum Type {
     Float,
     Void,
     Base(BaseType),
-    Ident(&'static str),
     Struct(&'static str),
+    Tuple(&'static str),
+    Enum(&'static str),
     Array(Box<Type>,Box<Expr>),
+    AnonTuple(Vec<Type>),
 }
 
 #[derive(Clone,Debug)]
@@ -21,6 +23,13 @@ pub enum IdentPat {
     Rest,
     Ident(&'static str),
     IdentPat(&'static str,Pat),
+}
+
+#[derive(Clone,Debug)]
+pub enum VariantPat {
+    Naked(String),
+    Tuple(String,Vec<Pat>),
+    Struct(String,Vec<IdentPat>),
 }
 
 #[derive(Clone,Debug)]
@@ -33,8 +42,18 @@ pub enum Pat {
     Ident(&'static str),
     Const(&'static str,Type),
     Struct(&'static str,Vec<IdentPat>),
+    Tuple(&'static str,Vec<Pat>),
     Array(Vec<Pat>),
+    AnonTuple(Vec<Pat>),
+    Variant(&'static str,VariantPat),
     Range(Box<Pat>,Box<Pat>),
+}
+
+#[derive(Clone,Debug)]
+pub enum VariantExpr {
+    Naked(&'static str),
+    Tuple(&'static str,Vec<Expr>),
+    Struct(&'static str,Vec<(&'static str,Expr)>),
 }
 
 #[derive(Clone,Debug)]
@@ -65,8 +84,12 @@ pub enum Expr {
     Array(Vec<Expr>),
     Cloned(Box<Expr>,Box<Expr>),
     Struct(&'static str,Vec<(&'static str,Expr)>),
+    Tuple(&'static str,Vec<Expr>),
+    AnonTuple(Vec<Expr>),
+    Variant(&'static str,VariantExpr),
     Call(&'static str,Vec<Expr>),
     Field(Box<Expr>,&'static str),
+    TupleIndex(Box<Expr>,usize),
     Index(Box<Expr>,Box<Expr>),
     Cast(Box<Expr>,Type),
     Neg(Box<Expr>),
@@ -120,9 +143,18 @@ pub enum Stat {
 }
 
 #[derive(Clone,Debug)]
+pub enum Variant {
+    Naked(&'static str),
+    Tuple(&'static str,Vec<Type>),
+    Struct(&'static str,Vec<(&'static str,Type)>),
+}
+
+#[derive(Clone,Debug)]
 pub struct Module {
     pub ident: &'static str,
     pub functions: HashMap<&'static str,(Vec<(&'static str,Type)>,Type,Block)>,
     pub structs: HashMap<&'static str,Vec<(&'static str,Type)>>,
+    pub tuples: HashMap<&'static str,Vec<Type>>,
+    pub enums: HashMap<&'static str,Vec<Variant>>,
     pub consts: HashMap<&'static str,(Type,Expr)>,
 }

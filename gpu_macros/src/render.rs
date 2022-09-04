@@ -17,6 +17,13 @@ fn render_expr(expr: &Expr) -> String {
         Expr::Boolean(value) => format!("sr::Expr::Boolean({})",if *value { "true" } else { "false" }),
         Expr::Integer(value) => format!("sr::Expr::Integer({})",value),
         Expr::Float(value) => format!("sr::Expr::Float({})",value),
+        Expr::Base(base_type,fields) => {
+            let mut r = format!("sr::Expr::Base(sr::BaseType::{},[",base_type.variant());
+            for (ident,expr) in fields {
+                r += &format!("(\"{}\",{}),",ident,render_expr(expr));
+            }
+            r
+        },
         Expr::Ident(_) => panic!("render_expr: Expr::Ident shouldn't exist"),
         Expr::Local(ident,_) => format!("sr::Expr::Local(\"{}\")",ident),
         Expr::Param(ident,_) => format!("sr::Expr::Param(\"{}\")",ident),
@@ -32,17 +39,31 @@ fn render_expr(expr: &Expr) -> String {
         },
         Expr::Cloned(expr,expr2) => format!("sr::Expr::Cloned({},{})",render_expr(expr),render_expr(expr2)),
         Expr::Struct(ident,fields) => {
-            let mut r = format!("sr::Expr::Struct(\"{}\",[",ident);
+            let mut r = format!("sr::Expr::Struct(\"{}\",vec![",ident);
             for (ident,expr) in fields {
                 r += &format!("(\"{}\",{}),",ident,render_expr(expr));
             }
             r
         },
-        Expr::Tuple(_,_) => panic!("render_expr: Expr::Tuple shouldn't exist"),
-        Expr::AnonTuple(_) => panic!("render_expr: Expr::AnonTuple shoudln't exist"),
+        Expr::Tuple(ident,exprs) => {
+            let mut r = format!("sr::Expr::Tuple(\"{}\",vec![",ident);
+            for expr in exprs {
+                r += &format!("{},",expr);
+            }
+            r += "])";
+            r
+        },
+        Expr::AnonTuple(exprs) => {
+            let mut r = "sr::Expr::AnonTuple(vec![".to_string();
+            for expr in exprs {
+                r += &format!("{},",expr);
+            }
+            r += "])";
+            r
+        },
         Expr::Variant(_,_) => panic!("render_expr: TODO: Expr::Variant"),
         Expr::Call(ident,exprs) => {
-            let mut r = format!("sr::Expr::Call(\"{}\",[",ident);
+            let mut r = format!("sr::Expr::Call(\"{}\",vec![",ident);
             for expr in exprs {
                 r += &render_expr(expr);
                 r += ",";
@@ -51,7 +72,7 @@ fn render_expr(expr: &Expr) -> String {
             r
         },
         Expr::Field(expr,ident) => format!("sr::Expr::Field({},\"{}\")",render_expr(expr),ident),
-        Expr::TupleIndex(_,_) => panic!("render_expr: Expr::TupleIndex shouldn't exist"),
+        Expr::TupleIndex(expr,index) => format!("sr::Expr::TupleIndex({},{})",render_expr(expr),index),
         Expr::Index(expr,expr2) => format!("sr::Expr::Index({},{})",render_expr(expr),render_expr(expr2)),
         Expr::Cast(expr,ty) => format!("sr::Expr::Cast({},{})",render_expr(expr),render_type(ty)),
         Expr::Neg(expr) => format!("sr::Expr::Neg({})",render_expr(expr)),
@@ -182,10 +203,17 @@ fn render_type(ty: &Type) -> String {
         Type::Base(base_type) => format!("sr::Type::Base(sr::BaseType::{})",base_type.variant()),
         Type::Ident(_) => panic!("render_type: Type::Ident shouldn't exist"),
         Type::Struct(ident) => format!("sr::Type::Struct(\"{}\")",ident),
-        Type::Tuple(_) => panic!("render_type: Type::Tuple shouldn't exist"),
-        Type::Enum(_) => panic!("render_type: TODO: Type::Enum"),
+        Type::Tuple(ident) => format!("sr::Type::Tuple(\"{}\")",ident),
+        Type::Enum(ident) => format!("sr::Type::Enum(\"{}\")",ident),
         Type::Array(ty,expr) => format!("sr::Type::Array({},{})",render_type(ty),render_expr(expr)),
-        Type::AnonTuple(_) => panic!("render_type: Type::AnonTuple shouldn't exist"),
+        Type::AnonTuple(types) => {
+            let mut r = "sr::Type::AnonTuple(vec![".to_string();
+            for ty in types {
+                r += &format!("{},",render_type(ty));
+            }
+            r += "])";
+            r
+        },
     }
 }
 
@@ -199,7 +227,7 @@ fn render_pat(pat: &Pat) -> String {
         Pat::Ident(_) => panic!("render_pat: Pat::Ident shouldn't exist"),
         Pat::Const(ident,ty) => format!("sr::Pat::Const(\"{}\",{})",ident,render_type(ty)),
         Pat::Struct(ident,identpats) => {
-            let mut r = format!("sr::Pat::Struct(\"{}\",[",ident);
+            let mut r = format!("sr::Pat::Struct(\"{}\",vec![",ident);
             for identpat in identpats {
                 r += &match identpat {
                     IdentPat::Wildcard => "sr::IdentPat::Wildcard,".to_string(),
@@ -211,7 +239,14 @@ fn render_pat(pat: &Pat) -> String {
             r += "])";
             r
         },
-        Pat::Tuple(_,_) => panic!("render_pat: Pat::Tuple shouldn't exist"),
+        Pat::Tuple(ident,pats) => {
+            let mut r = format!("sr::Pat::Tuple(\"{}\",vec![",ident);
+            for pat in pats {
+                r += &format!("{},",render_pat(pat));
+            }
+            r += "])";
+            r
+        },
         Pat::Array(pats) => {
             let mut r = "sr::Pat::Array(vec![".to_string();
             for pat in pats {
@@ -221,7 +256,15 @@ fn render_pat(pat: &Pat) -> String {
             r += "])";
             r
         },
-        Pat::AnonTuple(_) => panic!("render_pat: Pat::AnonTuple shouldn't exist"),
+        Pat::AnonTuple(pats) => {
+            let mut r = "sr::Pat::AnonTuple(vec![".to_string();
+            for pat in pats {
+                r += &render_pat(pat);
+                r += ",";
+            }
+            r += "])";
+            r
+        },
         Pat::Variant(_,_) => panic!("render_pat: TODO: Pat::Variant"),
         Pat::Range(pat,pat2) => format!("sr::Pat::Range({},{})",render_pat(pat),render_pat(pat2)),
     }
@@ -265,35 +308,27 @@ fn render_block(block: &Block) -> String {
 
 fn render_module(module: &Module) -> String {
     let mut r = "let mut functions: HashMap<&'static str,(Vec<(&'static str,Type)>,Type,Block)> = HashMap::new();\n".to_string();
-    let functions = module.functions.borrow();
-    for ident in functions.keys() {
-        let (params,return_type,block) = &functions[ident];
+    for ident in module.functions.keys() {
+        let (params,return_type,block) = &module.functions[ident];
         r += "let mut params: Vec<(&'static str,Type)> = Vec::new();\n";
         for (ident,ty) in params {
             r += &format!("params.push((\"{}\".to_string(),{}));\n",ident,render_type(ty));
         }
-        let return_type = return_type.borrow();
         r += &format!("let return_type = {};\n",render_type(&return_type));
-        let block = block.borrow();
         r += &format!("let block = {};\n",render_block(&block));
         r += &format!("functions[{}] = (params,return_type,block);\n",ident);
     }
     r += "let mut structs: HashMap<&'static str,Vec<(&'static str,Type)>> = HashMap::new();\n";
-    let structs = module.structs.borrow();
-    for ident in structs.keys() {
-        let fields = &structs[ident];
+    for ident in module.structs.keys() {
+        let fields = &module.structs[ident];
         r += "let mut fields: Vec<(&'static str,Type)> = Vec::new();\n";
         for (ident,ty) in fields {
-            let ty = ty.borrow();
             r += &format!("fields.push((\"{}\",{}));\n",ident,render_type(&ty));
         }
     }
     r += "let mut consts: HashMap<&'static str,(Type,Expr)> = HashMap::new();\n";
-    let consts = module.consts.borrow();
-    for ident in consts.keys() {
-        let (ty,expr) = &consts[ident];
-        let ty = ty.borrow();
-        let expr = expr.borrow();
+    for ident in module.consts.keys() {
+        let (ty,expr) = &module.consts[ident];
         r += &format!("consts[\"{}\"] = ({},{});\n",ident,render_type(&ty),render_expr(&expr));
     }
     r += &format!("let module = Module {{ ident: \"{}\",functions,structs,consts, }}\n",module.ident);
@@ -322,26 +357,24 @@ pub(crate) fn render_vertex_trait(ident: &str,fields: &Vec<(String,Type)>) -> St
     r
 }
 
-pub(crate) fn render_vertex_shader(module: &Module,vertex: &str) -> String {
-    resolve_module(module);
-    detuplify_module(module);
+pub(crate) fn render_vertex_shader(mut module: Module,vertex: &str) -> String {
+    resolve_module(&mut module);
     let mut r = format!("pub mod {} {{\n",module.ident);
     r += "    use super::*;\n\n";
-    r += "    pub fn code() -> Option<Vec<u8>> {{\n";
-    r += &format!("        {}\n",render_module(module));
+    r += "    pub fn code() -> Option<Vec<u8>> {\n";
+    r += &format!("        {}\n",render_module(&module));
     r += &format!("        compile_vertex_shader(module,\"{}\",{}::get_fields())\n",vertex,vertex);
     r += "    }}\n";
     r += "}}\n";
     r
 }
 
-pub(crate) fn render_fragment_shader(module: &Module) -> String {
-    resolve_module(module);
-    detuplify_module(module);
+pub(crate) fn render_fragment_shader(mut module: Module) -> String {
+    resolve_module(&mut module);
     let mut r = format!("pub mod {} {{\n",module.ident);
     r += "    use super::*;\n\n";
-    r += "    pub fn code() -> Option<Vec<u8>> {{\n";
-    r += &format!("        {}\n",render_module(module));
+    r += "    pub fn code() -> Option<Vec<u8>> {\n";
+    r += &format!("        {}\n",render_module(&module));
     r += &format!("        compile_fragment_shader(module)\n");
     r += "    }}\n";
     r += "}}\n";

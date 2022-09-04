@@ -1,10 +1,8 @@
-use {
-    crate::*,
-};
+use crate::*;
 
 impl Parser {
 
-    // Literal, Ident (Local, Param, Const), Struct, Tuple (Call), Variant, AnonTuple, Array, Cloned
+    // Literal, Ident (Local, Param, Const), Struct, Tuple (Call), Variant, Base, AnonTuple, Array, Cloned
     fn parse_primary_expr(&mut self) -> Expr {
 
         // Literal
@@ -18,7 +16,7 @@ impl Parser {
             Expr::Float(value)
         }
 
-        // Local, Param, Const, Struct, Tuple, Variant, Call
+        // Local, Param, Const, Struct, Tuple, Variant, Base, Call
         else if let Some(ident) = self.ident() {
 
             // Struct
@@ -31,17 +29,39 @@ impl Parser {
                 Expr::Tuple(ident,exprs)
             }
 
-            // Variant
+            // Base
+            else if self.punct('<') {
+                // Vec2<T>, etc. literals
+                let element_type = self.ident().expect("identifier expected");
+                self.punct('>');
+                let ident = format!("{}<{}>",ident,element_type);
+                let base_type = sr::BaseType::from_rust(&ident).expect("base type expected");
+                let ident_exprs = self.parse_brace_ident_exprs().expect("{ expected");
+                Expr::Base(base_type,ident_exprs)
+            }
+
+            // Variant, Base
             else if self.punct2(':',':') {
-                let variant = self.ident().expect("identifier expected");
-                if let Some(ident_exprs) = self.parse_brace_ident_exprs() {
-                    Expr::Variant(ident,VariantExpr::Struct(variant,ident_exprs))
-                }
-                else if let Some(exprs) = self.parse_paren_exprs() {
-                    Expr::Variant(ident,VariantExpr::Tuple(variant,exprs))
+                if self.punct('<') {
+                    // Vec2::<T>, etc. literals
+                    let element_type = self.ident().expect("identifier expected");
+                    self.punct('>');
+                    let ident = format!("{}<{}>",ident,element_type);
+                    let base_type = sr::BaseType::from_rust(&ident).expect("base type expected");
+                    let ident_exprs = self.parse_brace_ident_exprs().expect("{ expected");
+                    Expr::Base(base_type,ident_exprs)
                 }
                 else {
-                    Expr::Variant(ident,VariantExpr::Naked(variant))
+                    let variant = self.ident().expect("identifier expected");
+                    if let Some(ident_exprs) = self.parse_brace_ident_exprs() {
+                        Expr::Variant(ident,VariantExpr::Struct(variant,ident_exprs))
+                    }
+                    else if let Some(exprs) = self.parse_paren_exprs() {
+                        Expr::Variant(ident,VariantExpr::Tuple(variant,exprs))
+                    }
+                    else {
+                        Expr::Variant(ident,VariantExpr::Naked(variant))
+                    }
                 }
             }
 

@@ -203,20 +203,15 @@ pub enum BlendMode {
     _Over,
 }
 
+mod shader;
+pub use shader::*;
+
 #[cfg(gpu="vulkan")]
 mod vulkan;
 #[cfg(gpu="vulkan")]
 pub use vulkan::*;
-#[cfg(gpu="vulkan")]
-mod spirv;
-#[cfg(gpu="vulkan")]
-pub use spirv::*;
 
 #[cfg(gpu="opengl")]
 mod opengl;
 #[cfg(gpu="opengl")]
 pub use opengl::*;
-#[cfg(gpu="opengl")]
-mod glsl;
-#[cfg(gpu="opengl")]
-pub use glsl::*;

@@ -17,6 +17,7 @@ struct MyVertex {
 
 #[vertex_shader(MyVertex)]
 mod my_vertex_shader {
+
     fn main(vertex: MyVertex) -> (Vec4<f32>,Color<f32>) {
         (
             Vec4::<f32> {
@@ -29,6 +30,26 @@ mod my_vertex_shader {
         )
     }
 }
+
+/*
+mod my_vertex_shader {
+    struct AnonTuple0 {
+        _0: Vec4<f32>,
+        _1: (),
+    };
+    fn main(vertex: MyVertex,) -> (Vec4<f32>,Color<f32>,) {
+        AnonTuple0 {
+            _0: Vec4<f32> {
+                x: vertex.pos.x,
+                y: vertex.pos.y,
+                z: 0,
+                w: 1,
+            },
+            _1: vertex.color,
+        }
+    }
+}
+ */
 
 #[fragment_shader]
 mod my_fragment_shader {

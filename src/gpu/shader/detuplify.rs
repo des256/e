@@ -1,15 +1,51 @@
 // convert all tuples to structs (none of the target languages have tuples)
 
+/*
 use {
     crate::*,
     std::cell::RefCell,
 };
+
+fn get_anon_tuple_struct(module: &Module,types: &Vec<Type>) -> String {
+    let anon_tuple_count = *module.anon_tuple_count.borrow();
+    for i in 0..anon_tuple_count {
+        let ident = format!("AnonTuple{}",i);
+        let structs = module.structs.borrow();
+        let anon_tuple_struct = structs.get(&ident).unwrap();
+        let mut all_types_compatible = true;
+        for k in 0..anon_tuple_struct.len() {
+            if let None = tightest(&types[k],&*anon_tuple_struct[k].1.borrow()) {
+                all_types_compatible = false;
+                break;
+            }
+        }
+        if all_types_compatible {
+            return ident;
+        }
+    }
+    let mut fields: Vec<(String,RefCell<Type>)> = Vec::new();
+    let mut i = 0usize;
+    for ty in types.iter() {
+        fields.push((format!("_{}",i),RefCell::new(ty.clone())));
+        i += 1;
+    }
+    let mut anon_tuple_count = module.anon_tuple_count.borrow_mut();
+    let ident = format!("AnonTuple{}",anon_tuple_count);
+    module.structs.borrow_mut().insert(ident.clone(),fields);
+    *anon_tuple_count += 1;
+    ident
+}
 
 fn detuplify_expr(module: &Module,context: &mut Context,expr: &mut Expr) {
     match expr {
         Expr::Boolean(_) => { },
         Expr::Integer(_) => { },
         Expr::Float(_) => { },
+        Expr::Base(_,fields) => {
+            for (_,expr) in fields.iter_mut() {
+                detuplify_expr(module,context,expr);
+            }
+        },
         Expr::Ident(_) => { },  // shouldn't exist
         Expr::Local(_,_) => { },
         Expr::Param(_,_) => { },
@@ -29,6 +65,7 @@ fn detuplify_expr(module: &Module,context: &mut Context,expr: &mut Expr) {
             }
         },
         Expr::Tuple(ident,exprs) => {
+            let ident = format!("Tuple{}",ident);
             let mut fields: Vec<(String,Expr)> = Vec::new();
             let mut i = 0usize;
             for expr in exprs.iter_mut() {
@@ -36,18 +73,22 @@ fn detuplify_expr(module: &Module,context: &mut Context,expr: &mut Expr) {
                 fields.push((format!("_{}",i),expr.clone()));
                 i += 1;
             }
-            *expr = Expr::Struct(format!("Tuple{}",ident),fields);
+            *expr = Expr::Struct(ident,fields);
         },
         Expr::AnonTuple(exprs) => {
-            let mut fields: Vec<(String,RefCell<Type>)> = Vec::new();
+            let mut types: Vec<Type> = Vec::new();
+            for expr in exprs.iter() {
+                types.push(find_type(module,context,expr));
+            }
+            let ident = get_anon_tuple_struct(module,&types);
+            let mut fields: Vec<(String,Expr)> = Vec::new();
             let mut i = 0usize;
             for expr in exprs.iter_mut() {
-                fields.push((format!("_{}",i),RefCell::new(find_type(module,context,expr))));
+                detuplify_expr(module,context,expr);
+                fields.push((format!("_{}",i),expr.clone()));
                 i += 1;
             }
-            let mut anon_tuple_count = module.anon_tuple_count.borrow_mut();
-            module.structs.borrow_mut().insert(format!("Tuple{}",anon_tuple_count),fields);
-            *anon_tuple_count += 1;
+            *expr = Expr::Struct(ident,fields);
         },
         Expr::Variant(_,_) => {
             // TODO: enums is a whole different can of worms...
@@ -265,9 +306,7 @@ fn detuplify_type(module: &Module,context: &mut Context,ty: &mut Type) {
         Type::Base(_) => { },
         Type::Ident(_) => panic!("detuplify_type: Type::Ident shouldn't exist"),
         Type::Struct(_) => { },
-        Type::Tuple(_) => {
-            // TODO: convert to Type::Struct
-        },
+        Type::Tuple(ident) => *ty = Type::Struct(format!("Tuple{}",ident)),
         Type::Enum(_) => { },
         Type::Array(ty,expr) => {
             detuplify_type(module,context,ty);
@@ -277,6 +316,7 @@ fn detuplify_type(module: &Module,context: &mut Context,ty: &mut Type) {
             for ty in types {
                 detuplify_type(module,context,ty);
             }
+
             // TODO: convert to Type::Struct
         },
     }
@@ -355,9 +395,13 @@ pub fn detuplify_module(module: &Module) {
         params: Vec::new(),
         locals: Vec::new(),
     };
-    for (_,(_,return_type,block)) in module.functions.borrow_mut().iter_mut() {
+    for (_,(params,return_type,block)) in module.functions.borrow_mut().iter_mut() {
+        for (ident,_) in params {
+            context.params.push(ident.clone());
+        }
         let mut return_type = return_type.borrow_mut();
         detuplify_type(module,&mut context,&mut return_type);
+        let local_frame = context.locals.clone();
         let mut block = block.borrow_mut();
         for stat in block.stats.iter_mut() {
             detuplify_stat(module,&mut context,stat);
@@ -365,6 +409,8 @@ pub fn detuplify_module(module: &Module) {
         if let Some(expr) = &mut block.expr {
             detuplify_expr(module,&mut context,expr);
         }
+        context.locals = local_frame;
+        context.params.clear();
     }
     for (_,fields) in module.structs.borrow_mut().iter_mut() {
         for (_,ty) in fields {
@@ -403,3 +449,4 @@ pub fn detuplify_module(module: &Module) {
         detuplify_expr(module,&mut context,&mut expr);
     }
 }
+*/

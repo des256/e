@@ -2,6 +2,7 @@ use {
     std::boxed::Box,
 };
 
+/*
 fn gl_base_type_name(ty: &sr::BaseType) -> &'static str {
     match ty {
         sr::BaseType::U8 => "uint",
@@ -59,7 +60,7 @@ fn gl_base_type_name(ty: &sr::BaseType) -> &'static str {
 fn collect_layouts(symbol: &str,ty: &sr::Type,vertex_symbol: &str,vertex_fields: &Vec<(String,sr::BaseType)>) -> Vec<(String,String)> {
     match ty {
         sr::Type::Array(_,_) => panic!("unable to handle array parameters just yet"),
-        sr::Type::BaseType(base_type) => vec![(gl_base_type_name(&base_type).to_string(),symbol.to_string())],
+        sr::Type::Base(base_type) => vec![(gl_base_type_name(&base_type).to_string(),symbol.to_string())],
         sr::Type::Inferred => panic!("unable to handle inferred parameters just yet"),
         sr::Type::Symbol(type_symbol) => if type_symbol == vertex_symbol {
             let mut layouts: Vec<(String,String)> = Vec::new();
@@ -177,3 +178,4 @@ pub fn compile_fragment_shader(items: Vec<sr::Item>) -> Option<Vec<u8>> {
     r += "\0";
     Some(r.into_bytes())
 }
+*/

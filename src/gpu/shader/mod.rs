@@ -1,5 +1,8 @@
-mod three;
-pub use three::*;
+mod detuplify;
+pub use detuplify::*;
+
+mod findtype;
+pub use findtype::*;
 
 #[cfg(any(gpu="opengl"))]
 mod glsl;

@@ -1,5 +1,6 @@
 // find type of expression
 
+/*
 use crate::*;
 
 pub struct Context {
@@ -65,6 +66,7 @@ pub fn find_type(module: &Module,context: &mut Context,expr: &Expr) -> Type {
         Expr::Boolean(_) => Type::Base(sr::BaseType::Bool),
         Expr::Integer(_) => Type::Integer,
         Expr::Float(_) => Type::Float,
+        Expr::Base(base_type,_) => Type::Base(base_type.clone()),
         Expr::Ident(_) => Type::Void,
         Expr::Local(_,ty) => ty.clone(),
         Expr::Param(_,ty) => ty.clone(),
@@ -236,3 +238,4 @@ pub fn find_type(module: &Module,context: &mut Context,expr: &Expr) -> Type {
         },
     }
 }
+*/
