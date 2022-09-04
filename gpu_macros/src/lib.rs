@@ -38,14 +38,14 @@ pub fn vertex_shader(attr_stream: TokenStream,item_stream: TokenStream) -> Token
     let vertex = Parser::new(attr_stream).ident().expect("vertex attribute expected");
     let module = Parser::new(item_stream).parse_module();
     let compiled = render_vertex_shader(module,&vertex);
-    panic!("DONE:\n{}",compiled);
-    //compiled.parse().unwrap()
+    //panic!("DONE:\n{}",compiled);
+    compiled.parse().unwrap()
 }
 
 #[proc_macro_attribute]
 pub fn fragment_shader(_: TokenStream,item_stream: TokenStream) -> TokenStream {
     let module = Parser::new(item_stream).parse_module();
     let compiled = render_fragment_shader(module);
-    panic!("DONE:\n{}",compiled);
-    //compiled.parse().unwrap()
+    //panic!("DONE:\n{}",compiled);
+    compiled.parse().unwrap()
 }

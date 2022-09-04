@@ -108,12 +108,12 @@ impl Parser {
 
                 // Field
                 if let Some(ident) = self.ident() {
-                    expr = Expr::Field(Box::new(expr),ident);
+                    expr = Expr::Field(Box::new(expr),ident,Box::new(Type::Void));
                 }
 
                 // Tuple
                 else if let Some(value) = self.integer_literal() {
-                    expr = Expr::TupleIndex(Box::new(expr),value);
+                    expr = Expr::TupleIndex(Box::new(expr),value,Box::new(Type::Void));
                 }
 
                 else {
@@ -123,7 +123,7 @@ impl Parser {
 
             // Index
             else if let Some(mut parser) = self.group('[') {
-                expr = Expr::Index(Box::new(expr),Box::new(parser.parse_expr()));
+                expr = Expr::Index(Box::new(expr),Box::new(parser.parse_expr()),Box::new(Type::Void));
             }
 
             // Cast

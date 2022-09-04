@@ -1,6 +1,4 @@
-use {
-    std::boxed::Box,
-};
+use crate::*;
 
 /*
 fn gl_base_type_name(ty: &sr::BaseType) -> &'static str {
@@ -179,3 +177,130 @@ pub fn compile_fragment_shader(items: Vec<sr::Item>) -> Option<Vec<u8>> {
     Some(r.into_bytes())
 }
 */
+
+pub fn compile_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fields: Vec<(String,sr::BaseType)>) -> Option<Vec<u8>> {
+    println!("COMPILE VERTEX SHADER");
+    let module = replace_tuples(module,None,&Vec::new());
+    println!("Module after replacing tuples: {}",module.ident);
+    if module.consts.len() > 0 {
+        println!("Constants:");
+        for (ident,(ty,expr)) in module.consts {
+            println!("    {}: {} = {}",ident,ty,expr);
+        }
+    }
+    if module.tuples.len() > 0 {
+        println!("Tuples:");
+        for (ident,types) in module.tuples {
+            print!("    {}(",ident);
+            for ty in types {
+                print!("{},",ty);
+            }
+            println!(")");
+        }
+    }
+    if module.structs.len() > 0 {
+        println!("Structs:");
+        for (ident,fields) in module.structs {
+            println!("    {} {{",ident);
+            for (ident,ty) in fields {
+                println!("        {}: {},",ident,ty);
+            }
+            println!("    }}");
+        }
+    }
+    println!("Vertex struct:");
+    println!("    {} {{",vertex_ident);
+    for (ident,ty) in vertex_fields {
+        println!("        {}: {}",ident,ty.to_rust());
+    }
+    println!("    }}");
+    if module.enums.len() > 0 {
+        println!("Enums:");
+        for (ident,variants) in module.enums {
+            println!("    {} {{",ident);
+            for variant in variants {
+                println!("        {},",variant);
+            }
+            println!("    }}");
+        }
+    }
+    if module.functions.len() > 0 {
+        println!("Functions:");
+        for (ident,(params,return_type,block)) in module.functions {
+            print!("    fn {}(",ident);
+            for (ident,ty) in params {
+                print!("{}: {},",ident,ty);
+            }
+            print!(")");
+            if let sr::Type::Void = return_type { } else {
+                print!(" -> {}",return_type);
+            }
+            println!("{}",block);
+        }
+    }
+    println!("TODO: replace enums");
+    println!("TODO: roll out patterns");
+    println!("TODO: render GLSL");
+    None
+}
+
+pub fn compile_fragment_shader(module: sr::Module) -> Option<Vec<u8>> {
+    println!("COMPILE FRAGMENT SHADER");
+    let module = replace_tuples(module,None,&Vec::new());
+    println!("Module after replacing all tuples: {}",module.ident);
+    if module.consts.len() > 0 {
+        println!("Constants:");
+        for (ident,(ty,expr)) in module.consts {
+            println!("    {}: {} = {}",ident,ty,expr);
+        }
+    }
+    if module.tuples.len() > 0 {
+        println!("Tuples:");
+        for (ident,types) in module.tuples {
+            print!("    {}(",ident);
+            for ty in types {
+                print!("{},",ty);
+            }
+            println!(")");
+        }
+    }
+    if module.structs.len() > 0 {
+        println!("Structs:");
+        for (ident,fields) in module.structs {
+            println!("    {} {{",ident);
+            for (ident,ty) in fields {
+                println!("        {}: {},",ident,ty);
+            }
+            println!("    }}");
+        }
+    }
+    if module.enums.len() > 0 {
+        println!("Enums:");
+        for (ident,variants) in module.enums {
+            println!("    {} {{",ident);
+            for variant in variants {
+                println!("        {},",variant);
+            }
+            println!("    }}");
+        }
+    }
+    if module.functions.len() > 0 {
+        println!("Functions:");
+        for (ident,(params,return_type,block)) in module.functions {
+            print!("    fn {}(",ident);
+            for (ident,ty) in params {
+                print!("{}: {},",ident,ty);
+            }
+            print!(")");
+            if let sr::Type::Void = return_type { } else {
+                print!(" -> {}",return_type);
+            }
+            println!("{}",block);
+        }
+    }
+
+    println!("TODO: replace enums");
+    println!("TODO: roll out patterns");
+    println!("TODO: render GLSL");
+    None
+}

@@ -3,8 +3,7 @@ use {
     std::{
         rc::Rc,
         time::Instant,
-        //io::prelude::*,
-        //fs::File,
+        collections::HashMap,
     },
     gpu_macros::*,
 };
@@ -31,27 +30,7 @@ mod my_vertex_shader {
     }
 }
 
-/*
-mod my_vertex_shader {
-    struct AnonTuple0 {
-        _0: Vec4<f32>,
-        _1: (),
-    };
-    fn main(vertex: MyVertex,) -> (Vec4<f32>,Color<f32>,) {
-        AnonTuple0 {
-            _0: Vec4<f32> {
-                x: vertex.pos.x,
-                y: vertex.pos.y,
-                z: 0,
-                w: 1,
-            },
-            _1: vertex.color,
-        }
-    }
-}
- */
-
-#[fragment_shader]
+ #[fragment_shader]
 mod my_fragment_shader {
     fn main(varying: Color<f32>) -> Color<f32> {
         varying

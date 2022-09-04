@@ -244,10 +244,10 @@ pub enum Expr {
     Tuple(String,Vec<Expr>),
     AnonTuple(Vec<Expr>),
     Variant(String,VariantExpr),
-    Call(String,Vec<Expr>),
-    Field(Box<Expr>,String),
-    TupleIndex(Box<Expr>,u64),
-    Index(Box<Expr>,Box<Expr>),
+    Call(String,Vec<Expr>,Box<Type>),
+    Field(Box<Expr>,String,Box<Type>),
+    TupleIndex(Box<Expr>,u64,Box<Type>),
+    Index(Box<Expr>,Box<Expr>,Box<Type>),
     Cast(Box<Expr>,Type),
     Neg(Box<Expr>),
     Not(Box<Expr>),
@@ -340,16 +340,16 @@ impl Display for Expr {
                 write!(f,")")
             },
             Expr::Variant(ident,variantexpr) => write!(f,"{}::{}",ident,variantexpr),
-            Expr::Call(ident,exprs) => {
+            Expr::Call(ident,exprs,_) => {
                 write!(f,"{}(",ident)?;
                 for expr in exprs {
                     write!(f,"{},",expr)?;
                 }
                 write!(f,")")
             },
-            Expr::Field(expr,ident) => write!(f,"{}.{}",expr,ident),
-            Expr::TupleIndex(expr,index) => write!(f,"{}.{}",expr,index),
-            Expr::Index(expr,expr2) => write!(f,"{}[{}]",expr,expr2),
+            Expr::Field(expr,ident,_) => write!(f,"{}.{}",expr,ident),
+            Expr::TupleIndex(expr,index,_) => write!(f,"{}.{}",expr,index),
+            Expr::Index(expr,expr2,_) => write!(f,"{}[{}]",expr,expr2),
             Expr::Cast(expr,ty) => write!(f,"{} as {}",expr,ty),
             Expr::Neg(expr) => write!(f,"-{}",expr),
             Expr::Not(expr) => write!(f,"!{}",expr),

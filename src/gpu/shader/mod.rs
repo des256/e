@@ -1,8 +1,8 @@
-mod detuplify;
-pub use detuplify::*;
-
 mod findtype;
 pub use findtype::*;
+
+mod replacetuples;
+pub use replacetuples::*;
 
 #[cfg(any(gpu="opengl"))]
 mod glsl;
