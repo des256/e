@@ -1,16 +1,40 @@
 use crate::*;
 
+fn produce_let_statements(stats: &mut Vec<Stat>,pat: &Pat,rvalue: Expr) {
+    match pat {
+        Pat::Ident(ident) => stats.push(Stat::Let(ident.clone(),None,Box::new(rvalue))),
+        Pat::Struct(ident,identpats) => {
+            for identpat in identpats {
+                match identpat {
+                    IdentPat::Ident(ident) => produce_let_statements(stats,&Pat::Ident(ident.clone()),Expr::Field(Box::new(rvalue.clone()),ident.clone())),
+                    IdentPat::IdentPat(ident,pat) => produce_let_statements(stats,&pat,Expr::Field(Box::new(rvalue.clone()),ident.clone())),
+                    _ => { },
+                }
+            }
+        },
+        Pat::Array(pats) => {
+            let mut i = 0usize;
+            for pat in pats {
+                produce_let_statements(stats,pat,Expr::Index(Box::new(rvalue.clone()),Box::new(Expr::Integer(i as i64))));
+                i += 1;
+            }
+        },
+        _ => { },
+    }
+}
+
+
 impl Parser {
 
     // Literal, Ident (Local, Param, Const), Struct, Tuple (Call), Variant, Base, AnonTuple, Array, Cloned
-    fn parse_primary_expr(&mut self) -> Expr {
+    fn primary_expr(&mut self) -> Expr {
 
         // Literal
         if let Some(value) = self.boolean_literal() {
             Expr::Boolean(value)
         }
         else if let Some(value) = self.integer_literal() {
-            Expr::Integer(value)
+            Expr::Integer(value as i64)
         }
         else if let Some(value) = self.float_literal() {
             Expr::Float(value)
@@ -20,13 +44,13 @@ impl Parser {
         else if let Some(ident) = self.ident() {
 
             // Struct
-            if let Some(ident_exprs) = self.parse_brace_ident_exprs() {
+            if let Some(ident_exprs) = self.brace_ident_exprs() {
                 Expr::Struct(ident,ident_exprs)
             }
 
-            // Tuple, Call
-            else if let Some(exprs) = self.parse_paren_exprs() {
-                Expr::Tuple(ident,exprs)
+            // Call, Tuple
+            else if let Some(exprs) = self.paren_exprs() {
+                Expr::Call(ident,exprs)
             }
 
             // Base
@@ -36,7 +60,7 @@ impl Parser {
                 self.punct('>');
                 let ident = format!("{}<{}>",ident,element_type);
                 let base_type = sr::BaseType::from_rust(&ident).expect("base type expected");
-                let ident_exprs = self.parse_brace_ident_exprs().expect("{ expected");
+                let ident_exprs = self.brace_ident_exprs().expect("{ expected");
                 Expr::Base(base_type,ident_exprs)
             }
 
@@ -48,15 +72,15 @@ impl Parser {
                     self.punct('>');
                     let ident = format!("{}<{}>",ident,element_type);
                     let base_type = sr::BaseType::from_rust(&ident).expect("base type expected");
-                    let ident_exprs = self.parse_brace_ident_exprs().expect("{ expected");
+                    let ident_exprs = self.brace_ident_exprs().expect("{ expected");
                     Expr::Base(base_type,ident_exprs)
                 }
                 else {
                     let variant = self.ident().expect("identifier expected");
-                    if let Some(ident_exprs) = self.parse_brace_ident_exprs() {
+                    if let Some(ident_exprs) = self.brace_ident_exprs() {
                         Expr::Variant(ident,VariantExpr::Struct(variant,ident_exprs))
                     }
-                    else if let Some(exprs) = self.parse_paren_exprs() {
+                    else if let Some(exprs) = self.paren_exprs() {
                         Expr::Variant(ident,VariantExpr::Tuple(variant,exprs))
                     }
                     else {
@@ -75,9 +99,9 @@ impl Parser {
         else if let Some(mut parser) = self.group('[') {
             let mut exprs: Vec<Expr> = Vec::new();
             while !parser.done() {
-                let expr = parser.parse_expr();
+                let expr = parser.expr();
                 if parser.punct(';') {
-                    let expr2 = parser.parse_expr();
+                    let expr2 = parser.expr();
                     return Expr::Cloned(Box::new(expr),Box::new(expr2));
                 }
                 else {
@@ -89,7 +113,7 @@ impl Parser {
         }
 
         // AnonTuple
-        else if let Some(exprs) = self.parse_paren_exprs() {
+        else if let Some(exprs) = self.paren_exprs() {
             Expr::AnonTuple(exprs)
         }
 
@@ -99,8 +123,8 @@ impl Parser {
     }
 
     // Field, TupleIndex, Index, Cast
-    fn parse_postfix_expr(&mut self) -> Expr {
-        let mut expr = self.parse_primary_expr();
+    fn postfix_expr(&mut self) -> Expr {
+        let mut expr = self.primary_expr();
         loop {
 
             // Field, Tuple
@@ -108,12 +132,12 @@ impl Parser {
 
                 // Field
                 if let Some(ident) = self.ident() {
-                    expr = Expr::Field(Box::new(expr),ident,Box::new(Type::Void));
+                    expr = Expr::Field(Box::new(expr),ident);
                 }
 
                 // Tuple
                 else if let Some(value) = self.integer_literal() {
-                    expr = Expr::TupleIndex(Box::new(expr),value,Box::new(Type::Void));
+                    expr = Expr::Field(Box::new(expr),format!("_{}",value));
                 }
 
                 else {
@@ -123,12 +147,12 @@ impl Parser {
 
             // Index
             else if let Some(mut parser) = self.group('[') {
-                expr = Expr::Index(Box::new(expr),Box::new(parser.parse_expr()),Box::new(Type::Void));
+                expr = Expr::Index(Box::new(expr),Box::new(parser.expr()));
             }
 
             // Cast
             else if self.keyword("as") {
-                expr = Expr::Cast(Box::new(expr),self.parse_type());
+                expr = Expr::Cast(Box::new(expr),self.type_());
             }
 
             else {
@@ -139,41 +163,41 @@ impl Parser {
     }
 
     // Neg, Not
-    fn parse_prefix_expr(&mut self) -> Expr {
+    fn prefix_expr(&mut self) -> Expr {
 
         // Neg
         if self.punct('-') {
-            Expr::Neg(Box::new(self.parse_prefix_expr()))
+            Expr::Neg(Box::new(self.prefix_expr()))
         }
 
         // Not
         else if self.punct('!') {
-            Expr::Not(Box::new(self.parse_prefix_expr()))
+            Expr::Not(Box::new(self.prefix_expr()))
         }
 
         else {
-            self.parse_postfix_expr()
+            self.postfix_expr()
         }
     }
 
     // Mul, Div, Mod
-    fn parse_mul_expr(&mut self) -> Expr {
-        let mut expr = self.parse_prefix_expr();
+    fn mul_expr(&mut self) -> Expr {
+        let mut expr = self.prefix_expr();
         loop {
 
             // Mul
             if self.punct('*') {
-                expr = Expr::Mul(Box::new(expr),Box::new(self.parse_prefix_expr()));
+                expr = Expr::Mul(Box::new(expr),Box::new(self.prefix_expr()));
             }
 
             // Div
             else if self.punct('/') {
-                expr = Expr::Div(Box::new(expr),Box::new(self.parse_prefix_expr()));
+                expr = Expr::Div(Box::new(expr),Box::new(self.prefix_expr()));
             }
 
             // Mod
             else if self.punct('%') {
-                expr = Expr::Mod(Box::new(expr),Box::new(self.parse_prefix_expr()));
+                expr = Expr::Mod(Box::new(expr),Box::new(self.prefix_expr()));
             }
 
             else {
@@ -184,18 +208,18 @@ impl Parser {
     }
 
     // Add, Sub
-    fn parse_add_expr(&mut self) -> Expr {
-        let mut expr = self.parse_mul_expr();
+    fn add_expr(&mut self) -> Expr {
+        let mut expr = self.mul_expr();
         loop {
 
             // Add
             if self.punct('+') {
-                expr = Expr::Add(Box::new(expr),Box::new(self.parse_mul_expr()));
+                expr = Expr::Add(Box::new(expr),Box::new(self.mul_expr()));
             }
 
             // Sub
             else if self.punct('-') {
-                expr = Expr::Sub(Box::new(expr),Box::new(self.parse_mul_expr()));
+                expr = Expr::Sub(Box::new(expr),Box::new(self.mul_expr()));
             }
 
             else {
@@ -206,18 +230,18 @@ impl Parser {
     }
 
     // Shl, Shr
-    fn parse_shift_expr(&mut self) -> Expr {
-        let mut expr = self.parse_add_expr();
+    fn shift_expr(&mut self) -> Expr {
+        let mut expr = self.add_expr();
         loop {
 
             // Shl
             if self.punct2('<','<') {
-                expr = Expr::Shl(Box::new(expr),Box::new(self.parse_add_expr()));
+                expr = Expr::Shl(Box::new(expr),Box::new(self.add_expr()));
             }
 
             // Shr
             else if self.punct2('>','>') {
-                expr = Expr::Shr(Box::new(expr),Box::new(self.parse_add_expr()));
+                expr = Expr::Shr(Box::new(expr),Box::new(self.add_expr()));
             }
 
             else {
@@ -228,65 +252,65 @@ impl Parser {
     }
 
     // And
-    fn parse_and_expr(&mut self) -> Expr {
-        let mut expr = self.parse_shift_expr();
+    fn and_expr(&mut self) -> Expr {
+        let mut expr = self.shift_expr();
         while self.punct('&') {
-            expr = Expr::And(Box::new(expr),Box::new(self.parse_shift_expr()));
+            expr = Expr::And(Box::new(expr),Box::new(self.shift_expr()));
         }
         expr
     }
 
     // Or
-    fn parse_or_expr(&mut self) -> Expr {
-        let mut expr = self.parse_and_expr();
+    fn or_expr(&mut self) -> Expr {
+        let mut expr = self.and_expr();
         while self.punct('|') {
-            expr = Expr::Or(Box::new(expr),Box::new(self.parse_and_expr()));
+            expr = Expr::Or(Box::new(expr),Box::new(self.and_expr()));
         }
         expr
     }
 
     // Xor
-    fn parse_xor_expr(&mut self) -> Expr {
-        let mut expr = self.parse_or_expr();
+    fn xor_expr(&mut self) -> Expr {
+        let mut expr = self.or_expr();
         while self.punct('^') {
-            expr = Expr::Xor(Box::new(expr),Box::new(self.parse_or_expr()));
+            expr = Expr::Xor(Box::new(expr),Box::new(self.or_expr()));
         }
         expr
     }
 
     // Eq, NotEq, Less, Greater, LessEq, GreaterEq
-    fn parse_comp_expr(&mut self) -> Expr {
-        let mut expr = self.parse_xor_expr();
+    fn comp_expr(&mut self) -> Expr {
+        let mut expr = self.xor_expr();
         loop {
 
             // Eq
             if self.punct2('=','=') {
-                expr = Expr::Eq(Box::new(expr),Box::new(self.parse_xor_expr()));
+                expr = Expr::Eq(Box::new(expr),Box::new(self.xor_expr()));
             }
 
             // NotEq
             if self.punct2('!','=') {
-                expr = Expr::NotEq(Box::new(expr),Box::new(self.parse_xor_expr()));
+                expr = Expr::NotEq(Box::new(expr),Box::new(self.xor_expr()));
             }
 
             // Less
             if self.punct('<') {
-                expr = Expr::Less(Box::new(expr),Box::new(self.parse_xor_expr()));
+                expr = Expr::Less(Box::new(expr),Box::new(self.xor_expr()));
             }
 
             // Greater
             if self.punct('>') {
-                expr = Expr::Greater(Box::new(expr),Box::new(self.parse_xor_expr()));
+                expr = Expr::Greater(Box::new(expr),Box::new(self.xor_expr()));
             }
 
             // LessEq
             if self.punct2('<','=') {
-                expr = Expr::LessEq(Box::new(expr),Box::new(self.parse_xor_expr()));
+                expr = Expr::LessEq(Box::new(expr),Box::new(self.xor_expr()));
             }
 
             // GreaterEq
             if self.punct2('>','=') {
-                expr = Expr::GreaterEq(Box::new(expr),Box::new(self.parse_xor_expr()));
+                expr = Expr::GreaterEq(Box::new(expr),Box::new(self.xor_expr()));
             }
 
             else {
@@ -297,58 +321,58 @@ impl Parser {
     }
 
     // LogAnd
-    fn parse_logand_expr(&mut self) -> Expr {
-        let mut expr = self.parse_comp_expr();
+    fn logand_expr(&mut self) -> Expr {
+        let mut expr = self.comp_expr();
         while self.punct2('&','&') {
-            expr = Expr::LogAnd(Box::new(expr),Box::new(self.parse_comp_expr()));
+            expr = Expr::LogAnd(Box::new(expr),Box::new(self.comp_expr()));
         }
         expr
     }
 
     // LogOr
-    fn parse_logor_expr(&mut self) -> Expr {
-        let mut expr = self.parse_logand_expr();
+    fn logor_expr(&mut self) -> Expr {
+        let mut expr = self.logand_expr();
         while self.punct2('|','|') {
-            expr = Expr::LogOr(Box::new(expr),Box::new(self.parse_logand_expr()));
+            expr = Expr::LogOr(Box::new(expr),Box::new(self.logand_expr()));
         }
         expr
     }
 
     // Assign, AddAssign, SubAssign, MulAssign, DivAssign, ModAssign, AndAssign, OrAssign, XorAssign, ShlAssign, ShrAssign
-    fn parse_assign_expr(&mut self) -> Expr {
-        let expr = self.parse_logor_expr();
+    fn assign_expr(&mut self) -> Expr {
+        let expr = self.logor_expr();
         if self.punct('=') {
-            Expr::Assign(Box::new(expr),Box::new(self.parse_logor_expr()))
+            Expr::Assign(Box::new(expr),Box::new(self.logor_expr()))
         }
         else if self.punct2('+','=') {
-            Expr::AddAssign(Box::new(expr),Box::new(self.parse_logor_expr()))
+            Expr::AddAssign(Box::new(expr),Box::new(self.logor_expr()))
         }
         else if self.punct2('-','=') {
-            Expr::SubAssign(Box::new(expr),Box::new(self.parse_logor_expr()))
+            Expr::SubAssign(Box::new(expr),Box::new(self.logor_expr()))
         }
         else if self.punct2('*','=') {
-            Expr::MulAssign(Box::new(expr),Box::new(self.parse_logor_expr()))
+            Expr::MulAssign(Box::new(expr),Box::new(self.logor_expr()))
         }
         else if self.punct2('/','=') {
-            Expr::DivAssign(Box::new(expr),Box::new(self.parse_logor_expr()))
+            Expr::DivAssign(Box::new(expr),Box::new(self.logor_expr()))
         }
         else if self.punct2('%','=') {
-            Expr::ModAssign(Box::new(expr),Box::new(self.parse_logor_expr()))
+            Expr::ModAssign(Box::new(expr),Box::new(self.logor_expr()))
         }
         else if self.punct2('&','=') {
-            Expr::AndAssign(Box::new(expr),Box::new(self.parse_logor_expr()))
+            Expr::AndAssign(Box::new(expr),Box::new(self.logor_expr()))
         }
         else if self.punct2('|','=') {
-            Expr::OrAssign(Box::new(expr),Box::new(self.parse_logor_expr()))
+            Expr::OrAssign(Box::new(expr),Box::new(self.logor_expr()))
         }
         else if self.punct2('^','=') {
-            Expr::XorAssign(Box::new(expr),Box::new(self.parse_logor_expr()))
+            Expr::XorAssign(Box::new(expr),Box::new(self.logor_expr()))
         }
         else if self.punct3('<','<','=') {
-            Expr::ShlAssign(Box::new(expr),Box::new(self.parse_logor_expr()))
+            Expr::ShlAssign(Box::new(expr),Box::new(self.logor_expr()))
         }
         else if self.punct3('>','>','=') {
-            Expr::ShrAssign(Box::new(expr),Box::new(self.parse_logor_expr()))
+            Expr::ShrAssign(Box::new(expr),Box::new(self.logor_expr()))
         }
         else {
             expr
@@ -356,7 +380,7 @@ impl Parser {
     }
 
     // Block
-    pub fn parse_block(&mut self) -> Option<Block> {
+    pub fn block(&mut self) -> Option<Block> {
         let mut last_expr: Option<Box<Expr>> = None;
         if let Some(mut parser) = self.group('{') {
             let mut stats: Vec<Stat> = Vec::new();
@@ -364,22 +388,23 @@ impl Parser {
 
                 // Let
                 if parser.keyword("let") {
-                    let pat = parser.parse_pat();
+                    let pat = parser.pat();
                     let ty = if parser.punct(':') {
-                        Some(parser.parse_type())
+                        Some(parser.type_())
                     }
                     else {
                         None
                     };
                     parser.punct('=');
-                    let expr = parser.parse_expr();
+                    let expr = parser.expr();
                     parser.punct(';');
-                    stats.push(Stat::Let(pat,ty,Box::new(expr)));
+                    stats.push(Stat::Let("t".to_string(),ty,Box::new(expr)));
+                    produce_let_statements(&mut stats,&pat,Expr::Ident("t".to_string()));
                 }
 
                 // Expr
                 else {
-                    let expr = parser.parse_expr();
+                    let expr = parser.expr();
                     if parser.punct(';') {
                         stats.push(Stat::Expr(Box::new(expr)));
                     }
@@ -397,10 +422,10 @@ impl Parser {
     }
 
     // If, IfLet, Block
-    fn parse_else_expr(&mut self) -> Option<Expr> {
+    fn else_expr(&mut self) -> Option<Expr> {
 
         // Block
-        if let Some(block) = self.parse_block() {
+        if let Some(block) = self.block() {
             Some(Expr::Block(block))
         }
 
@@ -409,12 +434,12 @@ impl Parser {
 
             // IfLet
             if self.keyword("let") {
-                let pats = self.parse_or_pats();
+                let pats = self.or_pats();
                 self.punct('=');
-                let expr = self.parse_expr();
-                let block = self.parse_block().expect("{ expected");
+                let expr = self.expr();
+                let block = self.block().expect("{ expected");
                 if self.keyword("else") {
-                    let else_expr = self.parse_else_expr().expect("if, if let, or block expected");
+                    let else_expr = self.else_expr().expect("if, if let, or block expected");
                     Some(Expr::IfLet(pats,Box::new(expr),block,Some(Box::new(else_expr))))
                 }
                 else {
@@ -424,10 +449,10 @@ impl Parser {
 
             // If
             else {
-                let expr = self.parse_expr();
-                let block = self.parse_block().expect("{ expected");
+                let expr = self.expr();
+                let block = self.block().expect("{ expected");
                 if self.keyword("else") {
-                    let else_expr = self.parse_else_expr().expect("if, if let, or block expected");
+                    let else_expr = self.else_expr().expect("if, if let, or block expected");
                     Some(Expr::If(Box::new(expr),block,Some(Box::new(else_expr))))
                 }
                 else {
@@ -442,7 +467,7 @@ impl Parser {
     }
 
     // Continue, Break, Return, Block, If, IfLet, Loop, For, While, WhileLet, Match, *Assign
-    pub fn parse_expr(&mut self) -> Expr {
+    pub fn expr(&mut self) -> Expr {
 
         // Continue
         if self.keyword("continue") {
@@ -452,7 +477,7 @@ impl Parser {
         // Break
         else if self.keyword("break") {
             if !self.peek_punct(';') {
-                let expr = self.parse_expr();
+                let expr = self.expr();
                 Expr::Break(Some(Box::new(expr)))
             }
             else {
@@ -463,7 +488,7 @@ impl Parser {
         // Return
         else if self.keyword("return") {
             if !self.peek_punct(';') {
-                let expr = self.parse_expr();
+                let expr = self.expr();
                 Expr::Return(Some(Box::new(expr)))
             }
             else {
@@ -472,7 +497,7 @@ impl Parser {
         }
 
         // If, IfLet, Block
-        else if let Some(expr) = self.parse_else_expr() {
+        else if let Some(expr) = self.else_expr() {
             expr
         }
 
@@ -481,29 +506,29 @@ impl Parser {
 
             // WhileLet
             if self.keyword("let") {
-                let pats = self.parse_or_pats();
+                let pats = self.or_pats();
                 self.punct('=');
-                let expr = self.parse_expr();
-                let block = self.parse_block().expect("{ expected");
+                let expr = self.expr();
+                let block = self.block().expect("{ expected");
                 Expr::WhileLet(pats,Box::new(expr),block)
             }
 
             // While
             else {
-                let expr = self.parse_expr();
-                let block = self.parse_block().expect("{ expected");
+                let expr = self.expr();
+                let block = self.block().expect("{ expected");
                 Expr::While(Box::new(expr),block)
             }
         }
 
         // Loop
         else if self.keyword("loop") {
-            Expr::Loop(self.parse_block().expect("{ expected"))
+            Expr::Loop(self.block().expect("{ expected"))
         }
 
         // For
         else if self.keyword("for") {
-            let pats = self.parse_or_pats();
+            let pats = self.or_pats();
             self.keyword("in");
             let range = if self.punct2('.','.') {
                 if self.peek_group('{') {
@@ -511,25 +536,25 @@ impl Parser {
                 }
                 else {
                     if self.punct('=') {
-                        Range::ToIncl(Box::new(self.parse_expr()))
+                        Range::ToIncl(Box::new(self.expr()))
                     }
                     else {
-                        Range::To(Box::new(self.parse_expr()))
+                        Range::To(Box::new(self.expr()))
                     }
                 }
             }
             else {
-                let expr = self.parse_expr();
+                let expr = self.expr();
                 if self.punct2('.','.') {
                     if self.peek_group('{') {
                         Range::From(Box::new(expr))
                     }
                     else {
                         if self.punct('=') {
-                            Range::FromToIncl(Box::new(expr),Box::new(self.parse_expr()))
+                            Range::FromToIncl(Box::new(expr),Box::new(self.expr()))
                         }
                         else {
-                            Range::FromTo(Box::new(expr),Box::new(self.parse_expr()))
+                            Range::FromTo(Box::new(expr),Box::new(self.expr()))
                         }
                     }
                 }
@@ -537,25 +562,25 @@ impl Parser {
                     Range::Only(Box::new(expr))
                 }
             };
-            let block = self.parse_block().expect("block expected");
+            let block = self.block().expect("block expected");
             Expr::For(pats,range,block)
         }
 
         // Match
         else if self.keyword("match") {
-            let expr = self.parse_expr();
+            let expr = self.expr();
             let mut arms: Vec<(Vec<Pat>,Option<Box<Expr>>,Box<Expr>)> = Vec::new();
             if let Some(mut parser) = self.group('{') {
                 while !parser.done() {
-                    let pats = parser.parse_or_pats();
+                    let pats = parser.or_pats();
                     let if_expr = if parser.keyword("if") {
-                        Some(Box::new(parser.parse_expr()))
+                        Some(Box::new(parser.expr()))
                     }
                     else {
                         None
                     };
                     parser.punct2('=','>');
-                    let expr = parser.parse_expr();
+                    let expr = parser.expr();
                     parser.punct(',');
                     arms.push((pats,if_expr,Box::new(expr)));
                 }
@@ -568,7 +593,7 @@ impl Parser {
 
         // *Assign
         else {
-            self.parse_assign_expr()
+            self.assign_expr()
         }
     }
 }

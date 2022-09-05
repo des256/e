@@ -29,10 +29,7 @@ impl Renderer {
                 r += "])";
                 r
             },
-            Expr::Ident(_) => panic!("render_expr: Expr::Ident shouldn't exist"),
-            Expr::Local(ident,_) => format!("sr::Expr::Local(\"{}\".to_string())",ident),
-            Expr::Param(ident,_) => format!("sr::Expr::Param(\"{}\".to_string())",ident),
-            Expr::Const(ident,_) => format!("sr::Expr::Const(\"{}\".to_string())",ident),
+            Expr::Ident(ident) => format!("sr::Expr::Ident(\"{}\".to_string())",ident),
             Expr::Array(exprs) => {
                 let mut r = "sr::Expr::Array([".to_string();
                 for expr in exprs {
@@ -51,36 +48,48 @@ impl Renderer {
                 r += "])";
                 r
             },
-            Expr::Tuple(ident,exprs) => {
-                let mut r = format!("sr::Expr::Tuple(\"{}\".to_string(),vec![",ident);
-                for expr in exprs {
-                    r += &format!("{},",self.expr(expr));
+            Expr::Variant(ident,variantexpr) => {
+                match variantexpr {
+                    VariantExpr::Naked(ident2) => format!("sr::Expr::Variant(\"{}\".to_string(),VariantExpr::Naked(\"{}\".to_string()))",ident,ident2),
+                    VariantExpr::Tuple(ident2,exprs) => {
+                        let mut r = format!("sr::Expr::Variant(\"{}\".to_string(),VariantExpr::Tuple(\"{}\".to_string(),vec![",ident,ident2);
+                        for expr in exprs {
+                            r += &format!("{},",self.expr(expr));
+                        }
+                        r += "]))";
+                        r
+                    },
+                    VariantExpr::Struct(ident2,fields) => {
+                        let mut r = format!("sr::Expr::Variant(\"{}\".to_string(),VariantExpr::Struct(\"{}\".to_string(),vec![",ident,ident2);
+                        for (ident,expr) in fields {
+                            r += &format!("(\"{}\".to_string(),{})",ident,self.expr(expr));
+                        }
+                        r += "]))";
+                        r
+                    },
                 }
-                r += "])";
-                r
             },
-            Expr::AnonTuple(exprs) => {
-                let mut r = "sr::Expr::AnonTuple(vec![".to_string();
-                for expr in exprs {
-                    r += &format!("{},",self.expr(expr));
-                }
-                r += "])";
-                r
-            },
-            Expr::Variant(_,_) => panic!("render_expr: TODO: Expr::Variant"),
-            Expr::Call(ident,exprs,ty) => {
+            Expr::Call(ident,exprs) => {
                 let mut r = format!("sr::Expr::Call(\"{}\".to_string(),vec![",ident);
                 for expr in exprs {
                     r += &self.expr(expr);
                     r += ",";
                 }
-                r += &format!(",],{})",self.type_(ty));
+                r += "])";
                 r
             },
-            Expr::Field(expr,ident,ty) => format!("sr::Expr::Field(Box::new({}),\"{}\".to_string(),{})",self.expr(expr),ident,self.type_(ty)),
-            Expr::TupleIndex(expr,index,ty) => format!("sr::Expr::TupleIndex(Box::new({}),{},{})",self.expr(expr),index,self.type_(ty)),
-            Expr::Index(expr,expr2,ty) => format!("sr::Expr::Index(Box::new({}),Box::new({}),{})",self.expr(expr),self.expr(expr2),self.type_(ty)),
+            Expr::Field(expr,ident) => format!("sr::Expr::Field(Box::new({}),\"{}\".to_string())",self.expr(expr),ident),
+            Expr::Index(expr,expr2) => format!("sr::Expr::Index(Box::new({}),Box::new({}))",self.expr(expr),self.expr(expr2)),
             Expr::Cast(expr,ty) => format!("sr::Expr::Cast(Box::new({}),Box::new({}))",self.expr(expr),self.type_(ty)),
+            Expr::AnonTuple(exprs) => {
+                let mut r = "sr::Expr::AnonTuple(vec![".to_string();
+                for expr in exprs {
+                    r += &self.expr(expr);
+                    r += ",";
+                }
+                r += "])";
+                r
+            },
             Expr::Neg(expr) => format!("sr::Expr::Neg(Box::new({}))",self.expr(expr)),
             Expr::Not(expr) => format!("sr::Expr::Not(Box::new({}))",self.expr(expr)),
             Expr::Mul(expr,expr2) => format!("sr::Expr::Mul(Box::new({}),Box::new({}))",self.expr(expr),self.expr(expr2)),
@@ -202,24 +211,10 @@ impl Renderer {
 
     fn type_(&self,ty: &Type) -> String {
         match ty {
-            Type::Inferred => "sr::Type::Inferred".to_string(),
-            Type::Integer => "sr::Type::Integer".to_string(),
-            Type::Float => "sr::Type::Float".to_string(),
             Type::Void => "sr::Type::Void".to_string(),
             Type::Base(base_type) => format!("sr::Type::Base(sr::BaseType::{})",base_type.variant()),
-            Type::Ident(_) => panic!("render_type: Type::Ident shouldn't exist"),
-            Type::Struct(ident) => format!("sr::Type::Struct(\"{}\".to_string())",ident),
-            Type::Tuple(ident) => format!("sr::Type::Tuple(\"{}\".to_string())",ident),
-            Type::Enum(ident) => format!("sr::Type::Enum(\"{}\".to_string())",ident),
+            Type::Ident(ident) => format!("sr::Type::Ident(\"{}\".to_string())",ident),
             Type::Array(ty,expr) => format!("sr::Type::Array(Box::new({}),Box::new({}))",self.type_(ty),self.expr(expr)),
-            Type::AnonTuple(types) => {
-                let mut r = "sr::Type::AnonTuple(vec![".to_string();
-                for ty in types {
-                    r += &format!("{},",self.type_(ty));
-                }
-                r += "])";
-                r
-            },
         }
     }
 
@@ -230,8 +225,7 @@ impl Renderer {
             Pat::Boolean(value) => format!("sr::Pat::Boolean({})",if *value { "true" } else { "false" }),
             Pat::Integer(value) => format!("sr::Pat::Integer({})",*value),
             Pat::Float(value) => format!("sr::Pat::Float({})",*value),
-            Pat::Ident(_) => panic!("render_pat: Pat::Ident shouldn't exist"),
-            Pat::Const(ident,ty) => format!("sr::Pat::Const(\"{}\".to_string(),{})",ident,self.type_(ty)),
+            Pat::Ident(ident) => format!("sr::Pat::Ident(\"{}\")",ident),
             Pat::Struct(ident,identpats) => {
                 let mut r = format!("sr::Pat::Struct(\"{}\".to_string(),vec![",ident);
                 for identpat in identpats {
@@ -245,14 +239,6 @@ impl Renderer {
                 r += "])";
                 r
             },
-            Pat::Tuple(ident,pats) => {
-                let mut r = format!("sr::Pat::Tuple(\"{}\".to_string(),vec![",ident);
-                for pat in pats {
-                    r += &format!("{},",self.pat(pat));
-                }
-                r += "])";
-                r
-            },
             Pat::Array(pats) => {
                 let mut r = "sr::Pat::Array(vec![".to_string();
                 for pat in pats {
@@ -262,24 +248,40 @@ impl Renderer {
                 r += "])";
                 r
             },
-            Pat::AnonTuple(pats) => {
-                let mut r = "sr::Pat::AnonTuple(vec![".to_string();
-                for pat in pats {
-                    r += &self.pat(pat);
-                    r += ",";
+            Pat::Variant(ident,variantpat) => {
+                match variantpat {
+                    VariantPat::Naked(ident2) => format!("sr::Pat::Variant(\"{}\".to_string(),VariantPat::Naked(\"{}\".to_string()))",ident,ident2),
+                    VariantPat::Tuple(ident2,pats) => {
+                        let mut r = format!("sr::Pat::Variant(\"{}\".to_string(),VariantPat::Tuple(\"{}\".to_string(),vec![",ident,ident2);
+                        for pat in pats {
+                            r += &format!("{},",self.pat(pat));
+                        }
+                        r += "]))";
+                        r
+                    },
+                    VariantPat::Struct(ident2,identpats) => {
+                        let mut r = format!("sr::Pat::Variant(\"{}\".to_string(),VariantPat::Struct(\"{}\".to_string(),vec![",ident,ident2);
+                        for identpat in identpats {
+                            match identpat {
+                                IdentPat::Wildcard => r += "sr::IdentPat::Wildcard,",
+                                IdentPat::Rest => r += "sr::IdentPat::Rest,",
+                                IdentPat::Ident(ident) => r += &format!("sr::IdentPat::Ident(\"{}\".to_string()),",ident),
+                                IdentPat::IdentPat(ident,pat) => r += &format!("sr::IdentPat::IdentPat(\"{}\".to_string(),{}),",ident,self.pat(pat)),
+                            }
+                        }
+                        r += "]))";
+                        r
+                    },
                 }
-                r += "])";
-                r
             },
-            Pat::Variant(_,_) => panic!("render_pat: TODO: Pat::Variant"),
             Pat::Range(pat,pat2) => format!("sr::Pat::Range(Box::new({}),Box::new({}))",self.pat(pat),self.pat(pat2)),
         }
     }
 
     fn stat(&self,stat: &Stat) -> String {
         match stat {
-            Stat::Let(pat,ty,expr) => {
-                let mut r = format!("sr::Stat::Let({},",self.pat(pat));
+            Stat::Let(ident,ty,expr) => {
+                let mut r = format!("sr::Stat::Let({},",ident);
                 if let Some(ty) = ty {
                     r += &format!("Some(Box::new({}))",self.type_(ty));
                 }
@@ -343,16 +345,6 @@ impl Renderer {
             r += &format!("        consts.insert(\"{}\".to_string(),({},{}));\n\n",ident,self.type_(&ty),self.expr(&expr));
         }
 
-        r += "        let mut tuples: HashMap<String,Vec<sr::Type>> = HashMap::new();\n\n";
-        for ident in module.tuples.keys() {
-            let types = &module.tuples[ident];
-            r += "        let mut types: Vec<sr::Type> = Vec::new();\n";
-            for ty in types {
-                r += &format!("        types.push({});\n",self.type_(&ty));
-            }
-            r += &format!("        tuples.insert(\"{}\".to_string(),types);\n\n",ident);
-        }
-
         r += "        let mut structs: HashMap<String,Vec<(String,sr::Type)>> = HashMap::new();\n\n";
         for ident in module.structs.keys() {
             let fields = &module.structs[ident];
@@ -361,6 +353,16 @@ impl Renderer {
                 r += &format!("        fields.push((\"{}\".to_string(),{}));\n",ident,self.type_(&ty));
             }
             r += &format!("        structs.insert(\"{}\".to_string(),fields);\n\n",ident);
+        }
+
+        r += "        let mut anon_tuple_structs: HashMap<String,Vec<(String,sr::Type)>> = HashMap::new();\n\n";
+        for ident in module.anon_tuple_structs.keys() {
+            let fields = &module.anon_tuple_structs[ident];
+            r += "        let mut fields: Vec<(String,sr::Type)> = Vec::new();\n";
+            for (ident,ty) in fields {
+                r += &format!("        fields.push((\"{}\".to_string(),{}));\n",ident,self.type_(&ty));
+            }
+            r += &format!("        anon_tuple_structs.insert(\"{}\".to_string(),fields);\n\n",ident);
         }
 
         r += "        let mut enums: HashMap<String,Vec<sr::Variant>> = HashMap::new();\n\n";
@@ -384,7 +386,7 @@ impl Renderer {
             r += &format!("        functions.insert(\"{}\".to_string(),(params,return_type,block));\n\n",ident);
         }
 
-        r += &format!("        let module = sr::Module {{ ident: \"{}\".to_string(),consts,tuples,structs,enums,functions, }};\n",module.ident);
+        r += &format!("        let module = sr::Module {{ ident: \"{}\".to_string(),consts,structs,anon_tuple_structs,enums,functions, }};\n",module.ident);
 
         r
     }
@@ -416,7 +418,6 @@ pub(crate) fn render_vertex_trait(ident: &str,fields: &Vec<(String,Type)>) -> St
 }
 
 pub(crate) fn render_vertex_shader(module: Module,vertex: &str) -> String {
-    let module = resolve_idents(&module,Some(vertex.to_string()));
     let renderer = Renderer { };
     let mut r = format!("pub mod {} {{\n\n",module.ident);
     r += "    use super::*;\n\n";
@@ -429,7 +430,6 @@ pub(crate) fn render_vertex_shader(module: Module,vertex: &str) -> String {
 }
 
 pub(crate) fn render_fragment_shader(module: Module) -> String {
-    let module = resolve_idents(&module,None);
     let renderer = Renderer { };
     let mut r = format!("pub mod {} {{\n\n",module.ident);
     r += "    use super::*;\n\n";

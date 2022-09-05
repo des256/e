@@ -1,6 +1,9 @@
 use {
     crate::*,
-    std::mem::swap,
+    std::{
+        mem::swap,
+        collections::HashMap,
+    },
 };
 
 #[allow(dead_code)]
@@ -38,6 +41,7 @@ pub(crate) struct Parser {
     pub current: Option<TokenTree>,
     pub next: Option<TokenTree>,
     pub nextnext: Option<TokenTree>,
+    pub anon_tuple_structs: HashMap<String,Vec<(String,Type)>>,
 }
 
 impl Parser {
@@ -48,7 +52,13 @@ impl Parser {
         let current = stream.next();
         let next = stream.next();
         let nextnext = stream.next();
-        Parser { stream,current,next,nextnext, }
+        Parser {
+            stream,
+            current,
+            next,
+            nextnext,
+            anon_tuple_structs: HashMap::new(),
+        }
     }
 
     /// Consume current token.
@@ -230,7 +240,7 @@ impl Parser {
     }
 
     // VARIOUS LISTS
-    pub(crate) fn parse_ident_types(&mut self) -> Vec<(String,Type)> {
+    pub(crate) fn ident_types(&mut self) -> Vec<(String,Type)> {
         let mut ident_types: Vec<(String,Type)> = Vec::new();
         while !self.done() {
             self.keyword("pub");  // just skip it if it occurs here
@@ -238,70 +248,70 @@ impl Parser {
             if !self.punct(':') {
                 panic!(": expected");
             }
-            let r#type = self.parse_type();
+            let r#type = self.type_();
             ident_types.push((ident,r#type));
             self.punct(',');
         }
         ident_types
     }
 
-    pub(crate) fn parse_paren_ident_types(&mut self) -> Vec<(String,Type)> {
+    pub(crate) fn paren_ident_types(&mut self) -> Vec<(String,Type)> {
         if let Some(mut parser) = self.group('(') {
-            parser.parse_ident_types()
+            parser.ident_types()
         }
         else {
             panic!("( expected");
         }
     }
 
-    pub(crate) fn parse_brace_ident_types(&mut self) -> Vec<(String,Type)> {
+    pub(crate) fn brace_ident_types(&mut self) -> Vec<(String,Type)> {
         if let Some(mut parser) = self.group('{') {
-            parser.parse_ident_types()
+            parser.ident_types()
         }
         else {
             panic!("{}","{ expected");
         }
     }
 
-    fn parse_types(&mut self) -> Vec<Type> {
+    fn types(&mut self) -> Vec<Type> {
         let mut types: Vec<Type> = Vec::new();
         while !self.done() {
-            let r#type = self.parse_type();
+            let r#type = self.type_();
             types.push(r#type);
             self.punct(',');
         }
         types
     }
 
-    pub(crate) fn parse_paren_types(&mut self) -> Option<Vec<Type>> {
+    pub(crate) fn paren_types(&mut self) -> Option<Vec<Type>> {
         if let Some(mut parser) = self.group('(') {
-            Some(parser.parse_types())
+            Some(parser.types())
         }
         else {
             None
         }
     }
 
-    fn parse_exprs(&mut self) -> Vec<Expr> {
+    fn exprs(&mut self) -> Vec<Expr> {
         let mut exprs: Vec<Expr> = Vec::new();
         while !self.done() {
-            let expr = self.parse_expr();
+            let expr = self.expr();
             exprs.push(expr);
             self.punct(',');
         }
         exprs
     }
 
-    pub(crate) fn parse_paren_exprs(&mut self) -> Option<Vec<Expr>> {
+    pub(crate) fn paren_exprs(&mut self) -> Option<Vec<Expr>> {
         if let Some(mut parser) = self.group('(') {
-            Some(parser.parse_exprs())
+            Some(parser.exprs())
         }
         else {
             None
         }
     }
 
-    pub(crate) fn parse_brace_ident_exprs(&mut self) -> Option<Vec<(String,Expr)>> {
+    pub(crate) fn brace_ident_exprs(&mut self) -> Option<Vec<(String,Expr)>> {
         let mut ident_exprs: Vec<(String,Expr)> = Vec::new();
         if let Some(mut parser) = self.group('{') {
             while !parser.done() {
@@ -309,7 +319,7 @@ impl Parser {
                 if !parser.punct(':') {
                     panic!(": expected");
                 }
-                let expr = parser.parse_expr();
+                let expr = parser.expr();
                 ident_exprs.push((ident,expr));
                 parser.punct(',');
             }
@@ -320,13 +330,13 @@ impl Parser {
         }
     }
 
-    pub(crate) fn parse_brace_ident_pats(&mut self) -> Option<Vec<IdentPat>> {
+    pub(crate) fn brace_ident_pats(&mut self) -> Option<Vec<IdentPat>> {
         let mut ident_pats: Vec<IdentPat> = Vec::new();
         if let Some(mut parser) = self.group('{') {
             while !parser.done() {
                 let ident_pat = if let Some(ident) = parser.ident() {
                     if parser.punct(':') {
-                        IdentPat::IdentPat(ident,parser.parse_pat())
+                        IdentPat::IdentPat(ident,parser.pat())
                     }
                     else {
                         IdentPat::Ident(ident)
@@ -351,27 +361,27 @@ impl Parser {
         }
     }
 
-    fn parse_pats(&mut self) -> Vec<Pat> {
+    fn pats(&mut self) -> Vec<Pat> {
         let mut pats: Vec<Pat> = Vec::new();
         while !self.done() {
-            pats.push(self.parse_pat());
+            pats.push(self.pat());
             self.punct(',');
         }
         pats
     }
 
-    pub(crate) fn parse_paren_pats(&mut self) -> Option<Vec<Pat>> {
+    pub(crate) fn paren_pats(&mut self) -> Option<Vec<Pat>> {
         if let Some(mut parser) = self.group('(') {
-            Some(parser.parse_pats())
+            Some(parser.pats())
         }
         else {
             None
         }
     }
 
-    pub(crate) fn parse_bracket_pats(&mut self) -> Option<Vec<Pat>> {
+    pub(crate) fn bracket_pats(&mut self) -> Option<Vec<Pat>> {
         if let Some(mut parser) = self.group('[') {
-            Some(parser.parse_pats())
+            Some(parser.pats())
         }
         else {
             None
@@ -420,5 +430,31 @@ impl Parser {
         else {
             None
         }
+    }
+
+    pub(crate) fn make_anon_tuple_struct(&mut self,types: Vec<Type>) -> String {
+        for (ident,fields) in &self.anon_tuple_structs {
+            if fields.len() == types.len() {
+                let mut all_types_match = true;
+                for i in 0..types.len() {
+                    if fields[i].1 != types[i] {
+                        all_types_match = false;
+                        break;
+                    }
+                }
+                if all_types_match {
+                    return ident.clone();
+                }
+            }
+        }
+        let mut fields: Vec<(String,Type)> = Vec::new();
+        let mut i = 0usize;
+        for ty in types {
+            fields.push((format!("_{}",i),ty));
+            i += 1;
+        }
+        let ident = format!("AnonTuple{}",self.anon_tuple_structs.len());
+        self.anon_tuple_structs.insert(ident.clone(),fields);
+        ident
     }
 }

@@ -1,17 +1,19 @@
+// resolve Type::Ident, Expr::Ident and Pat::Ident
+
 use {
     crate::*,
     std::collections::HashMap,
 };
 
-struct Replacer<'module> {
+struct Resolver<'module> {
     pub module: &'module sr::Module,
-    pub new_structs: HashMap<String,Vec<(String,sr::Type)>>,
+    pub extern_vertex: Option<String>,
     pub locals: HashMap<String,sr::Type>,
     pub params: HashMap<String,sr::Type>,
-    pub anon_tuple_count: usize,
+    pub anon_tuple_structs: HashMap<String,Vec<(String,sr::Type)>>,
 }
 
-impl<'module> Replacer<'module> {
+impl<'module> Resolver<'module> {
 
     fn block(&mut self,block: &sr::Block) -> sr::Block {
         let local_frame = self.locals.clone();
@@ -34,16 +36,30 @@ impl<'module> Replacer<'module> {
             sr::Expr::Boolean(value) => sr::Expr::Boolean(*value),
             sr::Expr::Integer(value) => sr::Expr::Integer(*value),
             sr::Expr::Float(value) => sr::Expr::Float(*value),
-            sr::Expr::Base(base_type,fields) => {
+            sr::Expr::Base(ident,fields) => {
                 let mut new_fields: Vec<(String,sr::Expr)> = Vec::new();
                 for (ident,expr) in fields {
                     new_fields.push((ident.clone(),self.expr(expr)));
                 }
-                sr::Expr::Base(base_type.clone(),new_fields)
+                sr::Expr::Base(ident.clone(),new_fields)
             },
-            sr::Expr::Local(ident,ty) => sr::Expr::Local(ident.clone(),ty.clone()),
-            sr::Expr::Param(ident,ty) => sr::Expr::Param(ident.clone(),ty.clone()),
-            sr::Expr::Const(ident,ty) => sr::Expr::Const(ident.clone(),ty.clone()),
+            sr::Expr::Ident(ident) => {
+                if self.module.consts.contains_key(ident) {
+                    sr::Expr::Const(ident.clone())
+                }
+                else if self.locals.contains_key(ident) {
+                    sr::Expr::Local(ident.clone())
+                }
+                else if self.params.contains_key(ident) {
+                    sr::Expr::Param(ident.clone())
+                }
+                else {
+                    panic!("unknown identifier {}",ident);
+                }
+            },
+            sr::Expr::Const(ident) => sr::Expr::Const(ident.clone()),
+            sr::Expr::Local(ident) => sr::Expr::Local(ident.clone()),
+            sr::Expr::Param(ident) => sr::Expr::Param(ident.clone()),
             sr::Expr::Array(exprs) => {
                 let mut new_exprs: Vec<sr::Expr> = Vec::new();
                 for expr in exprs {
@@ -59,36 +75,23 @@ impl<'module> Replacer<'module> {
                 }
                 sr::Expr::Struct(ident.clone(),new_fields)
             },
-            sr::Expr::Tuple(ident,exprs) => {
-                let mut new_fields: Vec<(String,sr::Expr)> = Vec::new();
-                let mut i = 0usize;
+            sr::Expr::Call(ident,exprs) => {
+                let mut new_exprs: Vec<sr::Expr> = Vec::new();
                 for expr in exprs {
-                    let ident = format!("_{}",i);
-                    i += 1;
-                    new_fields.push((ident,self.expr(expr)));
+                    new_exprs.push(self.expr(expr));
                 }
-                sr::Expr::Struct(format!("Tuple{}",ident),new_fields)
-            },
-            sr::Expr::AnonTuple(exprs) => {
-                let mut new_fields: Vec<(String,sr::Type)> = Vec::new();
-                let mut i = 0usize;
-                for expr in exprs {
-                    let ident = format!("_{}",i);
-                    i += 1;
-                    new_fields.push((ident,find_expr_type(self.module,expr)));
+                if self.module.functions.contains_key(ident) {
+                    sr::Expr::Call(ident.clone(),new_exprs)
                 }
-                // TODO: figure out if this anonymous tuple already exists
-                let ident = format!("AnonTuple{}",self.anon_tuple_count);
-                self.new_structs.insert(ident.clone(),new_fields);
-                self.anon_tuple_count += 1;
-
-                let mut new_fields: Vec<(String,sr::Expr)> = Vec::new();
-                let mut i = 0usize;
-                for expr in exprs {
-                    new_fields.push((format!("_{}",i),self.expr(expr)));
-                    i += 1;
+                else {
+                    let mut new_fields: Vec<(String,sr::Expr)> = Vec::new();
+                    let mut i = 0usize;
+                    for expr in new_exprs {
+                        new_fields.push((format!("_{}",i),expr));
+                        i += 1;
+                    }
+                    sr::Expr::Struct(ident.clone(),new_fields)
                 }
-                sr::Expr::Struct(ident,new_fields)
             },
             sr::Expr::Variant(ident,variantexpr) => {
                 let new_variantexpr = match variantexpr {
@@ -110,17 +113,16 @@ impl<'module> Replacer<'module> {
                 };
                 sr::Expr::Variant(ident.clone(),new_variantexpr)
             },
-            sr::Expr::Call(ident,exprs,ty) => {
+            sr::Expr::Field(expr,ident) => sr::Expr::Field(Box::new(self.expr(expr)),ident.clone()),
+            sr::Expr::Index(expr,expr2) => sr::Expr::Index(Box::new(self.expr(expr)),Box::new(self.expr(expr2))),
+            sr::Expr::Cast(expr,ty) => sr::Expr::Cast(Box::new(self.expr(expr)),self.type_(ty)),
+            sr::Expr::AnonTuple(exprs) => {
                 let mut new_exprs: Vec<sr::Expr> = Vec::new();
                 for expr in exprs {
                     new_exprs.push(self.expr(expr));
                 }
-                sr::Expr::Call(ident.clone(),new_exprs,ty.clone())
+                sr::Expr::AnonTuple(new_exprs)
             },
-            sr::Expr::Field(expr,ident,ty) => sr::Expr::Field(Box::new(self.expr(expr)),ident.clone(),ty.clone()),
-            sr::Expr::Index(expr,expr2,ty) => sr::Expr::Index(Box::new(self.expr(expr)),Box::new(self.expr(expr2)),ty.clone()),
-            sr::Expr::TupleIndex(expr,index,ty) => sr::Expr::Field(Box::new(self.expr(expr)),format!("_{}",index),ty.clone()),
-            sr::Expr::Cast(expr,ty) => sr::Expr::Cast(Box::new(self.expr(expr)),self.type_(ty)),
             sr::Expr::Neg(expr) => sr::Expr::Neg(Box::new(self.expr(expr))),
             sr::Expr::Not(expr) => sr::Expr::Not(Box::new(self.expr(expr))),
             sr::Expr::Mul(expr,expr2) => sr::Expr::Mul(Box::new(self.expr(expr)),Box::new(self.expr(expr2))),
@@ -242,16 +244,22 @@ impl<'module> Replacer<'module> {
 
     fn stat(&mut self,stat: &sr::Stat) -> sr::Stat {
         match stat {
-            sr::Stat::Let(pat,ty,expr) => {
-                let new_pat = self.pat(pat);
+            sr::Stat::Let(ident,ty,expr) => {
                 let new_ty = if let Some(ty) = ty {
-                    Some(Box::new(self.type_(ty)))
+                    Some(self.type_(ty))
                 }
                 else {
                     None
                 };
                 let new_expr = self.expr(expr);
-                sr::Stat::Let(new_pat,new_ty,Box::new(new_expr))
+                if let Some(ty) = &new_ty {
+                    self.locals.insert(ident.clone().to_string(),ty.clone());
+                }
+                else {
+                    let ty = infer_expr_type(self.module,&mut self.anon_tuple_structs,expr);
+                    self.locals.insert(ident.clone().to_string(),ty);
+                }
+                sr::Stat::Let(ident.clone(),new_ty,Box::new(new_expr))
             },
             sr::Stat::Expr(expr) => sr::Stat::Expr(Box::new(self.expr(expr))),
         }
@@ -260,28 +268,36 @@ impl<'module> Replacer<'module> {
     fn type_(&mut self,ty: &sr::Type) -> sr::Type {
         match ty {
             sr::Type::Inferred => sr::Type::Inferred,
+            sr::Type::Boolean => sr::Type::Boolean,
             sr::Type::Integer => sr::Type::Integer,
             sr::Type::Float => sr::Type::Float,
             sr::Type::Void => sr::Type::Void,
             sr::Type::Base(base_type) => sr::Type::Base(base_type.clone()),
+            sr::Type::Ident(ident) => {
+                if self.module.structs.contains_key(ident) {
+                    sr::Type::Struct(ident.clone())
+                }
+                else if self.module.anon_tuple_structs.contains_key(ident) {
+                    sr::Type::Struct(ident.clone())
+                }
+                else if self.module.enums.contains_key(ident) {
+                    sr::Type::Enum(ident.clone())
+                }
+                else if let Some(extern_vertex) = &self.extern_vertex {
+                    if ident == extern_vertex {
+                        sr::Type::Struct(ident.clone())
+                    }
+                    else {
+                        panic!("unknown type {}",ident);
+                    }
+                }
+                else {
+                    panic!("unknown type {}",ident);
+                }
+            },
             sr::Type::Struct(ident) => sr::Type::Struct(ident.clone()),
-            sr::Type::Tuple(ident) => sr::Type::Struct(format!("Tuple{}",ident)),
             sr::Type::Enum(ident) => sr::Type::Enum(ident.clone()),
             sr::Type::Array(ty,expr) => sr::Type::Array(Box::new(self.type_(ty)),Box::new(self.expr(expr))),
-            sr::Type::AnonTuple(types) => {
-                let mut new_fields: Vec<(String,sr::Type)> = Vec::new();
-                let mut i = 0usize;
-                for ty in types {
-                    let ident = format!("_{}",i);
-                    i += 1;
-                    new_fields.push((ident,self.type_(ty)));
-                }
-                // TODO: figure out if this anonymous tuple already exists
-                let ident = format!("AnonTuple{}",self.anon_tuple_count);
-                self.new_structs.insert(ident.clone(),new_fields);
-                self.anon_tuple_count += 1;
-                sr::Type::Struct(ident)
-            },
         }
     }
 
@@ -292,7 +308,14 @@ impl<'module> Replacer<'module> {
             sr::Pat::Boolean(value) => sr::Pat::Boolean(*value),
             sr::Pat::Integer(value) => sr::Pat::Integer(*value),
             sr::Pat::Float(value) => sr::Pat::Float(*value),
-            sr::Pat::Ident(ident) => sr::Pat::Ident(ident.clone()),
+            sr::Pat::Ident(ident) => {
+                if self.module.consts.contains_key(ident) {
+                    sr::Pat::Const(ident.clone())
+                }
+                else {
+                    sr::Pat::Ident(ident.clone())
+                }
+            },
             sr::Pat::Const(ident) => sr::Pat::Const(ident.clone()),
             sr::Pat::Struct(ident,identpats) => {
                 let mut new_identpats: Vec<sr::IdentPat> = Vec::new();
@@ -306,43 +329,12 @@ impl<'module> Replacer<'module> {
                 }
                 sr::Pat::Struct(ident.clone(),new_identpats)
             },
-            sr::Pat::Tuple(ident,pats) => {
-                let mut new_identpats: Vec<sr::IdentPat> = Vec::new();
-                let mut i = 0usize;
-                for pat in pats {
-                    new_identpats.push(sr::IdentPat::IdentPat(format!("_{}",i),self.pat(pat)));
-                    i += 1;
-                }
-                sr::Pat::Struct(format!("Tuple{}",ident),new_identpats)
-            },
             sr::Pat::Array(pats) => {
                 let mut new_pats: Vec<sr::Pat> = Vec::new();
                 for pat in pats {
                     new_pats.push(self.pat(pat));
                 }
                 sr::Pat::Array(new_pats)
-            },
-            sr::Pat::AnonTuple(pats) => {
-                let mut new_fields: Vec<(String,sr::Type)> = Vec::new();
-                let mut i = 0usize;
-                for pat in pats {
-                    let ident = format!("_{}",i);
-                    i += 1;
-                    // TODO: figure out what the actual type is of the pattern
-                    new_fields.push((ident,sr::Type::Void));
-                }
-                // TODO: figure out if this anonymous tuple already exists
-                let ident = format!("AnonTuple{}",self.anon_tuple_count);
-                self.new_structs.insert(ident.clone(),new_fields);
-                self.anon_tuple_count += 1;
-                let mut new_identpats: Vec<sr::IdentPat> = Vec::new();
-                let mut i = 0usize;
-                for pat in pats {
-                    let ident = format!("_{}",i);
-                    i += 1;
-                    new_identpats.push(sr::IdentPat::IdentPat(ident,self.pat(pat)));
-                }
-                sr::Pat::Struct(ident,new_identpats)
             },
             sr::Pat::Variant(ident,variantpat) => {
                 let new_variantpat = match variantpat {
@@ -374,53 +366,50 @@ impl<'module> Replacer<'module> {
     }
 }
 
-pub fn replace_tuples(module: sr::Module,vertex_ident: Option<String>,vertex_fields: &Vec<(String,sr::Type)>) -> sr::Module {
-
-    let mut replacer = Replacer {
-        module: &module,
-        new_structs: HashMap::new(),
+pub fn resolve_idents(module: &sr::Module,extern_vertex: Option<String>) -> sr::Module {
+    let mut resolver = Resolver {
+        module,
+        extern_vertex,
         locals: HashMap::new(),
         params: HashMap::new(),
-        anon_tuple_count: 0,
+        anon_tuple_structs: HashMap::new(),
     };
 
-    // replace tuples and references in functions
     let mut new_functions: HashMap<String,(Vec<(String,sr::Type)>,sr::Type,sr::Block)> = HashMap::new();
     for (ident,(params,return_type,block)) in &module.functions {
         let mut new_params: Vec<(String,sr::Type)> = Vec::new();
         for (ident,ty) in params {
-            let new_type = replacer.type_(ty);
+            let new_type = resolver.type_(ty);
             new_params.push((ident.clone(),new_type.clone()));
-            replacer.params.insert(ident.clone(),new_type);
+            resolver.params.insert(ident.clone(),new_type);
         }
-        let new_return_type = replacer.type_(return_type);
-        let new_block = replacer.block(block);
-        replacer.params.clear();
+        let new_return_type = resolver.type_(return_type);
+        let new_block = resolver.block(block);
+        resolver.params.clear();
         new_functions.insert(ident.clone(),(new_params,new_return_type,new_block));
     }
 
-    // replace tuples and references in structs
     let mut new_structs: HashMap<String,Vec<(String,sr::Type)>> = HashMap::new();
     for (ident,fields) in &module.structs {
         let mut new_fields: Vec<(String,sr::Type)> = Vec::new();
         for (ident,ty) in fields {
-            new_fields.push((ident.clone(),replacer.type_(ty)));
+            new_fields.push((ident.clone(),resolver.type_(ty)));
         }
         new_structs.insert(ident.clone(),new_fields);
     }
 
-    // convert tuples to structs
-    for (ident,types) in &module.tuples {
+    let mut new_anon_tuple_structs: HashMap<String,Vec<(String,sr::Type)>> = HashMap::new();
+    for (ident,fields) in &module.anon_tuple_structs {
         let mut new_fields: Vec<(String,sr::Type)> = Vec::new();
-        let mut i = 0usize;
-        for ty in types {
-            new_fields.push((format!("_{}",i),replacer.type_(ty)));
-            i += 1;
+        for (ident,ty) in fields {
+            new_fields.push((ident.clone(),resolver.type_(ty)));
         }
-        new_structs.insert(format!("Tuple{}",ident),new_fields);
+        new_anon_tuple_structs.insert(ident.clone(),new_fields);
+    }
+    for (ident,fields) in &resolver.anon_tuple_structs {
+        new_anon_tuple_structs.insert(ident.clone(),fields.clone());
     }
 
-    // replace tuples and references in enums
     let mut new_enums: HashMap<String,Vec<sr::Variant>> = HashMap::new();
     for (ident,variants) in &module.enums {
         let mut new_variants: Vec<sr::Variant> = Vec::new();
@@ -430,14 +419,14 @@ pub fn replace_tuples(module: sr::Module,vertex_ident: Option<String>,vertex_fie
                 sr::Variant::Tuple(ident,types) => {
                     let mut new_types: Vec<sr::Type> = Vec::new();
                     for ty in types {
-                        new_types.push(replacer.type_(ty));
+                        new_types.push(resolver.type_(ty));
                     }
                     sr::Variant::Tuple(ident.clone(),new_types)
                 },
                 sr::Variant::Struct(ident,fields) => {
                     let mut new_fields: Vec<(String,sr::Type)> = Vec::new();
                     for (ident,ty) in fields {
-                        new_fields.push((ident.clone(),replacer.type_(ty)));
+                        new_fields.push((ident.clone(),resolver.type_(ty)));
                     }
                     sr::Variant::Struct(ident.clone(),new_fields)
                 },
@@ -446,26 +435,16 @@ pub fn replace_tuples(module: sr::Module,vertex_ident: Option<String>,vertex_fie
         new_enums.insert(ident.clone(),new_variants);
     }
 
-    // replace tuples and references in constants
     let mut new_consts: HashMap<String,(sr::Type,sr::Expr)> = HashMap::new();
     for (ident,(ty,expr)) in &module.consts {
-        new_consts.insert(ident.clone(),(replacer.type_(ty),replacer.expr(expr)));        
-    }
-
-    // append new structs that were created from anonymous tuples
-    for (ident,fields) in &replacer.new_structs {
-        let mut new_fields: Vec<(String,sr::Type)> = Vec::new();
-        for (ident,ty) in fields {
-            new_fields.push((ident.clone(),ty.clone()));
-        }
-        new_structs.insert(ident.clone(),new_fields);
+        new_consts.insert(ident.clone(),(resolver.type_(ty),resolver.expr(expr)));        
     }
 
     sr::Module {
-        ident: module.ident,
+        ident: module.ident.clone(),
         functions: new_functions,
         structs: new_structs,
-        tuples: HashMap::new(),
+        anon_tuple_structs: new_anon_tuple_structs,
         enums: new_enums,
         consts: new_consts,
     }

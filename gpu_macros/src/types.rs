@@ -4,7 +4,7 @@ use {
 
 impl Parser {
 
-    pub(crate) fn parse_type(&mut self) -> Type {
+    pub(crate) fn type_(&mut self) -> Type {
 
         // identifier (base type or anything named)
         if let Some(ident) = self.ident() {
@@ -22,6 +22,7 @@ impl Parser {
                 "f32" => Type::Base(sr::BaseType::F32),
                 "f64" => Type::Base(sr::BaseType::F64),
                 "Vec2" => {
+                    self.punct2(':',':');
                     if !self.punct('<') {
                         panic!("< expected after Vec2");
                     }
@@ -51,6 +52,7 @@ impl Parser {
                     }
                 },
                 "Vec3" => {
+                    self.punct2(':',':');
                     if !self.punct('<') {
                         panic!("< expected after Vec3");
                     }
@@ -80,6 +82,7 @@ impl Parser {
                     }
                 },
                 "Vec4" => {
+                    self.punct2(':',':');
                     if !self.punct('<') {
                         panic!("< expected after Vec4");
                     }
@@ -109,6 +112,7 @@ impl Parser {
                     }
                 },
                 "Color" => {
+                    self.punct2(':',':');
                     if !self.punct('<') {
                         panic!("< expected after Color");
                     }
@@ -138,15 +142,16 @@ impl Parser {
 
         // array type
         else if let Some(mut parser) = self.group('[') {
-            let element_type = parser.parse_type();
+            let element_type = parser.type_();
             parser.punct(';');
-            let expr = parser.parse_expr();
+            let expr = parser.expr();
             Type::Array(Box::new(element_type),Box::new(expr))
         }
 
         // anonymous tuple type
-        else if let Some(types) = self.parse_paren_types() {
-            Type::AnonTuple(types)
+        else if let Some(types) = self.paren_types() {
+            let ident = self.make_anon_tuple_struct(types);
+            Type::Ident(ident)
         }
 
         else {

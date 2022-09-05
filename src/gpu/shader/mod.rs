@@ -1,8 +1,11 @@
-mod findtype;
-pub use findtype::*;
+mod infertype;
+pub use infertype::*;
 
-mod replacetuples;
-pub use replacetuples::*;
+mod resolveanontuples;
+pub use resolveanontuples::*;
+
+mod resolveidents;
+pub use resolveidents::*;
 
 #[cfg(any(gpu="opengl"))]
 mod glsl;

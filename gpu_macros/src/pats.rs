@@ -5,7 +5,7 @@ use {
 impl Parser {
 
     // Wildcard, Rest, Literal, Ident (Const), Struct, Tuple, Array, AnonTuple, Variant
-    pub(crate) fn parse_pat(&mut self) -> Pat {
+    pub(crate) fn pat(&mut self) -> Pat {
         
         // Wildcard
         if self.punct('_') {
@@ -22,7 +22,7 @@ impl Parser {
             Pat::Boolean(value)
         }
         else if let Some(value) = self.integer_literal() {
-            Pat::Integer(value)
+            Pat::Integer(value as i64)
         }
         else if let Some(value) = self.float_literal() {
             Pat::Float(value)
@@ -32,22 +32,28 @@ impl Parser {
         else if let Some(ident) = self.ident() {
 
             // Struct
-            if let Some(ident_pats) = self.parse_brace_ident_pats() {
+            if let Some(ident_pats) = self.brace_ident_pats() {
                 Pat::Struct(ident,ident_pats)
             }
 
             // Tuple
-            else if let Some(pats) = self.parse_paren_pats() {
-                Pat::Tuple(ident,pats)
+            else if let Some(pats) = self.paren_pats() {
+                let mut ident_pats: Vec<IdentPat> = Vec::new();
+                let mut i = 0usize;
+                for pat in pats {
+                    ident_pats.push(IdentPat::IdentPat(format!("_{}",i),pat));
+                    i += 1;
+                }
+                Pat::Struct(ident,ident_pats)
             }
 
             // Variant
             else if self.punct2(':',':') {
                 let variant = self.ident().expect("identifier expected");
-                if let Some(ident_pats) = self.parse_brace_ident_pats() {
+                if let Some(ident_pats) = self.brace_ident_pats() {
                     Pat::Variant(ident,VariantPat::Struct(variant,ident_pats))
                 }
-                else if let Some(pats) = self.parse_paren_pats() {
+                else if let Some(pats) = self.paren_pats() {
                     Pat::Variant(ident,VariantPat::Tuple(variant,pats))
                 }
                 else {
@@ -62,13 +68,20 @@ impl Parser {
         }
         
         // Array
-        else if let Some(pats) = self.parse_bracket_pats() {
+        else if let Some(pats) = self.bracket_pats() {
             Pat::Array(pats)
         }
 
         // AnonTuple
-        else if let Some(pats) = self.parse_paren_pats() {
-            Pat::AnonTuple(pats)
+        else if let Some(pats) = self.paren_pats() {
+            let mut ident_pats: Vec<IdentPat> = Vec::new();
+            let mut i = 0usize;
+            for pat in pats {
+                ident_pats.push(IdentPat::IdentPat(format!("_{}",i),pat));
+                i += 1;
+            }
+            // the name of the struct is most likely irrelevant in if let, while let and match expressions
+            Pat::Struct("TODO".to_string(),ident_pats)
         }
 
         else {
@@ -77,22 +90,22 @@ impl Parser {
     }
 
     // Range
-    pub(crate) fn parse_ranged_pat(&mut self) -> Pat {
-        let pat = self.parse_pat();
+    pub(crate) fn ranged_pat(&mut self) -> Pat {
+        let pat = self.pat();
         if self.punct3('.','.','=') {
-            Pat::Range(Box::new(pat),Box::new(self.parse_pat()))
+            Pat::Range(Box::new(pat),Box::new(self.pat()))
         }
         else {
             pat
         }
     }
 
-    pub(crate) fn parse_or_pats(&mut self) -> Vec<Pat> {
+    pub(crate) fn or_pats(&mut self) -> Vec<Pat> {
         self.punct('|');
         let mut pats: Vec<Pat> = Vec::new();
-        pats.push(self.parse_ranged_pat());
+        pats.push(self.ranged_pat());
         while self.punct('|') {
-            pats.push(self.parse_ranged_pat());
+            pats.push(self.ranged_pat());
         }
         pats
     }
