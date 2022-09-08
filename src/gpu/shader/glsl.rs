@@ -1,4 +1,7 @@
-use crate::*;
+use {
+    crate::*,
+    std::rc::Rc,
+};
 
 /*
 fn gl_base_type_name(ty: &sr::BaseType) -> &'static str {
@@ -178,140 +181,16 @@ pub fn compile_fragment_shader(items: Vec<sr::Item>) -> Option<Vec<u8>> {
 }
 */
 
-pub fn compile_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fields: Vec<(String,sr::BaseType)>) -> Option<Vec<u8>> {
-    println!("COMPILE VERTEX SHADER");
+pub fn compile_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fields: Vec<sr::Field>) -> Option<Vec<u8>> {
 
-    // add external vertex definition to structs
-    let mut fields: Vec<(String,sr::Type)> = Vec::new();
-    for (ident,bt) in vertex_fields {
-        fields.push((ident.clone(),sr::Type::Base(bt.clone())));
-    }
-    module.structs.insert(vertex_ident,fields);
-
-    // 
-    let module = resolve_idents(&module,Some(vertex_ident.clone()));
-    let module = resolve_anon_tuples(&module);
-    println!("Module: {}",module.ident);
-    if module.consts.len() > 0 {
-        println!("Constants:");
-        for (ident,(ty,expr)) in module.consts {
-            println!("    {}: {} = {}",ident,ty,expr);
-        }
-    }
-    if module.structs.len() > 0 {
-        println!("Structs:");
-        for (ident,fields) in module.structs {
-            println!("    {} {{",ident);
-            for (ident,ty) in fields {
-                println!("        {}: {},",ident,ty);
-            }
-            println!("    }}");
-        }
-    }
-    if module.anon_tuple_structs.len() > 0 {
-        println!("Anonymous Tuple Structs:");
-        for (ident,fields) in module.anon_tuple_structs {
-            println!("    {} {{",ident);
-            for (ident,ty) in fields {
-                println!("        {}: {},",ident,ty);
-            }
-            println!("    }}");
-        }
-    }
-    println!("Vertex struct:");
-    println!("    {} {{",vertex_ident);
-    for (ident,ty) in vertex_fields {
-        println!("        {}: {}",ident,ty.to_rust());
-    }
-    println!("    }}");
-    if module.enums.len() > 0 {
-        println!("Enums:");
-        for (ident,variants) in module.enums {
-            println!("    {} {{",ident);
-            for variant in variants {
-                println!("        {},",variant);
-            }
-            println!("    }}");
-        }
-    }
-    if module.functions.len() > 0 {
-        println!("Functions:");
-        for (ident,(params,return_type,block)) in module.functions {
-            print!("    fn {}(",ident);
-            for (ident,ty) in params {
-                print!("{}: {},",ident,ty);
-            }
-            print!(")");
-            if let sr::Type::Void = return_type { } else {
-                print!(" -> {}",return_type);
-            }
-            println!("{}",block);
-        }
-    }
-    println!("TODO: replace enums");
-    println!("TODO: roll out patterns");
+    process_vertex_shader(module,vertex_ident,vertex_fields);
     println!("TODO: render GLSL");
     None
 }
 
 pub fn compile_fragment_shader(module: sr::Module) -> Option<Vec<u8>> {
-    println!("COMPILE FRAGMENT SHADER");
-    let module = resolve_idents(&module,None);
-    let module = resolve_anon_tuples(&module);
-    println!("Module: {}",module.ident);
-    if module.consts.len() > 0 {
-        println!("Constants:");
-        for (ident,(ty,expr)) in module.consts {
-            println!("    {}: {} = {}",ident,ty,expr);
-        }
-    }
-    if module.structs.len() > 0 {
-        println!("Structs:");
-        for (ident,fields) in module.structs {
-            println!("    {} {{",ident);
-            for (ident,ty) in fields {
-                println!("        {}: {},",ident,ty);
-            }
-            println!("    }}");
-        }
-    }
-    if module.anon_tuple_structs.len() > 0 {
-        println!("Anonymous Tuple Structs:");
-        for (ident,fields) in module.anon_tuple_structs {
-            println!("    {} {{",ident);
-            for (ident,ty) in fields {
-                println!("        {}: {},",ident,ty);
-            }
-            println!("    }}");
-        }
-    }
-    if module.enums.len() > 0 {
-        println!("Enums:");
-        for (ident,variants) in module.enums {
-            println!("    {} {{",ident);
-            for variant in variants {
-                println!("        {},",variant);
-            }
-            println!("    }}");
-        }
-    }
-    if module.functions.len() > 0 {
-        println!("Functions:");
-        for (ident,(params,return_type,block)) in module.functions {
-            print!("    fn {}(",ident);
-            for (ident,ty) in params {
-                print!("{}: {},",ident,ty);
-            }
-            print!(")");
-            if let sr::Type::Void = return_type { } else {
-                print!(" -> {}",return_type);
-            }
-            println!("{}",block);
-        }
-    }
 
-    println!("TODO: replace enums");
-    println!("TODO: roll out patterns");
+    process_fragment_shader(module);
     println!("TODO: render GLSL");
     None
 }

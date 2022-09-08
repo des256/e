@@ -4,36 +4,44 @@ use {
     std::rc::Rc,
 };
 
-#[derive(Debug,PartialEq)]
+#[derive(Clone,Debug,PartialEq)]
 pub struct Variable {
-    ident: String,
-    ty: Type,
-    value: Option<Expr>,
+    pub ident: String,
+    pub type_: Type,
+    pub value: Option<Expr>,
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Clone,Debug,PartialEq)]
 pub struct Function {
-    ident: String,
-    params: Vec<Rc<Variable>>,
-    return_type: Type,
-    block: Block,
+    pub ident: String,
+    pub params: Vec<Rc<Variable>>,
+    pub return_type: Type,
+    pub block: Block,
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Clone,Debug,PartialEq)]
+pub struct Field {
+    pub ident: String,
+    pub type_: Type,
+}
+
+#[derive(Clone,Debug,PartialEq)]
 pub struct Struct {
-    fields: Vec<(String,Type)>,
+    pub ident: String,
+    pub fields: Vec<Field>,
 }
 
 #[derive(Clone,Debug,PartialEq)]
 pub enum Variant {
     Naked(String),
     Tuple(String,Vec<Type>),
-    Struct(String,Vec<(String,Type)>),
+    Struct(String,Vec<Field>),
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Clone,Debug,PartialEq)]
 pub struct Enum {
-    variants: Vec<Variant>,
+    pub ident: String,
+    pub variants: Vec<Variant>,
 }
 
 #[derive(Clone,Debug,PartialEq)]
@@ -44,7 +52,7 @@ pub enum Type {
     Float,
     Void,
     Base(BaseType),
-    Ident(String),
+    UnknownIdent(String),
     Struct(Rc<Struct>),
     Enum(Rc<Enum>),
     Array(Box<Type>,Box<Expr>),
@@ -74,9 +82,11 @@ pub enum Pat {
     Float(f64),
     Ident(String),
     Const(String),
-    Struct(String,Vec<IdentPat>),
+    UnknownStruct(String,Vec<IdentPat>),
+    Struct(Rc<Struct>,Vec<IdentPat>),
     Array(Vec<Pat>),
-    Variant(String,VariantPat),
+    UnknownVariant(String,VariantPat),
+    Variant(Rc<Enum>,VariantPat),
     Range(Box<Pat>,Box<Pat>),
 }
 
@@ -110,14 +120,17 @@ pub enum Expr {
     Integer(i64),
     Float(f64),
     Base(BaseType,Vec<(String,Expr)>),
-    Ident(String),  // unknown identifier, resolves to Global, Local, Param or Const
+    UnknownIdent(String),
     Local(Rc<Variable>),
     Param(Rc<Variable>),
     Const(Rc<Variable>),
     Array(Vec<Expr>),
     Cloned(Box<Expr>,Box<Expr>),
+    UnknownStruct(String,Vec<(String,Expr)>),
     Struct(Rc<Struct>,Vec<(String,Expr)>),
+    UnknownVariant(String,VariantExpr),
     Variant(Rc<Enum>,VariantExpr),
+    UnknownCall(String,Vec<Expr>),
     Call(Rc<Function>,Vec<Expr>),
     Field(Box<Expr>,String),
     Index(Box<Expr>,Box<Expr>),
@@ -169,7 +182,6 @@ pub enum Expr {
 
 #[derive(Clone,Debug,PartialEq)]
 pub enum Stat {
-    //Let(Pat,Option<Type>,Box<Expr>),
     Let(Rc<Variable>),
     Expr(Box<Expr>),
 }

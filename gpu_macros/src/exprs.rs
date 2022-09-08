@@ -2,8 +2,8 @@ use crate::*;
 
 fn produce_let_statements(stats: &mut Vec<Stat>,pat: &Pat,rvalue: Expr) {
     match pat {
-        Pat::Ident(ident) => stats.push(Stat::Let(ident.clone(),None,Box::new(rvalue))),
-        Pat::Struct(ident,identpats) => {
+        Pat::Ident(ident) => stats.push(Stat::Let(ident.clone(),Box::new(Type::Inferred),Box::new(rvalue))),
+        Pat::UnknownStruct(ident,identpats) => {
             for identpat in identpats {
                 match identpat {
                     IdentPat::Ident(ident) => produce_let_statements(stats,&Pat::Ident(ident.clone()),Expr::Field(Box::new(rvalue.clone()),ident.clone())),
@@ -45,12 +45,12 @@ impl Parser {
 
             // Struct
             if let Some(ident_exprs) = self.brace_ident_exprs() {
-                Expr::Struct(ident,ident_exprs)
+                Expr::UnknownStruct(ident,ident_exprs)
             }
 
             // Call, Tuple
             else if let Some(exprs) = self.paren_exprs() {
-                Expr::Call(ident,exprs)
+                Expr::UnknownCall(ident,exprs)
             }
 
             // Base
@@ -78,20 +78,20 @@ impl Parser {
                 else {
                     let variant = self.ident().expect("identifier expected");
                     if let Some(ident_exprs) = self.brace_ident_exprs() {
-                        Expr::Variant(ident,VariantExpr::Struct(variant,ident_exprs))
+                        Expr::UnknownVariant(ident,VariantExpr::Struct(variant,ident_exprs))
                     }
                     else if let Some(exprs) = self.paren_exprs() {
-                        Expr::Variant(ident,VariantExpr::Tuple(variant,exprs))
+                        Expr::UnknownVariant(ident,VariantExpr::Tuple(variant,exprs))
                     }
                     else {
-                        Expr::Variant(ident,VariantExpr::Naked(variant))
+                        Expr::UnknownVariant(ident,VariantExpr::Naked(variant))
                     }
                 }
             }
 
             // Local, Param, Const
             else {
-                Expr::Ident(ident)
+                Expr::UnknownIdent(ident)
             }
         }
 
@@ -389,17 +389,17 @@ impl Parser {
                 // Let
                 if parser.keyword("let") {
                     let pat = parser.pat();
-                    let ty = if parser.punct(':') {
-                        Some(parser.type_())
+                    let type_ = if parser.punct(':') {
+                        parser.type_()
                     }
                     else {
-                        None
+                        Type::Inferred
                     };
                     parser.punct('=');
                     let expr = parser.expr();
                     parser.punct(';');
-                    stats.push(Stat::Let("t".to_string(),ty,Box::new(expr)));
-                    produce_let_statements(&mut stats,&pat,Expr::Ident("t".to_string()));
+                    stats.push(Stat::Let("t".to_string(),Box::new(type_),Box::new(expr)));
+                    produce_let_statements(&mut stats,&pat,Expr::UnknownIdent("t".to_string()));
                 }
 
                 // Expr

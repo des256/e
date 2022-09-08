@@ -33,7 +33,7 @@ impl Parser {
 
             // Struct
             if let Some(ident_pats) = self.brace_ident_pats() {
-                Pat::Struct(ident,ident_pats)
+                Pat::UnknownStruct(ident,ident_pats)
             }
 
             // Tuple
@@ -44,20 +44,20 @@ impl Parser {
                     ident_pats.push(IdentPat::IdentPat(format!("_{}",i),pat));
                     i += 1;
                 }
-                Pat::Struct(ident,ident_pats)
+                Pat::UnknownStruct(ident,ident_pats)
             }
 
             // Variant
             else if self.punct2(':',':') {
                 let variant = self.ident().expect("identifier expected");
                 if let Some(ident_pats) = self.brace_ident_pats() {
-                    Pat::Variant(ident,VariantPat::Struct(variant,ident_pats))
+                    Pat::UnknownVariant(ident,VariantPat::Struct(variant,ident_pats))
                 }
                 else if let Some(pats) = self.paren_pats() {
-                    Pat::Variant(ident,VariantPat::Tuple(variant,pats))
+                    Pat::UnknownVariant(ident,VariantPat::Tuple(variant,pats))
                 }
                 else {
-                    Pat::Variant(ident,VariantPat::Naked(variant))
+                    Pat::UnknownVariant(ident,VariantPat::Naked(variant))
                 }
             }
 
@@ -81,7 +81,7 @@ impl Parser {
                 i += 1;
             }
             // the name of the struct is most likely irrelevant in if let, while let and match expressions
-            Pat::Struct("TODO".to_string(),ident_pats)
+            Pat::UnknownStruct("TODO".to_string(),ident_pats)
         }
 
         else {

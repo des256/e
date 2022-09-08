@@ -135,7 +135,7 @@ impl Parser {
                     }
                 },
                 _ => {
-                    Type::Ident(ident)
+                    Type::UnknownIdent(ident)
                 },
             }
         }
@@ -151,7 +151,7 @@ impl Parser {
         // anonymous tuple type
         else if let Some(types) = self.paren_types() {
             let ident = self.make_anon_tuple_struct(types);
-            Type::Ident(ident)
+            Type::UnknownIdent(ident)
         }
 
         else {

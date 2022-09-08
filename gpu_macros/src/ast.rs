@@ -4,9 +4,10 @@ use std::{
 
 #[derive(Clone,Debug,PartialEq)]
 pub enum Type {
+    Inferred,
     Void,
     Base(sr::BaseType),
-    Ident(String),
+    UnknownIdent(String),
     Array(Box<Type>,Box<Expr>),
 }
 
@@ -33,9 +34,9 @@ pub enum Pat {
     Integer(i64),
     Float(f64),
     Ident(String),
-    Struct(String,Vec<IdentPat>),
+    UnknownStruct(String,Vec<IdentPat>),
     Array(Vec<Pat>),
-    Variant(String,VariantPat),
+    UnknownVariant(String,VariantPat),
     Range(Box<Pat>,Box<Pat>),
 }
 
@@ -69,12 +70,12 @@ pub enum Expr {
     Integer(i64),
     Float(f64),
     Base(sr::BaseType,Vec<(String,Expr)>),
-    Ident(String),
+    UnknownIdent(String),
     Array(Vec<Expr>),
     Cloned(Box<Expr>,Box<Expr>),
-    Struct(String,Vec<(String,Expr)>),
-    Variant(String,VariantExpr),
-    Call(String,Vec<Expr>),
+    UnknownStruct(String,Vec<(String,Expr)>),
+    UnknownVariant(String,VariantExpr),
+    UnknownCall(String,Vec<Expr>),
     Field(Box<Expr>,String),
     Index(Box<Expr>,Box<Expr>),
     Cast(Box<Expr>,Type),
@@ -125,8 +126,7 @@ pub enum Expr {
 
 #[derive(Clone,Debug,PartialEq)]
 pub enum Stat {
-    //Let(Pat,Option<Type>,Box<Expr>),
-    Let(String,Option<Type>,Box<Expr>),
+    Let(String,Box<Type>,Box<Expr>),
     Expr(Box<Expr>),
 }
 

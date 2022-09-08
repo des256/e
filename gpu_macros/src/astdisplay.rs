@@ -11,9 +11,10 @@ impl Display for Type {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
             Type::Void => write!(f,"()"),
+            Type::Inferred => write!(f,"_"),
             Type::Base(base_type) => write!(f,"{}",base_type.to_rust()),
-            Type::Ident(ident) => write!(f,"{}",ident),
-            Type::Array(ty,expr) => write!(f,"[{}; {}]",ty,expr),
+            Type::UnknownIdent(ident) => write!(f,"{}",ident),
+            Type::Array(type_,expr) => write!(f,"[{}; {}]",type_,expr),
         }
     }
 }
@@ -60,7 +61,7 @@ impl Display for Pat {
             Pat::Integer(value) => write!(f,"{}",value),
             Pat::Float(value) => write!(f,"{}",value),
             Pat::Ident(ident) => write!(f,"{}",ident),
-            Pat::Struct(ident,identpats) => {
+            Pat::UnknownStruct(ident,identpats) => {
                 write!(f,"{} {{ ",ident)?;
                 for identpat in identpats {
                     write!(f,"{},",identpat)?;
@@ -74,7 +75,7 @@ impl Display for Pat {
                 }
                 write!(f,"]")
             },
-            Pat::Variant(ident,variantpat) => write!(f,"{}::{}",ident,variantpat),
+            Pat::UnknownVariant(ident,variantpat) => write!(f,"{}::{}",ident,variantpat),
             Pat::Range(pat,pat2) => write!(f,"{}..={}",pat,pat2),
         }
     }
@@ -142,7 +143,7 @@ impl Display for Expr {
                 }
                 write!(f," }}")
             },
-            Expr::Ident(ident) => write!(f,"{}",ident),
+            Expr::UnknownIdent(ident) => write!(f,"{}",ident),
             Expr::Array(exprs) => {
                 write!(f,"[")?;
                 for expr in exprs {
@@ -151,15 +152,15 @@ impl Display for Expr {
                 write!(f,"]")
             },
             Expr::Cloned(expr,expr2) => write!(f,"[{}; {}]",expr,expr2),
-            Expr::Struct(ident,fields) => {
+            Expr::UnknownStruct(ident,fields) => {
                 write!(f,"{} {{ ",ident)?;
                 for (ident,expr) in fields {
                     write!(f,"{}: {},",ident,expr)?;
                 }
                 write!(f," }}")
             },
-            Expr::Variant(ident,variantexpr) => write!(f,"{}::{}",ident,variantexpr),
-            Expr::Call(ident,exprs) => {
+            Expr::UnknownVariant(ident,variantexpr) => write!(f,"{}::{}",ident,variantexpr),
+            Expr::UnknownCall(ident,exprs) => {
                 write!(f,"{}(",ident)?;
                 for expr in exprs {
                     write!(f,"{},",expr)?;
@@ -168,7 +169,7 @@ impl Display for Expr {
             },
             Expr::Field(expr,ident) => write!(f,"{}.{}",expr,ident),
             Expr::Index(expr,expr2) => write!(f,"{}[{}]",expr,expr2),
-            Expr::Cast(expr,ty) => write!(f,"{} as {}",expr,ty),
+            Expr::Cast(expr,type_) => write!(f,"{} as {}",expr,type_),
             Expr::AnonTuple(exprs) => {
                 write!(f,"(")?;
                 for expr in exprs {
@@ -265,13 +266,7 @@ impl Display for Expr {
 impl Display for Stat {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
-            Stat::Let(ident,ty,expr) => {
-                write!(f,"let {}",ident)?;
-                if let Some(ty) = ty {
-                    write!(f,": {}",ty)?;
-                }
-                write!(f," = {};",expr)
-            },
+            Stat::Let(ident,type_,expr) => write!(f,"let {}: {} = {};",ident,type_,expr),
             Stat::Expr(expr) => write!(f,"{};",expr),
         }
     }
@@ -283,15 +278,15 @@ impl Display for Variant {
             Variant::Naked(ident) => write!(f,"{}",ident),
             Variant::Tuple(ident,types) => {
                 write!(f,"{}(",ident)?;
-                for ty in types {
-                    write!(f,"{},",ty)?;
+                for type_ in types {
+                    write!(f,"{},",type_)?;
                 }
                 write!(f,")")
             },
             Variant::Struct(ident,fields) => {
                 write!(f,"{} {{ ",ident)?;
-                for (ident,ty) in fields {
-                    write!(f,"{}: {},",ident,ty)?;
+                for (ident,type_) in fields {
+                    write!(f,"{}: {},",ident,type_)?;
                 }
                 write!(f," }}")
             },
@@ -302,13 +297,13 @@ impl Display for Variant {
 impl Display for Module {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"mod {} {{ ",self.ident)?;
-        for (ident,(ty,expr)) in self.consts.iter() {
-            write!(f,"const {}: {} = {}; ",ident,ty,expr)?;
+        for (ident,(type_,expr)) in self.consts.iter() {
+            write!(f,"const {}: {} = {}; ",ident,type_,expr)?;
         }
         for (ident,fields) in self.structs.iter() {
             write!(f,"struct {} {{ ",ident)?;
-            for (ident,ty) in fields {
-                write!(f,"{}: {},",ident,ty)?;
+            for (ident,type_) in fields {
+                write!(f,"{}: {},",ident,type_)?;
             }
             write!(f," }}; ")?;
         }
@@ -321,8 +316,8 @@ impl Display for Module {
         }
         for (ident,(params,return_type,block)) in self.functions.iter() {
             write!(f,"fn {}(",ident)?;
-            for (ident,ty) in params {
-                write!(f,"{}: {},",ident,ty)?;
+            for (ident,type_) in params {
+                write!(f,"{}: {},",ident,type_)?;
             }
             write!(f,") ")?;
             if let Type::Void = *return_type { } else {

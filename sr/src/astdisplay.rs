@@ -16,9 +16,9 @@ impl Display for Type {
             Type::Float => write!(f,"{{float}}"),
             Type::Void => write!(f,"()"),
             Type::Base(base_type) => write!(f,"{}",base_type.to_rust()),
-            Type::Ident(ident) => write!(f,"{}",ident),
-            Type::Struct(ident) => write!(f,"{}",ident),
-            Type::Enum(ident) => write!(f,"{}",ident),
+            Type::UnknownIdent(ident) => write!(f,"{{unknown:{}}}",ident),
+            Type::Struct(struct_) => write!(f,"{}",struct_.ident),
+            Type::Enum(enum_) => write!(f,"{}",enum_.ident),
             Type::Array(ty,expr) => write!(f,"[{}; {}]",ty,expr),
         }
     }
@@ -67,8 +67,15 @@ impl Display for Pat {
             Pat::Float(value) => write!(f,"{}",value),
             Pat::Ident(ident) => write!(f,"{}",ident),
             Pat::Const(ident) => write!(f,"{}",ident),
-            Pat::Struct(ident,identpats) => {
+            Pat::UnknownStruct(ident,identpats) => {
                 write!(f,"{} {{ ",ident)?;
+                for identpat in identpats {
+                    write!(f,"{},",identpat)?;
+                }
+                write!(f," }}")
+            },
+            Pat::Struct(struct_,identpats) => {
+                write!(f,"{} {{ ",struct_.ident)?;
                 for identpat in identpats {
                     write!(f,"{},",identpat)?;
                 }
@@ -81,7 +88,8 @@ impl Display for Pat {
                 }
                 write!(f,"]")
             },
-            Pat::Variant(ident,variantpat) => write!(f,"{}::{}",ident,variantpat),
+            Pat::UnknownVariant(ident,variantpat) => write!(f,"{}::{}",ident,variantpat),
+            Pat::Variant(enum_,variantpat) => write!(f,"{}::{}",enum_.ident,variantpat),
             Pat::Range(pat,pat2) => write!(f,"{}..={}",pat,pat2),
         }
     }
@@ -149,10 +157,10 @@ impl Display for Expr {
                 }
                 write!(f," }}")
             },
-            Expr::Ident(ident) => write!(f,"{}",ident),
-            Expr::Local(ident) => write!(f,"{}",ident),
-            Expr::Param(ident) => write!(f,"{}",ident),
-            Expr::Const(ident) => write!(f,"{}",ident),
+            Expr::UnknownIdent(ident) => write!(f,"{}",ident),
+            Expr::Local(var) => write!(f,"{}",var.ident),
+            Expr::Param(var) => write!(f,"{}",var.ident),
+            Expr::Const(var) => write!(f,"{}",var.ident),
             Expr::Array(exprs) => {
                 write!(f,"[")?;
                 for expr in exprs {
@@ -161,16 +169,31 @@ impl Display for Expr {
                 write!(f,"]")
             },
             Expr::Cloned(expr,expr2) => write!(f,"[{}; {}]",expr,expr2),
-            Expr::Struct(ident,fields) => {
+            Expr::UnknownStruct(ident,fields) => {
                 write!(f,"{} {{ ",ident)?;
                 for (ident,expr) in fields {
                     write!(f,"{}: {},",ident,expr)?;
                 }
                 write!(f," }}")
             },
-            Expr::Variant(ident,variantexpr) => write!(f,"{}::{}",ident,variantexpr),
-            Expr::Call(ident,exprs) => {
+            Expr::Struct(struct_,fields) => {
+                write!(f,"{} {{ ",struct_.ident)?;
+                for (ident,expr) in fields {
+                    write!(f,"{}: {},",ident,expr)?;
+                }
+                write!(f," }}")
+            },
+            Expr::UnknownVariant(ident,variantexpr) => write!(f,"{}::{}",ident,variantexpr),
+            Expr::Variant(enum_,variantexpr) => write!(f,"{}::{}",enum_.ident,variantexpr),
+            Expr::UnknownCall(ident,exprs) => {
                 write!(f,"{}(",ident)?;
+                for expr in exprs {
+                    write!(f,"{},",expr)?;
+                }
+                write!(f,")")
+            },
+            Expr::Call(function,exprs) => {
+                write!(f,"{}(",function.ident)?;
                 for expr in exprs {
                     write!(f,"{},",expr)?;
                 }
@@ -275,12 +298,10 @@ impl Display for Expr {
 impl Display for Stat {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
-            Stat::Let(ident,ty,expr) => {
-                write!(f,"let {}",ident)?;
-                if let Some(ty) = ty {
-                    write!(f,": {}",ty)?;
-                }
-                write!(f," = {};",expr)
+            Stat::Let(var) => {
+                write!(f,"let {}",var.ident)?;
+                write!(f,": {}",var.type_)?;
+                write!(f," = {};",var.value.as_ref().unwrap())
             },
             Stat::Expr(expr) => write!(f,"{};",expr),
         }
@@ -300,8 +321,8 @@ impl Display for Variant {
             },
             Variant::Struct(ident,fields) => {
                 write!(f,"{} {{ ",ident)?;
-                for (ident,ty) in fields {
-                    write!(f,"{}: {},",ident,ty)?;
+                for field in fields.iter() {
+                    write!(f,"{}: {},",field.ident,field.type_)?;
                 }
                 write!(f," }}")
             },
@@ -312,33 +333,33 @@ impl Display for Variant {
 impl Display for Module {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"mod {} {{ ",self.ident)?;
-        for (ident,(ty,expr)) in self.consts.iter() {
-            write!(f,"const {}: {} = {}; ",ident,ty,expr)?;
+        for (_,const_) in self.consts.iter() {
+            write!(f,"const {}: {} = {}; ",const_.ident,const_.type_,const_.value.as_ref().unwrap())?;
         }
-        for (ident,fields) in self.structs.iter() {
-            write!(f,"struct {} {{ ",ident)?;
-            for (ident,ty) in fields {
-                write!(f,"{}: {},",ident,ty)?;
+        for (_,struct_) in self.structs.iter() {
+            write!(f,"struct {} {{ ",struct_.ident)?;
+            for field in struct_.fields.iter() {
+                write!(f,"{}: {},",field.ident,field.type_)?;
             }
             write!(f," }}; ")?;
         }
-        for (ident,variants) in self.enums.iter() {
-            write!(f,"enum {} {{ ",ident)?;
-            for variant in variants {
+        for (_,enum_) in self.enums.iter() {
+            write!(f,"enum {} {{ ",enum_.ident)?;
+            for variant in enum_.variants.iter() {
                 write!(f,"{},",variant)?;
             }
             write!(f," }}; ")?;
         }
-        for (ident,(params,return_type,block)) in self.functions.iter() {
-            write!(f,"fn {}(",ident)?;
-            for (ident,ty) in params {
-                write!(f,"{}: {},",ident,ty)?;
+        for (_,function) in self.functions.iter() {
+            write!(f,"fn {}(",function.ident)?;
+            for param in function.params.iter() {
+                write!(f,"{}: {},",param.ident,param.type_)?;
             }
             write!(f,") ")?;
-            if let Type::Void = *return_type { } else {
-                write!(f,"-> {} ",return_type)?;
+            if let Type::Void = function.return_type { } else {
+                write!(f,"-> {} ",function.return_type)?;
             }
-            write!(f,"{} ",block)?;
+            write!(f,"{} ",function.block)?;
         }
         write!(f,"}}")
     }
