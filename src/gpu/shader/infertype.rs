@@ -1,3 +1,4 @@
+/*
 use {
     crate::*,
     std::collections::HashMap,
@@ -241,3 +242,4 @@ pub(crate) fn infer_expr_type(module: &sr::Module,anon_tuple_structs: &mut HashM
         },
     }
 }
+*/

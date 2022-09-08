@@ -14,7 +14,7 @@ struct MyVertex {
     pub color: Color<f32>,
 }
 
-#[vertex_shader(MyVertex)]
+#[vertex_shader]
 mod my_vertex_shader {
 
     fn main(vertex: MyVertex) -> (Vec4<f32>,Color<f32>) {
@@ -30,7 +30,7 @@ mod my_vertex_shader {
     }
 }
 
- #[fragment_shader]
+#[fragment_shader]
 mod my_fragment_shader {
     fn main(varying: Color<f32>) -> Color<f32> {
         varying

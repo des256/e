@@ -66,7 +66,7 @@ impl Display for Pat {
             Pat::Integer(value) => write!(f,"{}",value),
             Pat::Float(value) => write!(f,"{}",value),
             Pat::Ident(ident) => write!(f,"{}",ident),
-            Pat::Const(ident) => write!(f,"{}",ident),
+            Pat::Const(variable) => write!(f,"{}",variable.ident),
             Pat::UnknownStruct(ident,identpats) => {
                 write!(f,"{} {{ ",ident)?;
                 for identpat in identpats {
@@ -303,7 +303,7 @@ impl Display for Stat {
                 write!(f,": {}",var.type_)?;
                 write!(f," = {};",var.value.as_ref().unwrap())
             },
-            Stat::Expr(expr) => write!(f,"{};",expr),
+            Stat::Expr(expr,type_) => write!(f,"{}; /* {} */",expr,type_),
         }
     }
 }

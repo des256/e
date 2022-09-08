@@ -33,10 +33,9 @@ pub fn derive_vertex(stream: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn vertex_shader(attr_stream: TokenStream,item_stream: TokenStream) -> TokenStream {
-    let vertex = Parser::new(attr_stream).ident().expect("vertex attribute expected");
+pub fn vertex_shader(_: TokenStream,item_stream: TokenStream) -> TokenStream {
     let module = Parser::new(item_stream).module();
-    let compiled = render_vertex_shader(module,&vertex);
+    let compiled = render_vertex_shader(module);
     //panic!("DONE:\n{}",compiled);
     compiled.parse().unwrap()
 }

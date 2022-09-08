@@ -3,7 +3,7 @@ use {
     std::rc::Rc,
 };
 
-pub fn process_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fields: Vec<sr::Field>) -> Option<Vec<u8>> {
+pub fn process_vertex_shader(mut module: sr::Module,vertex_ident: String,vertex_fields: Vec<sr::Field>) -> Option<Vec<u8>> {
 
     println!("PROCESS VERTEX SHADER");
 
@@ -13,7 +13,7 @@ pub fn process_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fiel
         fields.push(
             sr::Field {
                 ident: field.ident.clone(),
-                type_: if let sr::Type::Base(bt) = field.type_ {
+                type_: if let sr::Type::Base(bt) = &field.type_ {
                     sr::Type::Base(bt.clone())
                 }
                 else {
@@ -23,7 +23,7 @@ pub fn process_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fiel
         );
     }
     module.structs.insert(
-        vertex_ident,
+        vertex_ident.clone(),
         Rc::new(
             sr::Struct {
                 ident: vertex_ident,
@@ -32,8 +32,14 @@ pub fn process_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fiel
         )
     );
 
-    let module = resolve_idents(&module,Some(vertex_ident.clone()));
-    let module = resolve_anon_tuples(&module);
+    resolve_unknowns(&mut module);
+    resolve_loose_types(&mut module);
+
+    // for all expressions ask what their tightest type is
+    // when this is still too loose, try to infer in other ways: function parameter types, function return values, let statements
+    // once known, broadcast down accordingly
+    // resolve anonymous tuples into Expr::Struct
+
     println!("Module: {}",module.ident);
     if module.consts.len() > 0 {
         println!("Constants:");
@@ -41,6 +47,7 @@ pub fn process_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fiel
             println!("    {}: {} = {}",const_.ident,const_.type_,const_.value.as_ref().unwrap());
         }
     }
+
     if module.structs.len() > 0 {
         println!("Structs:");
         for (ident,struct_) in module.structs {
@@ -51,12 +58,7 @@ pub fn process_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fiel
             println!("    }}");
         }
     }
-    println!("Vertex struct:");
-    println!("    {} {{",vertex_ident);
-    for field in vertex_fields.iter() {
-        println!("        {}: {}",field.ident,field.type_);
-    }
-    println!("    }}");
+
     if module.enums.len() > 0 {
         println!("Enums:");
         for (_,enum_) in module.enums.iter() {
@@ -67,6 +69,7 @@ pub fn process_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fiel
             println!("    }}");
         }
     }
+
     if module.functions.len() > 0 {
         println!("Functions:");
         for (_,function) in module.functions.iter() {
@@ -81,19 +84,22 @@ pub fn process_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fiel
             println!("{}",function.block);
         }
     }
-
-    println!("TODO: replace enums");
-    println!("TODO: roll out patterns");
 
     None
 }
 
-pub fn process_fragment_shader(module: sr::Module) -> Option<Vec<u8>> {
+pub fn process_fragment_shader(mut module: sr::Module) -> Option<Vec<u8>> {
 
     println!("COMPILE FRAGMENT SHADER");
 
-    let module = resolve_idents(&module,None);
-    let module = resolve_anon_tuples(&module);
+    resolve_unknowns(&mut module);
+    resolve_loose_types(&mut module);
+    
+    // for all expressions ask what their tightest type is
+    // when this is still too loose, try to infer in other ways: function parameter types, function return values, let statements
+    // once known, broadcast down all types accordingly
+    // resolve anonymous tuples
+
     println!("Module: {}",module.ident);
     if module.consts.len() > 0 {
         println!("Constants:");
@@ -101,6 +107,7 @@ pub fn process_fragment_shader(module: sr::Module) -> Option<Vec<u8>> {
             println!("    {}: {} = {}",const_.ident,const_.type_,const_.value.as_ref().unwrap());
         }
     }
+
     if module.structs.len() > 0 {
         println!("Structs:");
         for (ident,struct_) in module.structs {
@@ -111,6 +118,7 @@ pub fn process_fragment_shader(module: sr::Module) -> Option<Vec<u8>> {
             println!("    }}");
         }
     }
+
     if module.enums.len() > 0 {
         println!("Enums:");
         for (_,enum_) in module.enums.iter() {
@@ -121,6 +129,7 @@ pub fn process_fragment_shader(module: sr::Module) -> Option<Vec<u8>> {
             println!("    }}");
         }
     }
+
     if module.functions.len() > 0 {
         println!("Functions:");
         for (_,function) in module.functions.iter() {
@@ -135,9 +144,6 @@ pub fn process_fragment_shader(module: sr::Module) -> Option<Vec<u8>> {
             println!("{}",function.block);
         }
     }
-
-    println!("TODO: replace enums");
-    println!("TODO: roll out patterns");
 
     None
 }

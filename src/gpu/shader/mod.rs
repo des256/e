@@ -1,11 +1,11 @@
-mod infertype;
-pub use infertype::*;
+mod resolveunknows;
+pub use resolveunknows::*;
+
+mod infertypes;
+pub use infertypes::*;
 
 mod resolveanontuples;
 pub use resolveanontuples::*;
-
-mod resolveunknows;
-pub use resolveunknows::*;
 
 mod common;
 pub use common::*;

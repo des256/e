@@ -3,7 +3,7 @@ use crate::*;
 fn produce_let_statements(stats: &mut Vec<Stat>,pat: &Pat,rvalue: Expr) {
     match pat {
         Pat::Ident(ident) => stats.push(Stat::Let(ident.clone(),Box::new(Type::Inferred),Box::new(rvalue))),
-        Pat::UnknownStruct(ident,identpats) => {
+        Pat::UnknownStruct(_,identpats) => {
             for identpat in identpats {
                 match identpat {
                     IdentPat::Ident(ident) => produce_let_statements(stats,&Pat::Ident(ident.clone()),Expr::Field(Box::new(rvalue.clone()),ident.clone())),

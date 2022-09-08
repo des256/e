@@ -81,7 +81,7 @@ pub enum Pat {
     Integer(i64),
     Float(f64),
     Ident(String),
-    Const(String),
+    Const(Rc<Variable>),
     UnknownStruct(String,Vec<IdentPat>),
     Struct(Rc<Struct>,Vec<IdentPat>),
     Array(Vec<Pat>),
@@ -183,7 +183,7 @@ pub enum Expr {
 #[derive(Clone,Debug,PartialEq)]
 pub enum Stat {
     Let(Rc<Variable>),
-    Expr(Box<Expr>),
+    Expr(Box<Expr>,Box<Type>),
 }
 
 #[derive(Clone,Debug)]

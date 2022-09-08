@@ -305,9 +305,9 @@ impl Renderer {
 
     fn variant(&self,variant: &Variant) -> String {
         match variant {
-            Variant::Naked(ident) => format!("Variant::Naked(\"{}\".to_string())",ident),
+            Variant::Naked(ident) => format!("sr::Variant::Naked(\"{}\".to_string())",ident),
             Variant::Tuple(ident,types) => {
-                let mut r = format!("Variant::Tuple(\"{}\".to_string(),vec![",ident);
+                let mut r = format!("sr::Variant::Tuple(\"{}\".to_string(),vec![",ident);
                 for type_ in types.iter() {
                     r += &format!("{},",self.type_(type_));
                 }
@@ -315,7 +315,7 @@ impl Renderer {
                 r
             },
             Variant::Struct(ident,fields) => {
-                let mut r = format!("Variant::Struct(\"{}\".to_string(),vec![",ident);
+                let mut r = format!("sr::Variant::Struct(\"{}\".to_string(),vec![",ident);
                 for (ident,type_) in fields {
                     r += &format!("(\"{}\".to_string(),{}),",ident,self.type_(type_));
                 }
@@ -326,56 +326,73 @@ impl Renderer {
     }
 
     fn module(&self,module: &Module) -> String {
-        let mut r = "let mut functions: HashMap<String,sr::Function> = HashMap::new();\n\n".to_string();
 
-        r += "        let mut consts: HashMap<String,sr::Variable> = HashMap::new();\n\n";
-        for ident in module.consts.keys() {
-            let (type_,expr) = &module.consts[ident];
-            r += &format!("        consts.insert(\"{}\".to_string(),sr::Variable {{ ident: \"{}\".to_string(),type_: Box::new({}),value: Box::new({}), }});\n\n",ident,ident,self.type_(&type_),self.expr(&expr));
+        let mut r = String::new();
+
+        if module.consts.len() > 0 {
+            r += "        let mut consts: HashMap<String,Rc<sr::Variable>> = HashMap::new();\n\n";
+            for ident in module.consts.keys() {
+                let (type_,expr) = &module.consts[ident];
+                r += &format!("        consts.insert(\"{}\".to_string(),Rc::new(sr::Variable {{ ident: \"{}\".to_string(),type_: Box::new({}),value: Box::new({}), }}));\n\n",ident,ident,self.type_(&type_),self.expr(&expr));
+            }
+        }
+        else {
+            r += "        let consts: HashMap<String,Rc<sr::Variable>> = HashMap::new();\n\n";
         }
 
-        r += "        let mut structs: HashMap<String,Vec<(String,sr::Type)>> = HashMap::new();\n\n";
+        if (module.structs.len() > 0) || (module.anon_tuple_structs.len() > 0) {
+            r += "        let mut structs: HashMap<String,Rc<sr::Struct>> = HashMap::new();\n\n";
+        }
+        else {
+            r += "        let structs: HashMap<String,Rc<sr::Struct>> = HashMap::new();\n\n";
+        }
+
         for ident in module.structs.keys() {
             let fields = &module.structs[ident];
-            r += "        let mut fields: Vec<(String,sr::Type)> = Vec::new();\n";
+            r += "        let mut fields: Vec<sr::Field> = Vec::new();\n";
             for (ident,type_) in fields {
-                r += &format!("        fields.push((\"{}\".to_string(),{}));\n",ident,self.type_(&type_));
+                r += &format!("        fields.push(sr::Field {{ ident: \"{}\".to_string(),type_: {}, }});\n",ident,self.type_(&type_));
             }
             r += &format!("        structs.insert(\"{}\".to_string(),fields);\n\n",ident);
         }
 
-        r += "        let mut anon_tuple_structs: HashMap<String,Vec<(String,sr::Type)>> = HashMap::new();\n\n";
         for ident in module.anon_tuple_structs.keys() {
             let fields = &module.anon_tuple_structs[ident];
-            r += "        let mut fields: Vec<(String,sr::Type)> = Vec::new();\n";
+            r += "        let mut fields: Vec<sr::Field> = Vec::new();\n";
             for (ident,type_) in fields {
-                r += &format!("        fields.push((\"{}\".to_string(),{}));\n",ident,self.type_(&type_));
+                r += &format!("        fields.push(sr::Field {{ ident: \"{}\".to_string(),type_: {}, }});\n",ident,self.type_(&type_));
             }
-            r += &format!("        anon_tuple_structs.insert(\"{}\".to_string(),fields);\n\n",ident);
+            r += &format!("        structs.insert(\"{}\".to_string(),Rc::new(sr::Struct {{ ident: \"{}\".to_string(),fields, }}));\n\n",ident,ident);
         }
 
-        r += "        let mut enums: HashMap<String,Vec<sr::Variant>> = HashMap::new();\n\n";
-        for ident in module.enums.keys() {
-            let variants = &module.enums[ident];
-            r += "        let mut variants: Vec<Variant> = Vec::new();\n";
-            for variant in variants {
-                r += &format!("        variants.push({});",self.variant(variant));
+        if module.enums.len() > 0 {
+            r += "        let mut enums: HashMap<String,Rc<sr::Enum>> = HashMap::new();\n\n";
+            for ident in module.enums.keys() {
+                let variants = &module.enums[ident];
+                r += "        let mut variants: Vec<sr::Variant> = Vec::new();\n";
+                for variant in variants {
+                    r += &format!("        variants.push({});",self.variant(variant));
+                }
+                r += &format!("        structs.insert(\"{}\".to_string(),Rc::new(sr::Struct {{ ident: \"{}\".to_string(),fields, }}));\n\n",ident,ident);
             }
-            r += &format!("        enums.insert(\"{}\".to_string(),variants);\n\n",ident);
+        }
+        else {
+            r += "        let enums: HashMap<String,Rc<sr::Enum>> = HashMap::new();\n\n";
         }
 
+        r += "        let mut functions: HashMap<String,Rc<sr::Function>> = HashMap::new();\n\n";
         for ident in module.functions.keys() {
             let (params,return_type,block) = &module.functions[ident];
-            r += "        let mut params: Vec<(String,sr::Type)> = Vec::new();\n";
+            r += "        let mut params: Vec<Rc<sr::Variable>> = Vec::new();\n";
             for (ident,type_) in params {
-                r += &format!("        params.push((\"{}\".to_string(),{}));\n",ident,self.type_(type_));
+                r += &format!("        params.push(Rc::new(sr::Variable {{ ident: \"{}\".to_string(),type_: {},value: None, }}));\n",ident,self.type_(type_));
             }
             r += &format!("        let return_type = {};\n",self.type_(&return_type));
             r += &format!("        let block = {};\n",self.block(&block));
-            r += &format!("        functions.insert(\"{}\".to_string(),(params,return_type,block));\n\n",ident);
+            r += &format!("        functions.insert(\"{}\".to_string(),Rc::new(sr::Function {{ ident: \"{}\".to_string(),params,return_type,block, }}));\n\n",ident,ident);
         }
 
-        r += &format!("        let module = sr::Module {{ ident: \"{}\".to_string(),consts,structs,anon_tuple_structs,enums,functions, }};\n",module.ident);
+        r += &format!("        let module = sr::Module {{ ident: \"{}\".to_string(),consts,structs,enums,functions, }};\n",module.ident);
 
         r
     }
@@ -395,10 +412,10 @@ pub(crate) fn render_vertex_trait(ident: &str,fields: &Vec<(String,Type)>) -> St
     }
 
     let mut r = format!("impl Vertex for {} {{\n",ident);
-    r += "    fn get_fields() -> Vec<(String,sr::BaseType)> {\n";
+    r += "    fn get_fields() -> Vec<sr::Field> {\n";
     r += "        vec![\n";
     for (ident,base_type) in out_fields {
-        r += &format!("            (\"{}\".to_string(),sr::BaseType::{}),\n",ident,base_type.variant());
+        r += &format!("            sr::Field {{ ident: \"{}\".to_string(),type_: sr::Type::Base(sr::BaseType::{}), }},\n",ident,base_type.variant());
     }
     r += "        ]\n";
     r += "    }\n";
@@ -406,13 +423,23 @@ pub(crate) fn render_vertex_trait(ident: &str,fields: &Vec<(String,Type)>) -> St
     r
 }
 
-pub(crate) fn render_vertex_shader(module: Module,vertex: &str) -> String {
+pub(crate) fn render_vertex_shader(module: Module) -> String {
     let renderer = Renderer { };
     let mut r = format!("pub mod {} {{\n\n",module.ident);
     r += "    use super::*;\n\n";
     r += "    pub fn code() -> Option<Vec<u8>> {\n\n";
-    r += &format!("        {}\n\n",renderer.module(&module));
-    r += &format!("        compile_vertex_shader(module,\"{}\".to_string(),{}::get_fields())\n",vertex,vertex);
+    r += &format!("{}\n\n",renderer.module(&module));
+    if !module.functions.contains_key("main") {
+        panic!("main function missing from shader module");
+    }
+    let main = &module.functions["main"];
+    let vertex_struct_ident = if let Type::UnknownIdent(ident) = &main.0[0].1 {
+        ident
+    }
+    else {
+        panic!("the first parameter of main() should be the vertex structure, and not {}",main.0[0].1);
+    };
+    r += &format!("        compile_vertex_shader(module,\"{}\".to_string(),{}::get_fields())\n",vertex_struct_ident,vertex_struct_ident);
     r += "    }\n";
     r += "}\n";
     r
@@ -423,7 +450,7 @@ pub(crate) fn render_fragment_shader(module: Module) -> String {
     let mut r = format!("pub mod {} {{\n\n",module.ident);
     r += "    use super::*;\n\n";
     r += "    pub fn code() -> Option<Vec<u8>> {\n\n";
-    r += &format!("        {}\n\n",renderer.module(&module));
+    r += &format!("{}\n\n",renderer.module(&module));
     r += &format!("        compile_fragment_shader(module)\n");
     r += "    }\n";
     r += "}\n";
