@@ -1,29 +1,5 @@
 use crate::*;
 
-fn produce_let_statements(stats: &mut Vec<Stat>,pat: &Pat,rvalue: Expr) {
-    match pat {
-        Pat::Ident(ident) => stats.push(Stat::Let(ident.clone(),Box::new(Type::Inferred),Box::new(rvalue))),
-        Pat::UnknownStruct(_,identpats) => {
-            for identpat in identpats {
-                match identpat {
-                    IdentPat::Ident(ident) => produce_let_statements(stats,&Pat::Ident(ident.clone()),Expr::Field(Box::new(rvalue.clone()),ident.clone())),
-                    IdentPat::IdentPat(ident,pat) => produce_let_statements(stats,&pat,Expr::Field(Box::new(rvalue.clone()),ident.clone())),
-                    _ => { },
-                }
-            }
-        },
-        Pat::Array(pats) => {
-            let mut i = 0usize;
-            for pat in pats {
-                produce_let_statements(stats,pat,Expr::Index(Box::new(rvalue.clone()),Box::new(Expr::Integer(i as i64))));
-                i += 1;
-            }
-        },
-        _ => { },
-    }
-}
-
-
 impl Parser {
 
     // Literal, Ident (Local, Param, Const), Struct, Tuple (Call), Variant, Base, AnonTuple, Array, Cloned
@@ -398,8 +374,7 @@ impl Parser {
                     parser.punct('=');
                     let expr = parser.expr();
                     parser.punct(';');
-                    stats.push(Stat::Let("t".to_string(),Box::new(type_),Box::new(expr)));
-                    produce_let_statements(&mut stats,&pat,Expr::UnknownIdent("t".to_string()));
+                    stats.push(Stat::Let(Box::new(pat),Box::new(type_),Box::new(expr)));
                 }
 
                 // Expr

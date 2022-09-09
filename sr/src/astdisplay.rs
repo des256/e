@@ -90,6 +90,13 @@ impl Display for Pat {
             },
             Pat::UnknownVariant(ident,variantpat) => write!(f,"{}::{}",ident,variantpat),
             Pat::Variant(enum_,variantpat) => write!(f,"{}::{}",enum_.ident,variantpat),
+            Pat::AnonTuple(pats) => {
+                write!(f,"(")?;
+                for pat in pats {
+                    write!(f,"{},",pat)?;
+                }
+                write!(f,")")
+            },
             Pat::Range(pat,pat2) => write!(f,"{}..={}",pat,pat2),
         }
     }
@@ -298,12 +305,8 @@ impl Display for Expr {
 impl Display for Stat {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
-            Stat::Let(var) => {
-                write!(f,"let {}",var.ident)?;
-                write!(f,": {}",var.type_)?;
-                write!(f," = {};",var.value.as_ref().unwrap())
-            },
-            Stat::Expr(expr,type_) => write!(f,"{}; /* {} */",expr,type_),
+            Stat::Let(pat,type_,expr) => write!(f,"let {}: {} = {};",pat,type_,expr),
+            Stat::Expr(expr) => write!(f,"{};",expr),
         }
     }
 }

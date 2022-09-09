@@ -8,15 +8,24 @@ use {
     },
 };
 
-fn force_block_type(block: &mut sr::Block,type_: &sr::Type) {
+fn resolve_stat(stat: &mut sr::Stat) {
+    match stat {
+        sr::Stat::Let(variable) => {
+            // remove anonymous tuples 
+        }
+    }
+    // - anonymous tuples as function parameters
+    // - anonymous tuples as let expressions
+    // - anonymous tuple patterns
+}
+
+fn resolve_block(block: &mut sr::Block,type_: &sr::Type) {
+    for stat in block.stats.iter_mut() {
+        resolve_stat(stat);
+    }
     if let Some(expr) = &mut block.expr {
 
-        // currently only check for anonymous tuple as return expression in a block
-        // there are also:
-        // - anonymous tuples as function parameters
-        // - anonymous tuples as let expressions
-        // - anonymous tuple patterns
-        // - ...
+        // remove anonymous tuples as block expression
         if let sr::Expr::AnonTuple(exprs) = expr.as_mut() {
             if let sr::Type::Struct(struct_) = &type_ {
                 if exprs.len() == struct_.fields.len() {
@@ -43,7 +52,7 @@ pub fn resolve_loose_types(module: &mut sr::Module) {
     let mut new_functions: HashMap<String,Rc<sr::Function>> = HashMap::new();
     for (_,function) in module.functions.iter() {
         let mut new_block = function.block.clone();
-        force_block_type(&mut new_block,&function.return_type);
+        resolve_block(&mut new_block,&function.return_type);
         new_functions.insert(function.ident.clone(),Rc::new(sr::Function { ident: function.ident.clone(),params: function.params.clone(),return_type: function.return_type.clone(),block: new_block, }));
     }
     module.functions = new_functions;

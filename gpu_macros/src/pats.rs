@@ -74,14 +74,7 @@ impl Parser {
 
         // AnonTuple
         else if let Some(pats) = self.paren_pats() {
-            let mut ident_pats: Vec<IdentPat> = Vec::new();
-            let mut i = 0usize;
-            for pat in pats {
-                ident_pats.push(IdentPat::IdentPat(format!("_{}",i),pat));
-                i += 1;
-            }
-            // the name of the struct is most likely irrelevant in if let, while let and match expressions
-            Pat::UnknownStruct("TODO".to_string(),ident_pats)
+            Pat::AnonTuple(pats)
         }
 
         else {

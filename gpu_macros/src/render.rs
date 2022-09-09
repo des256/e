@@ -275,6 +275,14 @@ impl Renderer {
                     },
                 }
             },
+            Pat::AnonTuple(pats) => {
+                let mut r = "sr::Pat::AnonTuple(vec![".to_string();
+                for pat in pats {
+                    r += &format!("{},",pat);
+                }
+                r += "])";
+                r
+            },
             Pat::Range(pat,pat2) => format!("sr::Pat::Range(Box::new({}),Box::new({}))",self.pat(pat),self.pat(pat2)),
         }
     }

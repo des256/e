@@ -37,6 +37,7 @@ pub enum Pat {
     UnknownStruct(String,Vec<IdentPat>),
     Array(Vec<Pat>),
     UnknownVariant(String,VariantPat),
+    AnonTuple(Vec<Pat>),
     Range(Box<Pat>,Box<Pat>),
 }
 
@@ -126,7 +127,7 @@ pub enum Expr {
 
 #[derive(Clone,Debug,PartialEq)]
 pub enum Stat {
-    Let(String,Box<Type>,Box<Expr>),
+    Let(Box<Pat>,Box<Type>,Box<Expr>),
     Expr(Box<Expr>),
 }
 

@@ -87,6 +87,7 @@ pub enum Pat {
     Array(Vec<Pat>),
     UnknownVariant(String,VariantPat),
     Variant(Rc<Enum>,VariantPat),
+    AnonTuple(Vec<Pat>),
     Range(Box<Pat>,Box<Pat>),
 }
 
@@ -182,8 +183,8 @@ pub enum Expr {
 
 #[derive(Clone,Debug,PartialEq)]
 pub enum Stat {
-    Let(Rc<Variable>),
-    Expr(Box<Expr>,Box<Type>),
+    Let(Box<Pat>,Box<Type>,Box<Expr>),
+    Expr(Box<Expr>),
 }
 
 #[derive(Clone,Debug)]

@@ -299,20 +299,12 @@ impl<'module> Resolver<'module> {
 
     fn stat(&mut self,stat: &mut sr::Stat) {
         match stat {
-            // check expression and type
-            sr::Stat::Let(variable) => {
-                let mut new_type = variable.type_.clone();
-                self.type_(&mut new_type);
-                let mut new_value = variable.value.clone();
-                if let Some(expr) = &mut new_value {
-                    self.expr(expr);
-                }
-                self.locals.insert(variable.ident.clone(),Rc::new(sr::Variable { ident: variable.ident.clone(),type_: new_type,value: new_value, }));
-            },
-            sr::Stat::Expr(expr,type_) => {
-                self.expr(expr);
+            sr::Stat::Let(pat,type_,expr) => {
+                self.pat(pat);
                 self.type_(type_);
+                self.expr(expr);
             },
+            sr::Stat::Expr(expr) => self.expr(expr),
         }
     }
 
@@ -422,6 +414,11 @@ impl<'module> Resolver<'module> {
                     },
                 };
                 *pat = sr::Pat::Variant(Rc::clone(&enum_),variantpat.clone())
+            },
+            sr::Pat::AnonTuple(pats) => {
+                for pat in pats.iter_mut() {
+                    self.pat(pat);
+                }
             },
             sr::Pat::Range(pat,pat2) => {
                 self.pat(pat);

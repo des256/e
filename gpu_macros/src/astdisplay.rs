@@ -75,6 +75,13 @@ impl Display for Pat {
                 }
                 write!(f,"]")
             },
+            Pat::AnonTuple(pats) => {
+                write!(f,"(")?;
+                for pat in pats {
+                    write!(f,"{},",pat)?;
+                }
+                write!(f,")")
+            },
             Pat::UnknownVariant(ident,variantpat) => write!(f,"{}::{}",ident,variantpat),
             Pat::Range(pat,pat2) => write!(f,"{}..={}",pat,pat2),
         }
