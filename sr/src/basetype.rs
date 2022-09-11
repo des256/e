@@ -1,4 +1,4 @@
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Clone,Debug,PartialEq,Hash)]
 pub enum BaseType {
     Bool,
     U8,

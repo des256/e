@@ -302,7 +302,9 @@ impl<'module> Resolver<'module> {
             sr::Stat::Let(pat,type_,expr) => {
                 self.pat(pat);
                 self.type_(type_);
-                self.expr(expr);
+                if let Some(expr) = expr {
+                    self.expr(expr);
+                }
             },
             sr::Stat::Expr(expr) => self.expr(expr),
         }

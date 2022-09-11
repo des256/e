@@ -26,7 +26,7 @@ impl Parser {
 
             // Call, Tuple
             else if let Some(exprs) = self.paren_exprs() {
-                Expr::UnknownCall(ident,exprs)
+                Expr::UnknownCallOrTuple(ident,exprs)
             }
 
             // Base
@@ -128,7 +128,7 @@ impl Parser {
 
             // Cast
             else if self.keyword("as") {
-                expr = Expr::Cast(Box::new(expr),self.type_());
+                expr = Expr::Cast(Box::new(expr),Box::new(self.type_()));
             }
 
             else {

@@ -103,7 +103,27 @@ Tuples are actually just structs without field names, and structs are supported 
 
 ### Enums
 
-Enums (or unions) are not supported, so we need to come up with a way to store enums in structs. TODO
+Enums (or unions) are not supported, so we need to come up with a way to store enums in structs. A very straightforward way to do this is keep an unsigned int to denote the variant, and then economically add any struct or tuple elements such that you reuse elements of the same type where needed. For example:
+
+```
+enum Material {
+    Direct(Color<u8>),
+    Cartoon(Color<u8>),
+    Phong { color: Color<u8>,shininess: f32, },
+    BRDF(u8),
+}
+```
+
+becomes:
+
+```
+struct Material {
+    variant: u8,  // 0..3
+    _0: Color<u8>,
+    _1: f32,
+    _2: u8,
+}
+```
 
 ### Pattern Matching
 
@@ -127,13 +147,35 @@ if data.a == 4 {
 Another example:
 
 ```
-let coords = match foo {
-    1 => Vec2<f32> { x: 1.0,y: 2.0, },
-    2 | 3 => Vec2<f32> { x: 4.0,y: 2.0, },
+let color = match material {
+    Material::Direct(color) => color,
+    Material::Cartoon(color) => do_cartoon(color),
+    Material::Phong { color,shininess, } => do_phong(color,shininess),
+    Material::BRDF(foobar) => do_brdf(foobar),
 }
 ```
 
-Each arm has a boolean expression: `foo == 1` and `(foo == 2) || (foo == 3)`. There are no destructuring statements.
+Becomes:
+
+```
+if material.variant == 0 {
+    let color = material._0;
+    color
+}
+else if material.variant == 1 {
+    let color = material._0;
+    do_gouraud(color)
+}
+else if material.variant == 2 {
+    let color = material._0;
+    let shininess = material._1;
+    do_phong(color,shininess);
+}
+else if material.variant == 3 {
+    let foobar = material._2;
+    do_brdf(foobar);
+}
+```
 
 #### Boolean Expression
 

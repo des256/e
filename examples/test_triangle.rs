@@ -17,6 +17,116 @@ struct MyVertex {
 #[vertex_shader]
 mod my_vertex_shader {
 
+    //const BLACK: Color<f32> = Color::<f32> { r: 0.0,g: 0.0,b: 0.0,a: 1.0, };
+
+    enum ShadingType {
+        Flat,
+        Gouraud,
+        Phong(f32),
+        Brdf(f32,f32),
+        Textured(f32,u32),
+    }
+
+    fn return_same(st: ShadingType) -> ShadingType {
+        st
+    }
+
+    fn get_color(st: ShadingType) -> Color<f32> {
+        match return_same(st) {
+            ShadingType::Flat => Color::<f32> { r: 1.0,g: 0.0,b: 0.0,a: 1.0, },
+            ShadingType::Brdf(p1,p2) => Color::<f32> { r: 1.0,g: p1,b: p2,a: 1.0, },
+            ShadingType::Textured(p1,counter) => Color::<f32> { r: p1,g: 0.0,b: 0.5,a: 1.0, },
+            _ => BLACK,
+        }
+    }
+
+    fn main(vertex: MyVertex) -> (Vec4<f32>,Color<f32>) {
+        let st = ShadingType::Phong(0.8);
+        let sc = get_color(st);
+        (
+            Vec4::<f32> {
+                x: vertex.pos.x,
+                y: vertex.pos.y,
+                z: 0.0,
+                w: 1.0,
+            },
+            Color::<f32> {
+                r: vertex.color.r * sc.r,
+                g: vertex.color.g * sc.g,
+                b: vertex.color.b * sc.b,
+                a: vertex.color.a * sc.a,
+            },
+        )
+    }
+}
+
+/*
+mod my_vertex_shader {
+    struct AnonTuple0 {
+        _0: Vec4<f32>,
+        _1: Color<f32>,
+    };
+    
+    struct ShadingType {
+        id: u32,
+        _0: f32,
+        _1: f32,
+        _2: u32,
+    };
+    
+    enum ShadingType {
+        Flat,
+        Gouraud,
+        Phong(f32,),
+        Brdf(f32,f32,),
+        Textured(f32,u32,),
+    };
+    
+    fn get_color(st: ShadingType,) -> Color<f32> {
+        if scrut.id == 0 {
+            Color<f32> { r: 1,g: 0,b: 0,a: 1, }
+        }
+        else if scrut.id == 3 {
+            let p1 = scrut._0;
+            let p2 = scrut._1;
+            Color<f32> { r: 1,g: p1,b: p2,a: 1, }
+        }
+        else if scrut.id == 4 {
+            let p1 = scrut._0;
+            let counter = scrut._1;
+            Color<f32> { r: p1,g: 0,b: 0.5,a: 1, }
+        }
+    }
+    
+    fn main(vertex: MyVertex,) -> AnonTuple0 {
+        let st = ShadingType::Phong(0.8,) as _;
+        let sc = get_color(st,) as _;
+        (
+            Vec4<f32> {
+                x: vertex.pos.x,
+                y: vertex.pos.y,
+                z: 0,
+                w: 1,
+            },
+            Color<f32> {
+                r: vertex.color.r * sc.r,
+                g: vertex.color.g * sc.g,
+                b: vertex.color.b * sc.b,
+                a: vertex.color.a * sc.a,
+            },
+        )
+    }
+    
+    fn return_same(st: ShadingType,) -> ShadingType {
+        st
+    }
+}
+*/
+
+/*
+#[vertex_shader]
+mod my_vertex_shader {
+
     fn main(vertex: MyVertex) -> (Vec4<f32>,Color<f32>) {
         (
             Vec4::<f32> {
@@ -29,6 +139,7 @@ mod my_vertex_shader {
         )
     }
 }
+*/
 
 #[fragment_shader]
 mod my_fragment_shader {

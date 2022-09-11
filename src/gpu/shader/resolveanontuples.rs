@@ -1,3 +1,4 @@
+/*
 // force function return types into the code, resolving types that are too loose, and get rid of anonymous tuple literals
 
 use {
@@ -57,3 +58,4 @@ pub fn resolve_loose_types(module: &mut sr::Module) {
     }
     module.functions = new_functions;
 }
+*/

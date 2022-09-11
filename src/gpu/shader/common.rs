@@ -33,7 +33,6 @@ pub fn process_vertex_shader(mut module: sr::Module,vertex_ident: String,vertex_
     );
 
     resolve_unknowns(&mut module);
-    resolve_loose_types(&mut module);
 
     // for all expressions ask what their tightest type is
     // when this is still too loose, try to infer in other ways: function parameter types, function return values, let statements
@@ -93,7 +92,6 @@ pub fn process_fragment_shader(mut module: sr::Module) -> Option<Vec<u8>> {
     println!("COMPILE FRAGMENT SHADER");
 
     resolve_unknowns(&mut module);
-    resolve_loose_types(&mut module);
     
     // for all expressions ask what their tightest type is
     // when this is still too loose, try to infer in other ways: function parameter types, function return values, let statements

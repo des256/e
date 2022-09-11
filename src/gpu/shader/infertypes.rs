@@ -77,9 +77,6 @@ pub fn find_tightest_type(type1: &sr::Type,type2: &sr::Type) -> Option<sr::Type>
 }
 
 pub fn infer_block_type(block: &sr::Block) -> sr::Type {
-    for stat in block.stats.iter() {
-        infer_stat_type(stat);
-    }
     let mut result = sr::Type::Void;
     if let Some(expr) = block.expr.as_ref() {
         result = infer_expr_type(&expr);
@@ -218,24 +215,6 @@ pub fn infer_expr_type(expr: &sr::Expr) -> sr::Type {
         sr::Expr::Match(_,_) => {
             // TODO: patterns...
             sr::Type::Void
-        },
-    }
-}
-
-pub fn infer_stat_type(stat: &sr::Stat) -> sr::Type {
-    match stat {
-        sr::Stat::Let(variable) => {
-            if let Some(expr) = &variable.value {
-                let mut type_ = infer_expr_type(expr);
-                type_ = find_tightest_type(&variable.type_,&type_).expect(&format!("local variable {} not compatible with expression {}",variable.ident,expr));
-                type_
-            }
-            else {
-                variable.type_.clone()
-            }
-        },
-        sr::Stat::Expr(expr,_) => {
-            infer_expr_type(expr)
         },
     }
 }

@@ -33,6 +33,7 @@ pub enum Pat {
     Boolean(bool),
     Integer(i64),
     Float(f64),
+    Const(String),
     Ident(String),
     UnknownStruct(String,Vec<IdentPat>),
     Array(Vec<Pat>),
@@ -72,14 +73,15 @@ pub enum Expr {
     Float(f64),
     Base(sr::BaseType,Vec<(String,Expr)>),
     UnknownIdent(String),
+    Const(String),
     Array(Vec<Expr>),
     Cloned(Box<Expr>,Box<Expr>),
     UnknownStruct(String,Vec<(String,Expr)>),
     UnknownVariant(String,VariantExpr),
-    UnknownCall(String,Vec<Expr>),
+    UnknownCallOrTuple(String,Vec<Expr>),
     Field(Box<Expr>,String),
     Index(Box<Expr>,Box<Expr>),
-    Cast(Box<Expr>,Type),
+    Cast(Box<Expr>,Box<Type>),
     AnonTuple(Vec<Expr>),
     Neg(Box<Expr>),
     Not(Box<Expr>),
@@ -128,6 +130,7 @@ pub enum Expr {
 #[derive(Clone,Debug,PartialEq)]
 pub enum Stat {
     Let(Box<Pat>,Box<Type>,Box<Expr>),
+    LetIdent(String,Box<Expr>),
     Expr(Box<Expr>),
 }
 
@@ -144,6 +147,7 @@ pub struct Module {
     pub functions: HashMap<String,(Vec<(String,Type)>,Type,Block)>,
     pub structs: HashMap<String,Vec<(String,Type)>>,
     pub anon_tuple_structs: HashMap<String,Vec<(String,Type)>>,
-    pub enums: HashMap<String,Vec<Variant>>,
+    pub enum_structs: HashMap<String,Vec<(String,Type)>>,
+    pub enums: HashMap<String,(Vec<Variant>,Vec<Vec<usize>>)>,
     pub consts: HashMap<String,(Type,Expr)>,
 }

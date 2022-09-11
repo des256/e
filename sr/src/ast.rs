@@ -183,7 +183,7 @@ pub enum Expr {
 
 #[derive(Clone,Debug,PartialEq)]
 pub enum Stat {
-    Let(Box<Pat>,Box<Type>,Box<Expr>),
+    Let(Box<Pat>,Box<Type>,Option<Box<Expr>>),
     Expr(Box<Expr>),
 }
 

@@ -29,6 +29,7 @@ impl Renderer {
                 r += "])";
                 r
             },
+            Expr::Const(ident) => format!("sr::Expr::Const(\"{}\".to_string())",ident),
             Expr::UnknownIdent(ident) => format!("sr::Expr::UnknownIdent(\"{}\".to_string())",ident),
             Expr::Array(exprs) => {
                 let mut r = "sr::Expr::Array([".to_string();
@@ -69,8 +70,8 @@ impl Renderer {
                     },
                 }
             },
-            Expr::UnknownCall(ident,exprs) => {
-                let mut r = format!("sr::Expr::UnknownCall(\"{}\".to_string(),vec![",ident);
+            Expr::UnknownCallOrTuple(ident,exprs) => {
+                let mut r = format!("sr::Expr::UnknownCallOrTuple(\"{}\".to_string(),vec![",ident);
                 for expr in exprs {
                     r += &self.expr(expr);
                     r += ",";
@@ -226,7 +227,8 @@ impl Renderer {
             Pat::Boolean(value) => format!("sr::Pat::Boolean({})",if *value { "true" } else { "false" }),
             Pat::Integer(value) => format!("sr::Pat::Integer({})",*value),
             Pat::Float(value) => format!("sr::Pat::Float({})",*value),
-            Pat::Ident(ident) => format!("sr::Pat::Ident(\"{}\")",ident),
+            Pat::Const(ident) => format!("sr::Pat::Const(\"{}\".to_string())",ident),
+            Pat::Ident(ident) => format!("sr::Pat::Ident(\"{}\".to_string())",ident),
             Pat::UnknownStruct(ident,identpats) => {
                 let mut r = format!("sr::Pat::UnknownStruct(\"{}\".to_string(),vec![",ident);
                 for identpat in identpats {
@@ -290,6 +292,7 @@ impl Renderer {
     fn stat(&self,stat: &Stat) -> String {
         match stat {
             Stat::Let(ident,type_,expr) => format!("sr::Stat::Let(Rc::new(Variable {{ ident: \"{}\".to_string(),type_: Box::new({}),value: Box::new({}), }}))",ident,self.type_(type_),self.expr(expr)),
+            Stat::LetIdent(ident,expr) => format!("sr::Stat::Let(Rc::new(Variable {{ ident: \"{}\".to_string(),type_: Box::new(sr::Type::Inferred),value: Box::new({}), }}))",ident,self.expr(expr)),
             Stat::Expr(expr) => format!("sr::Stat::Expr(Box::new({}))",self.expr(expr)),
         }
     }
@@ -309,28 +312,6 @@ impl Renderer {
         }
         r += ", }";
         r
-    }
-
-    fn variant(&self,variant: &Variant) -> String {
-        match variant {
-            Variant::Naked(ident) => format!("sr::Variant::Naked(\"{}\".to_string())",ident),
-            Variant::Tuple(ident,types) => {
-                let mut r = format!("sr::Variant::Tuple(\"{}\".to_string(),vec![",ident);
-                for type_ in types.iter() {
-                    r += &format!("{},",self.type_(type_));
-                }
-                r += "])";
-                r
-            },
-            Variant::Struct(ident,fields) => {
-                let mut r = format!("sr::Variant::Struct(\"{}\".to_string(),vec![",ident);
-                for (ident,type_) in fields {
-                    r += &format!("(\"{}\".to_string(),{}),",ident,self.type_(type_));
-                }
-                r += "])";
-                r
-            },
-        }
     }
 
     fn module(&self,module: &Module) -> String {
@@ -373,19 +354,13 @@ impl Renderer {
             r += &format!("        structs.insert(\"{}\".to_string(),Rc::new(sr::Struct {{ ident: \"{}\".to_string(),fields, }}));\n\n",ident,ident);
         }
 
-        if module.enums.len() > 0 {
-            r += "        let mut enums: HashMap<String,Rc<sr::Enum>> = HashMap::new();\n\n";
-            for ident in module.enums.keys() {
-                let variants = &module.enums[ident];
-                r += "        let mut variants: Vec<sr::Variant> = Vec::new();\n";
-                for variant in variants {
-                    r += &format!("        variants.push({});",self.variant(variant));
-                }
-                r += &format!("        structs.insert(\"{}\".to_string(),Rc::new(sr::Struct {{ ident: \"{}\".to_string(),fields, }}));\n\n",ident,ident);
+        for ident in module.enum_structs.keys() {
+            let fields = &module.enum_structs[ident];
+            r += "        let mut fields: Vec<sr::Field> = Vec::new();\n";
+            for (ident,type_) in fields {
+                r += &format!("        fields.push(sr::Field {{ ident: \"{}\".to_string(),type_: {}, }});\n",ident,self.type_(&type_));
             }
-        }
-        else {
-            r += "        let enums: HashMap<String,Rc<sr::Enum>> = HashMap::new();\n\n";
+            r += &format!("        structs.insert(\"{}\".to_string(),Rc::new(sr::Struct {{ ident: \"{}\".to_string(),fields, }}));\n\n",ident,ident);
         }
 
         r += "        let mut functions: HashMap<String,Rc<sr::Function>> = HashMap::new();\n\n";

@@ -305,7 +305,7 @@ impl Display for Expr {
 impl Display for Stat {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
-            Stat::Let(pat,type_,expr) => write!(f,"let {}: {} = {};",pat,type_,expr),
+            Stat::Let(pat,type_,expr) => if let Some(expr) = expr { write!(f,"let {}: {} = {};",pat,type_,expr) } else { write!(f,"let {}: {};",pat,type_) },
             Stat::Expr(expr) => write!(f,"{};",expr),
         }
     }

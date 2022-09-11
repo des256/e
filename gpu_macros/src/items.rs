@@ -12,7 +12,8 @@ impl Parser {
         let mut structs: HashMap<String,Vec<(String,Type)>> = HashMap::new();
 #[allow(unused_assignments)]
         let mut anon_tuple_structs: HashMap<String,Vec<(String,Type)>> = HashMap::new();
-        let mut enums: HashMap<String,Vec<Variant>> = HashMap::new();
+        let mut enum_structs: HashMap<String,Vec<(String,Type)>> = HashMap::new();
+        let mut enums: HashMap<String,(Vec<Variant>,Vec<Vec<usize>>)> = HashMap::new();
         let mut consts: HashMap<String,(Type,Expr)> = HashMap::new();
         if let Some(mut parser) = self.group('{') {
             while !parser.done() {
@@ -77,7 +78,167 @@ impl Parser {
                             }
                             parser.punct(',');
                         }
-                        enums.insert(ident,variants);
+
+                        // build tight field type list for the resulting struct
+                        let mut field_types: Vec<(Type,usize)> = Vec::new();
+                        for variant in variants.iter() {
+                            match variant {
+                                Variant::Naked(_) => { },
+                                Variant::Tuple(_,types) => {
+                                    let mut variant_field_types: Vec<(Type,usize)> = Vec::new();
+                                    for type_ in types.iter() {
+                                        let mut found = false;
+                                        for i in 0..variant_field_types.len() {
+                                            if variant_field_types[i].0 == *type_ {
+                                                variant_field_types[i].1 += 1;
+                                                found = true;
+                                            }
+                                        }
+                                        if !found {
+                                            variant_field_types.push((type_.clone(),1));
+                                        }
+                                    }
+                                    for (type_,count) in variant_field_types.iter() {
+                                        let mut found = false;
+                                        for i in 0..field_types.len() {
+                                            if field_types[i].0 == *type_ {
+                                                if field_types[i].1 < *count {
+                                                    field_types[i].1 = *count;
+                                                }
+                                                found = true;
+                                            }
+                                        }
+                                        if !found {
+                                            field_types.push((type_.clone(),*count));
+                                        }
+                                    }
+                                },
+                                Variant::Struct(_,fields) => {
+                                    let mut variant_field_types: Vec<(Type,usize)> = Vec::new();
+                                    for (_,type_) in fields.iter() {
+                                        let mut found = false;
+                                        for i in 0..variant_field_types.len() {
+                                            if variant_field_types[i].0 == *type_ {
+                                                variant_field_types[i].1 += 1;
+                                                found = true;
+                                            }
+                                        }
+                                        if !found {
+                                            variant_field_types.push((type_.clone(),1));
+                                        }
+                                    }
+                                    for (type_,count) in variant_field_types.iter() {
+                                        let mut found = false;
+                                        for i in 0..field_types.len() {
+                                            if field_types[i].0 == *type_ {
+                                                if field_types[i].1 < *count {
+                                                    field_types[i].1 = *count;
+                                                }
+                                                found = true;
+                                            }
+                                        }
+                                        if !found {
+                                            field_types.push((type_.clone(),*count));
+                                        }
+                                    }
+                                },
+                            }
+                        }
+
+                        // field_types now contains the types and how many of them are needed
+
+                        // describe the actual fields of the final struct, excluding the ID
+                        let mut fields: Vec<(String,Type)> = Vec::new();
+                        let mut i = 0usize;
+                        for (type_,count) in field_types.iter() {
+                            for _ in 0..*count {
+                                fields.push((format!("_{}",i),type_.clone()));
+                                i += 1;
+                            }
+                        }
+
+                        // for each variant, allocate the fields
+                        let mut variant_field_indices: Vec<Vec<usize>> = Vec::new();
+                        for id in 0..variants.len() {
+                            match &variants[id] {
+                                Variant::Naked(_) => variant_field_indices.push(Vec::new()),
+                                Variant::Tuple(_,types) => {
+
+                                    // keep track of which type is already allocated and at which index that was
+                                    let mut allocated: Vec<(Type,usize)> = Vec::new();
+
+                                    // build list of indices that refer to the fields in the final struct
+                                    let mut indices: Vec<usize> = Vec::new();
+
+                                    for type_ in types.iter() {
+                                        // if this type was already allocated before, allocate the next one
+                                        let mut found = false;
+                                        for i in 0..allocated.len() {
+                                            if allocated[i].0 == *type_ {
+                                                allocated[i].1 += 1;
+                                                indices.push(allocated[i].1);
+                                                found = true;
+                                            }
+                                        }
+
+                                        // otherwise find the type in the fields and start allocating there
+                                        if !found {
+                                            for i in 0..fields.len() {
+                                                if fields[i].1 == *type_ {
+                                                    allocated.push((type_.clone(),i));
+                                                    indices.push(i);
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // and store the indices for this variant
+                                    variant_field_indices.push(indices);
+                                },
+
+                                Variant::Struct(_,fields) => {
+
+                                    // keep track of which type is already allocated and at which index that was
+                                    let mut allocated: Vec<(Type,usize)> = Vec::new();
+
+                                    // build list of indices that refer to the fields in the final struct
+                                    let mut indices: Vec<usize> = Vec::new();
+
+                                    for field in fields.iter() {
+                                        // if this type was already allocated before, allocate the next one
+                                        let mut found = false;
+                                        for i in 0..allocated.len() {
+                                            if allocated[i].0 == field.1 {
+                                                allocated[i].1 += 1;
+                                                indices.push(allocated[i].1);
+                                                found = true;
+                                            }
+                                        }
+
+                                        // otherwise find the type in the fields and start allocating there
+                                        if !found {
+                                            for i in 0..fields.len() {
+                                                if fields[i].1 == field.1 {
+                                                    allocated.push((field.1.clone(),i));
+                                                    indices.push(i);
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    variant_field_indices.push(indices);
+                                },
+                            }
+                        }
+
+                        // add the ID
+                        let mut final_fields: Vec<(String,Type)> = Vec::new();
+                        final_fields.push(("id".to_string(),Type::Base(sr::BaseType::U32)));
+                        final_fields.append(&mut fields);
+
+                        // and build the struct and enum objects
+                        enum_structs.insert(ident.clone(),final_fields);
+                        enums.insert(ident,(variants,variant_field_indices));
                     }
                     else {
                         panic!("{}","{ expected");
@@ -106,6 +267,7 @@ impl Parser {
             functions,
             structs,
             anon_tuple_structs,
+            enum_structs,
             enums,
             consts,
         }

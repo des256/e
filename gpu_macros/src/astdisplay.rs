@@ -60,6 +60,7 @@ impl Display for Pat {
             Pat::Boolean(value) => write!(f,"{}",if *value { "true" } else { "false " }),
             Pat::Integer(value) => write!(f,"{}",value),
             Pat::Float(value) => write!(f,"{}",value),
+            Pat::Const(value) => write!(f,"{}",value),
             Pat::Ident(ident) => write!(f,"{}",ident),
             Pat::UnknownStruct(ident,identpats) => {
                 write!(f,"{} {{ ",ident)?;
@@ -114,7 +115,7 @@ impl Display for Block {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"{{ ")?;
         for stat in self.stats.iter() {
-            write!(f,"{}; ",stat)?;
+            write!(f,"{} ",stat)?;
         }
         if let Some(expr) = &self.expr {
             write!(f,"{}",expr)?;
@@ -150,6 +151,7 @@ impl Display for Expr {
                 }
                 write!(f," }}")
             },
+            Expr::Const(ident) => write!(f,"{}",ident),
             Expr::UnknownIdent(ident) => write!(f,"{}",ident),
             Expr::Array(exprs) => {
                 write!(f,"[")?;
@@ -167,7 +169,7 @@ impl Display for Expr {
                 write!(f," }}")
             },
             Expr::UnknownVariant(ident,variantexpr) => write!(f,"{}::{}",ident,variantexpr),
-            Expr::UnknownCall(ident,exprs) => {
+            Expr::UnknownCallOrTuple(ident,exprs) => {
                 write!(f,"{}(",ident)?;
                 for expr in exprs {
                     write!(f,"{},",expr)?;
@@ -274,6 +276,7 @@ impl Display for Stat {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
             Stat::Let(ident,type_,expr) => write!(f,"let {}: {} = {};",ident,type_,expr),
+            Stat::LetIdent(ident,expr) => write!(f,"let {} = {};",ident,expr),
             Stat::Expr(expr) => write!(f,"{};",expr),
         }
     }
@@ -314,7 +317,21 @@ impl Display for Module {
             }
             write!(f," }}; ")?;
         }
-        for (ident,variants) in self.enums.iter() {
+        for (ident,fields) in self.anon_tuple_structs.iter() {
+            write!(f,"struct {} {{ ",ident)?;
+            for (ident,type_) in fields {
+                write!(f,"{}: {},",ident,type_)?;
+            }
+            write!(f," }}; ")?;
+        }
+        for (ident,fields) in self.enum_structs.iter() {
+            write!(f,"struct {} {{ ",ident)?;
+            for (ident,type_) in fields {
+                write!(f,"{}: {},",ident,type_)?;
+            }
+            write!(f," }}; ")?;
+        }
+        for (ident,(variants,_)) in self.enums.iter() {
             write!(f,"enum {} {{ ",ident)?;
             for variant in variants {
                 write!(f,"{},",variant)?;
