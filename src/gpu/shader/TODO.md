@@ -18,7 +18,22 @@ let a = 4;
 let a = (b,4);
 let a = Foobar { a: 4,b: 5, };
 let Foobar { a,b: _, } = func();
+let (a,b,c) = func();
+let (a,..) = (c,d);
 
+C-like:
+
+let a = 4;
+let a = Tuple0 { _0: b,_1: 4, };
+let a = Foobar { a: 4,b: 5, };
+let t = func();
+let a = t.a;
+let t = func();
+let a = t._0;
+let b = t._1;
+let c = t._2;
+let t = AnonTuple0 { _0: c,_1: d, };
+let a = t._0;
 
 ## TUPLES
 

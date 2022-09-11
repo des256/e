@@ -1,52 +1,155 @@
-# GPU Macros
+# Limited Rust Shader Compiler
 
-These macros make it possible for (reduced) Rust to be used to specify various GPU things, like shaders and vertex formats.
+## Wants and Needs
 
-## Vertex Format
+- We want to be able to program shaders in Rust directly in the Rust source code
+- This should be compiled automatically into GLSL, HLSL, MSL, WebSL, and SPIR-V
+- We should be able to use the same vertex and uniform structs in Rust and in the shader
 
-Add ```#[derive(Vertex)]``` before any structure to use it as vertex format. The macro will automatically create the Vertex trait, which is needed by vertex buffers and vertex shaders.
+## Artist Impression
 
-## Vertex Shader
-
-Specify the shader as a module, and add ```#[vertex_shader(MyVertexFormat)]``` before to connect it to the GPU. `MyVertexFormat` is a struct that has `Vertex` derived from it. A quick example:
+In the Rust source code, we define a vertex format:
 
 ```
 #[derive(Vertex)]
 struct MyVertex {
-    position: Vec2<f32>,
+    Vec2<f32> pos;
+    Color<f32> color;
 }
+```
 
-#[vertex_shader(MyVertex)]
+And the shaders:
+
+```
+#[vertex_shader]
 mod my_vertex_shader {
-    fn main(vertex: MyVertex) -> Vec4<f32> {
-        Vec4<f32> {
-            x: vertex.position.x,
-            y: vertex.position.y,
-            z: 0.0,
-            w: 1.0,
-        }
+    fn main(vertex: MyVertex) -> (Vec4<f32>,Color<f32>) {
+        (Vec4<f32> { x: vertex.pos.x,y: vertex.pos.y,z: 0.0,w: 1.0, },vertex.color)
     }
 }
-```
 
-Later, when the shader is needed, call ```my_vertex_shader::create()``` to generate the GPU-specific ```VertexShader``` object.
-
-## Fragment Shader
-
-Specify the shader as a module, and add ```#[fragment_shader]``` before to connect it to the GPU. A quick example:
-
-```
-#[fragment_shader]
+[fragment_shader]
 mod my_fragment_shader {
-    fn main() -> Color<f32> {
-        Color<f32> {
-            r: 1.0,
-            g: 1.0,
-            b: 1.0,
-            a: 1.0,
-        }
+    fn main(color: Color<f32>) -> Color<f32> {
+        color
     }
 }
 ```
 
-Later, when the shader is needed, call ```my_fragment_shader::create()``` to generate the GPU-specific ```FragmentShader``` object.
+To specify the vertex buffer, we can use `MyVertex` (since it supports the `Vertex` trait), and to create the shader objects:
+
+```
+vertex_shader = VertexShader::from_code(my_vertex_shader::code());
+fragment_shader = FragmentShader::from_code(my_fragment_shader::code());
+```
+
+## Development Details
+
+Generally, the compiler should convert Rust into one of the shading languages. These are all C-like languages, so the compiler most likely only has to do:
+
+1. parse Rust into syntax tree
+2. convert Rust features into C-like equivalents
+3. render target language
+
+So there is no intermediate representation or assembly, and we're not considering optimizations at this time.
+
+### Structs Inside and Outside Shaders
+
+To use Vertex and Uniform structs both inside and outside the shaders, the compiler will need access to the description of these structs. This is not possible during compiletime because attribute macros have no view outside the shader code. To fix this, we'll need to split the compiler into a compiletime part and a runtime part. In the runtime part we have access to the structure descriptions. Parsing the shader into the syntax tree can be done at compiletime, the syntax tree can then be rendered into Rust literals, so they become available during runtime. At runtime, the tree is then rendered in the target language.
+
+## Defining Limited Rust
+
+`RUST.md` shows the grammar of Rust full of features we don't need or that make no sense in shaders:
+
+- Generics: Other than Vec2<f32> and such, let's not support generics.
+- Function pointers and closures: Let's not support this for shaders.
+- Nested modules: Let's not support this. A shader should be expressed as one module, containing the relevant functions and constants and such.
+- Macros: Let's not support this.
+- Conditional compilation: Let's not support this.
+- Referencing external crates and use declarations: Let's not support this.
+- Type aliasing: Let's not support this.
+- Static/global variables: This makes very little sense in shaders. - OR - These translate to uniforms...
+- Traits: Let's not support this.
+- Lifetimes and mutability: Even though this is important in Rust, it doesn't make much sense in shaders.
+- Inherent implementations: Maybe...
+- Visibility: Shaders don't export anything.
+- Strings and characters: This has no meaning for shaders.
+- Unsafe: This has no meaning in shaders, and we don't support mutability.
+- Borrowing, references and pointers: Also a big concept in Rust, but we don't need this in shaders.
+
+`GRAMMAR.md` shows the simplified grammar without these features. This grammar is halfway between C and Rust, and has been taylored to get rid of parsing ambiguities and also automatically solve operator precedence like older C compilers do. Parsing ambiguities can occur when attempting to parse, for example `Foo::Bar(12)`. It can be:
+
+- a function call `Bar` from the module `Foo`, with parameter 12
+- a tuple struct literal `Bar(12)` from the module `Foo`
+- an enum variant `Bar(12)` from the enum `Foo`
+
+and even:
+
+- a tuple struct pattern matching `Bar(12)` from the module `Foo`
+- an enum pattern matching `Bar(12)` from the enum `Foo`
+
+## Representing Limited Rust Features
+
+Some features that still exist cannot be represented directly in any of the target shading languages, but we like to be able to use them anyway.
+
+- Tuples
+- Rust-style Enums
+- Pattern matching (`let`, `if let`, `while let`, `match`, `for`)
+- Everything is an Expression
+
+### Tuples
+
+Tuples are actually just structs without field names, and structs are supported in most target languages. This means there is a one-to-one mapping possible, probably with some name mangling.
+
+### Enums
+
+Enums (or unions) are not supported, so we need to come up with a way to store enums in structs. TODO
+
+### Pattern Matching
+
+Pattern matching can be split into two distinct tasks: the boolean expression to find out if a pattern matches or not, and destructuring of local variables from a successful match. The boolean expression can be used in traditional if and while statements, and destructuring will form the first statements of the code inside the if- or while-block. For example:
+
+```
+if let MyStruct { a: 4,b: x,.. } = data {
+    ...
+}
+```
+
+The boolean expression is `data.a == 4` and the destructuring statement is `x = data.b;`. So this `if let` can be transformed into an `if` (which is available in C-like languages) like so:
+
+```
+if data.a == 4 {
+    let x = data.b;
+    ...
+}
+```
+
+Another example:
+
+```
+let coords = match foo {
+    1 => Vec2<f32> { x: 1.0,y: 2.0, },
+    2 | 3 => Vec2<f32> { x: 4.0,y: 2.0, },
+}
+```
+
+Each arm has a boolean expression: `foo == 1` and `(foo == 2) || (foo == 3)`. There are no destructuring statements.
+
+#### Boolean Expression
+
+The boolean expression can be created by recursively rendering pattern checks for specific patterns (so, anything but identifiers, wildcards or rest indicators) and connecting them with logical or operators.
+
+#### Destructuring Statements
+
+Destructuring statements can be created by recursively rendering the points where identifiers appear as individual let-statements. For example:
+
+```
+let Vec4<f32> { x,y,.. } = foo;
+```
+
+becomes:
+
+```
+let x = foo.x;
+let y = foo.y;
+```
