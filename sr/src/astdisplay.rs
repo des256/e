@@ -18,86 +18,7 @@ impl Display for Type {
             Type::Base(base_type) => write!(f,"{}",base_type.to_rust()),
             Type::UnknownIdent(ident) => write!(f,"{{unknown:{}}}",ident),
             Type::Struct(struct_) => write!(f,"{}",struct_.ident),
-            Type::Enum(enum_) => write!(f,"{}",enum_.ident),
             Type::Array(ty,expr) => write!(f,"[{}; {}]",ty,expr),
-        }
-    }
-}
-
-impl Display for IdentPat {
-    fn fmt(&self,f: &mut Formatter) -> Result {
-        match self {
-            IdentPat::Wildcard => write!(f,"_"),
-            IdentPat::Rest => write!(f,".."),
-            IdentPat::Ident(ident) => write!(f,"{}",ident),
-            IdentPat::IdentPat(ident,pat) => write!(f,"{}: {}",ident,pat),
-        }
-    }
-}
-
-impl Display for VariantPat {
-    fn fmt(&self,f: &mut Formatter) -> Result {
-        match self {
-            VariantPat::Naked(ident) => write!(f,"{}",ident),
-            VariantPat::Tuple(ident,pats) => {
-                write!(f,"{}(",ident)?;
-                for pat in pats {
-                    write!(f,"{},",pat)?;
-                }
-                write!(f,")")
-            },
-            VariantPat::Struct(ident,identpats) => {
-                write!(f,"{} {{ ",ident)?;
-                for identpat in identpats {
-                    write!(f,"{},",identpat)?;
-                }
-                write!(f," }}")
-            },
-        }
-    }
-}
-
-impl Display for Pat {
-    fn fmt(&self,f: &mut Formatter) -> Result {
-        match self {
-            Pat::Wildcard => write!(f,"_"),
-            Pat::Rest => write!(f,".."),
-            Pat::Boolean(value) => write!(f,"{}",if *value { "true" } else { "false " }),
-            Pat::Integer(value) => write!(f,"{}",value),
-            Pat::Float(value) => write!(f,"{}",value),
-            Pat::Ident(ident) => write!(f,"{}",ident),
-            Pat::Const(variable) => write!(f,"{}",variable.ident),
-            Pat::UnknownStruct(ident,identpats) => {
-                write!(f,"{} {{ ",ident)?;
-                for identpat in identpats {
-                    write!(f,"{},",identpat)?;
-                }
-                write!(f," }}")
-            },
-            Pat::Struct(struct_,identpats) => {
-                write!(f,"{} {{ ",struct_.ident)?;
-                for identpat in identpats {
-                    write!(f,"{},",identpat)?;
-                }
-                write!(f," }}")
-            },
-            Pat::Array(pats) => {
-                write!(f,"[")?;
-                for pat in pats {
-                    write!(f,"{},",pat)?;
-                }
-                write!(f,"]")
-            },
-            Pat::UnknownVariant(ident,variantpat) => write!(f,"{}::{}",ident,variantpat),
-            Pat::Variant(enum_,variantpat) => write!(f,"{}::{}",enum_.ident,variantpat),
-            Pat::AnonTuple(pats) => {
-                write!(f,"(")?;
-                for pat in pats {
-                    write!(f,"{},",pat)?;
-                }
-                write!(f,")")
-            },
-            Pat::Range(pat,pat2) => write!(f,"{}..={}",pat,pat2),
         }
     }
 }
@@ -190,9 +111,7 @@ impl Display for Expr {
                 }
                 write!(f," }}")
             },
-            Expr::UnknownVariant(ident,variantexpr) => write!(f,"{}::{}",ident,variantexpr),
-            Expr::Variant(enum_,variantexpr) => write!(f,"{}::{}",enum_.ident,variantexpr),
-            Expr::UnknownCall(ident,exprs) => {
+            Expr::UnknownCallOrTuple(ident,exprs) => {
                 write!(f,"{}(",ident)?;
                 for expr in exprs {
                     write!(f,"{},",expr)?;
@@ -258,46 +177,9 @@ impl Display for Expr {
                 }
                 write!(f,"")
             },
-            Expr::IfLet(pats,expr,block,else_expr) => {
-                write!(f,"if let ")?;
-                for pat in pats {
-                    write!(f,"| {} ",pat)?;
-                }
-                write!(f,"in {} {}",expr,block)?;
-                if let Some(else_expr) = else_expr {
-                    write!(f," else {}",else_expr)?;
-                }
-                write!(f,"")
-            },
             Expr::Loop(block) => write!(f,"loop {}",block),
-            Expr::For(pats,range,block) => {
-                write!(f,"for ")?;
-                for pat in pats {
-                    write!(f,"| {} ",pat)?;
-                }
-                write!(f,"in {} {}",range,block)
-            },
+            Expr::For(ident,range,block) => write!(f,"for {} in {} {}",ident,range,block),
             Expr::While(expr,block) => write!(f,"while {} {}",expr,block),
-            Expr::WhileLet(pats,expr,block) => {
-                write!(f,"while let ")?;
-                for pat in pats {
-                    write!(f,"| {} ",pat)?;
-                }
-                write!(f,"in {} {}",expr,block)
-            },
-            Expr::Match(expr,arms) => {
-                write!(f,"match {} {{ ",expr)?;
-                for (pats,if_expr,expr) in arms {
-                    for pat in pats {
-                        write!(f,"| {} ",pat)?;
-                    }
-                    if let Some(if_expr) = if_expr {
-                        write!(f,"if {} ",if_expr)?;
-                    }
-                    write!(f,"=> {},",expr)?;
-                }
-                write!(f," }}")
-            },
         }
     }
 }
@@ -311,25 +193,27 @@ impl Display for Stat {
     }
 }
 
-impl Display for Variant {
+impl Display for Struct {
     fn fmt(&self,f: &mut Formatter) -> Result {
-        match self {
-            Variant::Naked(ident) => write!(f,"{}",ident),
-            Variant::Tuple(ident,types) => {
-                write!(f,"{}(",ident)?;
-                for ty in types {
-                    write!(f,"{},",ty)?;
-                }
-                write!(f,")")
-            },
-            Variant::Struct(ident,fields) => {
-                write!(f,"{} {{ ",ident)?;
-                for field in fields.iter() {
-                    write!(f,"{}: {},",field.ident,field.type_)?;
-                }
-                write!(f," }}")
-            },
+        write!(f,"struct {} {{ ",self.ident)?;
+        for field in self.fields.iter() {
+            write!(f,"{}: {},",field.ident,field.type_)?;
         }
+        write!(f,"}}")
+    }
+}
+
+impl Display for Function {
+    fn fmt(&self,f: &mut Formatter) -> Result {
+        write!(f,"fn {}(",self.ident)?;
+        for param in self.params.iter() {
+            write!(f,"{}: {},",param.ident,param.type_)?;
+        }
+        write!(f,")")?;
+        if let Type::Void = self.return_type { } else {
+            write!(f," -> {}",self.return_type)?;
+        }
+        write!(f,"")
     }
 }
 
@@ -340,29 +224,10 @@ impl Display for Module {
             write!(f,"const {}: {} = {}; ",const_.ident,const_.type_,const_.value.as_ref().unwrap())?;
         }
         for (_,struct_) in self.structs.iter() {
-            write!(f,"struct {} {{ ",struct_.ident)?;
-            for field in struct_.fields.iter() {
-                write!(f,"{}: {},",field.ident,field.type_)?;
-            }
-            write!(f," }}; ")?;
-        }
-        for (_,enum_) in self.enums.iter() {
-            write!(f,"enum {} {{ ",enum_.ident)?;
-            for variant in enum_.variants.iter() {
-                write!(f,"{},",variant)?;
-            }
-            write!(f," }}; ")?;
+            write!(f,"{};",struct_)?;
         }
         for (_,function) in self.functions.iter() {
-            write!(f,"fn {}(",function.ident)?;
-            for param in function.params.iter() {
-                write!(f,"{}: {},",param.ident,param.type_)?;
-            }
-            write!(f,") ")?;
-            if let Type::Void = function.return_type { } else {
-                write!(f,"-> {} ",function.return_type)?;
-            }
-            write!(f,"{} ",function.block)?;
+            write!(f,"{} {}",function,function.block)?;
         }
         write!(f,"}}")
     }

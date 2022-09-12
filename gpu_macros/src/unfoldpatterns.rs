@@ -556,9 +556,7 @@ impl Unfolder {
                 *expr = Expr::Block(if_block);
             },
             Expr::Loop(block) => self.block(block),
-            Expr::For(_,range,block) => {
-                // TODO: use single expression iterator instead of range
-                // TODO: deconstruct patterns and add to stats
+            Expr::For(pat,range,block) => {
                 match range {
                     Range::Only(expr) => self.expr(expr),
                     Range::FromTo(expr,expr2) => {
@@ -626,6 +624,7 @@ impl Unfolder {
 
                 // treat all arms as if-else chain, first collect separate if expressions
                 let mut exprs: Vec<Expr> = Vec::new();
+                let mut else_expr: Option<Box<Expr>> = None;
                 for (pats,if_expr,expr) in arms {
                     // TODO: if_expr does what exactly?
                     if let Some(if_expr) = if_expr {
@@ -633,18 +632,31 @@ impl Unfolder {
                     }
                     self.expr(expr);
 
-                    // create boolean expression for this arm
-                    let condition = self.make_pats_boolean(pats,"scrut").expect("unable to make boolean expression for match arm patterns");
+                    // if this condition evaluates to something, add as if-expression
+                    if let Some(condition) = self.make_pats_boolean(pats,"scrut") {
+                        let arm_block = Block {
+                            stats: self.destructure_pats(pats,"scrut"),
+                            expr: Some(Box::new(*expr.clone())),
+                        };
+                        exprs.push(Expr::If(Box::new(condition),arm_block,None));
+                    }
 
-                    // create arm-block from destructuring statements and arm expression
-                    let arm_block = Block { stats: self.destructure_pats(pats,"scrut"),expr: Some(Box::new(*expr.clone())), };
+                    // otherwise this is the else-expression of the match
+                    else if let None = else_expr {
+                        let arm_block = Block {
+                            stats: Vec::new(),
+                            expr: Some(Box::new(*expr.clone())),
+                        };
+                        else_expr = Some(Box::new(Expr::Block(arm_block)));
+                    }
+                    else {
+                        panic!("match expression can only have one catch-all arm");
+                    }
 
-                    // and add if statement to list
-                    exprs.push(Expr::If(Box::new(condition),arm_block,None));
                 }
 
                 // create one big if-else chain from the individual expressions
-                let mut result_expr: Option<Box<Expr>> = None;
+                let mut result_expr: Option<Box<Expr>> = else_expr;
                 for i in 0..exprs.len() {
                     // peel off starting at the back
                     if let Expr::If(condition,block,_) = &exprs[exprs.len() - i - 1] {

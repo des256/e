@@ -43,10 +43,9 @@ pub fn vertex_shader(_: TokenStream,item_stream: TokenStream) -> TokenStream {
     let mut module = Parser::new(item_stream).module();
     resolve_consts(&mut module);
     unfold_patterns(&mut module);
-    panic!("DONE: {}",module);
-    //let compiled = render_vertex_shader(module);
+    let compiled = render_vertex_shader(module);
     //panic!("DONE:\n{}",compiled);
-    //compiled.parse().unwrap()
+    compiled.parse().unwrap()
 }
 
 #[proc_macro_attribute]
@@ -54,8 +53,7 @@ pub fn fragment_shader(_: TokenStream,item_stream: TokenStream) -> TokenStream {
     let mut module = Parser::new(item_stream).module();
     resolve_consts(&mut module);
     unfold_patterns(&mut module);
-    panic!("DONE: {}",module);
-    //let compiled = render_fragment_shader(module);
+    let compiled = render_fragment_shader(module);
     //panic!("DONE:\n{}",compiled);
-    //compiled.parse().unwrap()
+    compiled.parse().unwrap()
 }

@@ -33,11 +33,7 @@ pub fn process_vertex_shader(mut module: sr::Module,vertex_ident: String,vertex_
     );
 
     resolve_unknowns(&mut module);
-
-    // for all expressions ask what their tightest type is
-    // when this is still too loose, try to infer in other ways: function parameter types, function return values, let statements
-    // once known, broadcast down accordingly
-    // resolve anonymous tuples into Expr::Struct
+    resolve_anon_tuples(&mut module);
 
     println!("Module: {}",module.ident);
     if module.consts.len() > 0 {
@@ -53,17 +49,6 @@ pub fn process_vertex_shader(mut module: sr::Module,vertex_ident: String,vertex_
             println!("    {} {{",ident);
             for field in struct_.fields.iter() {
                 println!("        {}: {},",field.ident,field.type_);
-            }
-            println!("    }}");
-        }
-    }
-
-    if module.enums.len() > 0 {
-        println!("Enums:");
-        for (_,enum_) in module.enums.iter() {
-            println!("    {} {{",enum_.ident);
-            for variant in enum_.variants.iter() {
-                println!("        {},",variant);
             }
             println!("    }}");
         }
@@ -92,12 +77,8 @@ pub fn process_fragment_shader(mut module: sr::Module) -> Option<Vec<u8>> {
     println!("COMPILE FRAGMENT SHADER");
 
     resolve_unknowns(&mut module);
+    resolve_anon_tuples(&mut module);
     
-    // for all expressions ask what their tightest type is
-    // when this is still too loose, try to infer in other ways: function parameter types, function return values, let statements
-    // once known, broadcast down all types accordingly
-    // resolve anonymous tuples
-
     println!("Module: {}",module.ident);
     if module.consts.len() > 0 {
         println!("Constants:");
@@ -112,17 +93,6 @@ pub fn process_fragment_shader(mut module: sr::Module) -> Option<Vec<u8>> {
             println!("    {} {{",ident);
             for field in struct_.fields.iter() {
                 println!("        {}: {},",field.ident,field.type_);
-            }
-            println!("    }}");
-        }
-    }
-
-    if module.enums.len() > 0 {
-        println!("Enums:");
-        for (_,enum_) in module.enums.iter() {
-            println!("    {} {{",enum_.ident);
-            for variant in enum_.variants.iter() {
-                println!("        {},",variant);
             }
             println!("    }}");
         }

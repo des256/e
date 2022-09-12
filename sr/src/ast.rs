@@ -32,19 +32,6 @@ pub struct Struct {
 }
 
 #[derive(Clone,Debug,PartialEq)]
-pub enum Variant {
-    Naked(String),
-    Tuple(String,Vec<Type>),
-    Struct(String,Vec<Field>),
-}
-
-#[derive(Clone,Debug,PartialEq)]
-pub struct Enum {
-    pub ident: String,
-    pub variants: Vec<Variant>,
-}
-
-#[derive(Clone,Debug,PartialEq)]
 pub enum Type {
     Inferred,
     Boolean,
@@ -54,41 +41,7 @@ pub enum Type {
     Base(BaseType),
     UnknownIdent(String),
     Struct(Rc<Struct>),
-    Enum(Rc<Enum>),
     Array(Box<Type>,Box<Expr>),
-}
-
-#[derive(Clone,Debug,PartialEq)]
-pub enum IdentPat {
-    Wildcard,
-    Rest,
-    Ident(String),
-    IdentPat(String,Pat),
-}
-
-#[derive(Clone,Debug,PartialEq)]
-pub enum VariantPat {
-    Naked(String),
-    Tuple(String,Vec<Pat>),
-    Struct(String,Vec<IdentPat>),
-}
-
-#[derive(Clone,Debug,PartialEq)]
-pub enum Pat {
-    Wildcard,
-    Rest,
-    Boolean(bool),
-    Integer(i64),
-    Float(f64),
-    Ident(String),
-    Const(Rc<Variable>),
-    UnknownStruct(String,Vec<IdentPat>),
-    Struct(Rc<Struct>,Vec<IdentPat>),
-    Array(Vec<Pat>),
-    UnknownVariant(String,VariantPat),
-    Variant(Rc<Enum>,VariantPat),
-    AnonTuple(Vec<Pat>),
-    Range(Box<Pat>,Box<Pat>),
 }
 
 #[derive(Clone,Debug,PartialEq)]
@@ -129,9 +82,7 @@ pub enum Expr {
     Cloned(Box<Expr>,Box<Expr>),
     UnknownStruct(String,Vec<(String,Expr)>),
     Struct(Rc<Struct>,Vec<(String,Expr)>),
-    UnknownVariant(String,VariantExpr),
-    Variant(Rc<Enum>,VariantExpr),
-    UnknownCall(String,Vec<Expr>),
+    UnknownCallOrTuple(String,Vec<Expr>),
     Call(Rc<Function>,Vec<Expr>),
     Field(Box<Expr>,String),
     Index(Box<Expr>,Box<Expr>),
@@ -173,17 +124,14 @@ pub enum Expr {
     Return(Option<Box<Expr>>),
     Block(Block),
     If(Box<Expr>,Block,Option<Box<Expr>>),
-    IfLet(Vec<Pat>,Box<Expr>,Block,Option<Box<Expr>>),
     Loop(Block),
-    For(Vec<Pat>,Range,Block),
+    For(String,Range,Block),
     While(Box<Expr>,Block),
-    WhileLet(Vec<Pat>,Box<Expr>,Block),
-    Match(Box<Expr>,Vec<(Vec<Pat>,Option<Box<Expr>>,Box<Expr>)>),
 }
 
 #[derive(Clone,Debug,PartialEq)]
 pub enum Stat {
-    Let(Box<Pat>,Box<Type>,Option<Box<Expr>>),
+    Let(String,Box<Type>,Option<Box<Expr>>),
     Expr(Box<Expr>),
 }
 
@@ -192,6 +140,5 @@ pub struct Module {
     pub ident: String,
     pub functions: HashMap<String,Rc<Function>>,
     pub structs: HashMap<String,Rc<Struct>>,
-    pub enums: HashMap<String,Rc<Enum>>,
     pub consts: HashMap<String,Rc<Variable>>,
 }

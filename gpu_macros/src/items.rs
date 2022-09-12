@@ -254,6 +254,9 @@ impl Parser {
                     let expr = parser.expr();
                     consts.insert(ident,(ty,expr));
                 }
+
+                // skip a semicolon if any
+                parser.punct(';');
             }
 
             anon_tuple_structs = parser.anon_tuple_structs;

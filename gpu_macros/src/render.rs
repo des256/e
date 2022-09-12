@@ -375,7 +375,7 @@ impl Renderer {
             r += &format!("        functions.insert(\"{}\".to_string(),Rc::new(sr::Function {{ ident: \"{}\".to_string(),params,return_type,block, }}));\n\n",ident,ident);
         }
 
-        r += &format!("        let module = sr::Module {{ ident: \"{}\".to_string(),consts,structs,enums,functions, }};\n",module.ident);
+        r += &format!("        let module = sr::Module {{ ident: \"{}\".to_string(),consts,structs,functions, }};\n",module.ident);
 
         r
     }
