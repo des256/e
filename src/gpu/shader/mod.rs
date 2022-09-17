@@ -1,6 +1,3 @@
-mod infertypes;
-pub use infertypes::*;
-
 mod resolveunknows;
 pub use resolveunknows::*;
 
