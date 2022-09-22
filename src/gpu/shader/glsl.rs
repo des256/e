@@ -60,13 +60,18 @@ fn gl_base_type_name(type_: &sr::BaseType) -> &'static str {
     }
 }
 
-fn render_type(type_: &sr::Type) -> String {
-    
+fn render_decl(ident: &str,type_: &sr::Type) -> String {
+    match type_ {
+        sr::Type::Struct(struct_) => format!("{} {}",struct_.ident,ident),
+        sr::Type::Array(type_,expr) => format!("{}[{}]",render_decl(ident,type_),expr),
+        sr::Type::Base(base_type) => format!("{} {}",gl_base_type_name(base_type),ident),
+        _ => panic!("type {} cannot appear in declaration",type_),
+    }
 }
 
 fn render_stat(stat: &sr::Stat) -> String {
     match stat {
-        sr::Stat::Let(ident,type_,expr) => if let Some(expr) = expr { format!("{} {} = {};",render_type(type_),ident,render_expr(expr)) } else { format!("{} {};",render_type(type_),ident) },
+        sr::Stat::Let(ident,type_,expr) => if let Some(expr) = expr { format!("{} = {};",render_decl(ident,type_),render_expr(expr)) } else { format!("{};",render_decl(ident,type_)) },
         sr::Stat::Expr(expr) => format!("{};",render_expr(expr)),
     }
 }
@@ -181,7 +186,7 @@ fn render_expr(expr: &sr::Expr) -> String {
         },
         sr::Expr::Field(expr,ident) => format!("{}.{}",render_expr(expr),ident),
         sr::Expr::Index(expr,expr2) => format!("({}[{}])",render_expr(expr),render_expr(expr2)),
-        sr::Expr::Cast(expr,type_) => format!("(({}){})",render_type(type_),render_expr(expr)),
+        sr::Expr::Cast(expr,_) => render_expr(expr),  // assuming that these casts are between the same types for now
         sr::Expr::Neg(expr) => format!("(-{})",render_expr(expr)),
         sr::Expr::Not(expr) => format!("(!{})",render_expr(expr)),
         sr::Expr::Mul(expr,expr2) => format!("({}*{})",render_expr(expr),render_expr(expr2)),
@@ -224,7 +229,15 @@ fn render_expr(expr: &sr::Expr) -> String {
             format!("if ({}) {{ {} }}",render_expr(expr),render_block(block))
         },
         sr::Expr::Loop(block) => format!("while (true) {{ {} }}",render_block(block)),
-        sr::Expr::For(ident,range,block) => format!("for (int {} = TODO; {} < TODO; {}++) {{ {} }}",ident,ident,ident,render_block(block)),
+        sr::Expr::For(ident,range,block) => match range {
+            sr::Range::All => panic!("cannot loop on infinite range"),
+            sr::Range::Only(expr) => format!("int {} = {}; {{ {} }}",ident,render_expr(expr),render_block(block)),
+            sr::Range::From(_) |
+            sr::Range::To(_) |
+            sr::Range::ToIncl(_) => panic!("cannot loop on open range"),
+            sr::Range::FromTo(expr,expr2) => format!("for(int {} = {}; {} < {}; {}++) {{ {} }}",ident,render_expr(expr),ident,render_expr(expr2),ident,render_block(block)),
+            sr::Range::FromToIncl(expr,expr2) => format!("for(int {} = {}; {} <= {}; {}++) {{ {} }}",ident,render_expr(expr),ident,render_expr(expr2),ident,render_block(block)),
+        },
         sr::Expr::While(expr,block) => format!("while ({}) {{ {} }}",render_expr(expr),render_block(block)),
         _ => panic!("ERROR: no Unknown* nodes should exist here"),
     }
@@ -235,7 +248,7 @@ fn render_block(block: &sr::Block) -> String {
     for stat in block.stats.iter() {
         r += &render_stat(stat);
     }
-    if let Some(expr) = block.expr {
+    if let Some(expr) = &block.expr {
         r += &format!("return {}",render_expr(&expr));
     }
     r
@@ -246,7 +259,7 @@ fn collect_layouts(ident: &str,type_: &sr::Type) -> Vec<(String,String)> {
     match type_ {
         sr::Type::Struct(struct_) => {
             for field in struct_.fields.iter() {
-                let base_type = if let sr::Type::Base(base_type) = field.type_ { base_type } else { panic!("only base types supported in function parameter struct fields"); };
+                let base_type = if let sr::Type::Base(base_type) = &field.type_ { base_type } else { panic!("only base types supported in function parameter struct fields"); };
                 layouts.push((gl_base_type_name(&base_type).to_string(),format!("{}_{}",ident,field.ident)));
             }
         },
@@ -255,7 +268,7 @@ fn collect_layouts(ident: &str,type_: &sr::Type) -> Vec<(String,String)> {
     layouts
 }
 
-pub fn compile_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fields: Vec<sr::Field>) -> Option<Vec<u8>> {
+pub fn compile_vertex_shader(module: &mut sr::Module,vertex_ident: String,vertex_fields: Vec<sr::Field>) -> Option<Vec<u8>> {
 
     process_vertex_shader(module,vertex_ident,vertex_fields);
 
@@ -264,12 +277,12 @@ pub fn compile_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fiel
 
     // collect input layouts
     let mut input_layouts: Vec<(String,String)> = Vec::new();
-    for param in main.params {
+    for param in main.params.iter() {
         input_layouts.extend_from_slice(&collect_layouts(&param.ident,&param.type_));
     }
     
     // collect output layouts
-    let main_return_type = if let sr::Type::Void = main.return_type { panic!("main should return non-void"); } else { main.return_type };
+    let main_return_type = if let sr::Type::Void = main.return_type { panic!("main should return non-void"); } else { main.return_type.clone() };
     let output_layouts = collect_layouts("output",&main_return_type);
     if output_layouts[0].1 != "vec4" {
         panic!("first element of the output should be a vec4 for the vertex position, optionally followed by other parameters");
@@ -301,7 +314,7 @@ pub fn compile_vertex_shader(module: sr::Module,vertex_ident: String,vertex_fiel
     Some(r.into_bytes())
 }
 
-pub fn compile_fragment_shader(module: sr::Module) -> Option<Vec<u8>> {
+pub fn compile_fragment_shader(module: &mut sr::Module) -> Option<Vec<u8>> {
 
     process_fragment_shader(module);
     println!("TODO: render GLSL");

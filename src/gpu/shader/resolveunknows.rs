@@ -200,7 +200,7 @@ impl Resolver {
                 }
             },
             sr::Expr::Loop(block) => self.block(block),
-            sr::Expr::For(ident,range,block) => {
+            sr::Expr::For(_,range,block) => {
                 match range {
                     sr::Range::Only(expr) => self.expr(expr),
                     sr::Range::FromTo(expr,expr2) => {
@@ -227,7 +227,7 @@ impl Resolver {
 
     fn stat(&mut self,stat: &mut sr::Stat) {
         match stat {
-            sr::Stat::Let(ident,type_,expr) => {
+            sr::Stat::Let(_,type_,expr) => {
                 self.type_(type_);
                 if let Some(expr) = expr {
                     self.expr(expr);

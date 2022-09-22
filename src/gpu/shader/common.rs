@@ -3,7 +3,7 @@ use {
     std::rc::Rc,
 };
 
-pub fn process_vertex_shader(mut module: sr::Module,vertex_ident: String,vertex_fields: Vec<sr::Field>) -> Option<Vec<u8>> {
+pub fn process_vertex_shader(module: &mut sr::Module,vertex_ident: String,vertex_fields: Vec<sr::Field>) -> Option<Vec<u8>> {
 
     println!("PROCESS VERTEX SHADER");
 
@@ -32,20 +32,20 @@ pub fn process_vertex_shader(mut module: sr::Module,vertex_ident: String,vertex_
         )
     );
 
-    resolve_unknowns(&mut module);
-    resolve_anon_tuples(&mut module);
+    resolve_unknowns(module);
+    resolve_anon_tuples(module);
 
     println!("Module: {}",module.ident);
     if module.consts.len() > 0 {
         println!("Constants:");
-        for (_,const_) in module.consts {
+        for (_,const_) in module.consts.iter() {
             println!("    {}: {} = {}",const_.ident,const_.type_,const_.value.as_ref().unwrap());
         }
     }
 
     if module.structs.len() > 0 {
         println!("Structs:");
-        for (ident,struct_) in module.structs {
+        for (ident,struct_) in module.structs.iter() {
             println!("    {} {{",ident);
             for field in struct_.fields.iter() {
                 println!("        {}: {},",field.ident,field.type_);
@@ -72,24 +72,24 @@ pub fn process_vertex_shader(mut module: sr::Module,vertex_ident: String,vertex_
     None
 }
 
-pub fn process_fragment_shader(mut module: sr::Module) -> Option<Vec<u8>> {
+pub fn process_fragment_shader(module: &mut sr::Module) -> Option<Vec<u8>> {
 
     println!("COMPILE FRAGMENT SHADER");
 
-    resolve_unknowns(&mut module);
-    resolve_anon_tuples(&mut module);
+    resolve_unknowns(module);
+    resolve_anon_tuples(module);
     
     println!("Module: {}",module.ident);
     if module.consts.len() > 0 {
         println!("Constants:");
-        for (_,const_) in module.consts {
+        for (_,const_) in module.consts.iter() {
             println!("    {}: {} = {}",const_.ident,const_.type_,const_.value.as_ref().unwrap());
         }
     }
 
     if module.structs.len() > 0 {
         println!("Structs:");
-        for (ident,struct_) in module.structs {
+        for (ident,struct_) in module.structs.iter() {
             println!("    {} {{",ident);
             for field in struct_.fields.iter() {
                 println!("        {}: {},",field.ident,field.type_);
