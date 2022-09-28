@@ -1,14 +1,26 @@
 # All Languages
 
+## Execution Model
+
+Vertex
+TessellationControl
+TessellationEvaluation
+Geometry
+Fragment
+Compute
+Kernel
+(no ray tracing)
+
+
 ## Types
 
 ### Scalar
 
-| Rust | SPIR-V     | GLSL   | HLSL   | MSL    |
-| ---- | ---------- | ------ | ------ | ------ |
-| void | 19,id      | void   | ?      | void   |
-| bool | 20,id      | bool   | bool   | bool   |
-| u8   | 21,id,8,0  | uint   | uint   | uchar  |
+| Rust | SPIR-V     | GLSL   | HLSL   | MSL    | WGSL |
+| ---- | ---------- | ------ | ------ | ------ | ---- |
+| void | 19,id      | void   | ?      | void   | void |
+| bool | 20,id      | bool   | bool   | bool   | bool |
+| u8   | 21,id,8,0  | uint   | uint   | uchar  | :
 | i8   | 21,id,8,1  | int    | int    | char   |
 | u16  | 21,id,16,0 | uint   | uint   | ushort |
 | i16  | 21,id,16,1 | int    | int    | short  |
@@ -99,6 +111,8 @@
 
 ### Pixel Formats (Color)
 
+GLSL: 
+
 | Rust      | SPIR-V | GLSL           | HLSL | MSL             |
 | --------- | ------ | -------------- | ---- | --------------- |
 | R8UN      | 15     | r8             |      | R8Unorm         |
@@ -116,6 +130,51 @@
 | R64U      | 40     | ?              |      | ?               |
 | R64I      | 41     | ?              |      | ?               |
 | R64F      | ?      | ?              |      | ?               |
+| A8UN      | 15     | r8             |      | R8Unorm         |
+| A8IN      | 20     | r8_snorm       |      | R8Snorm         |
+| A8U       | 39     | r8ui           |      | R8Uint          |
+| A8I       | 29     | r8i            |      | R8Sint          |
+| A16UN     | 14     | r16            |      | R16Unorm        |
+| A16IN     | 19     | r16_snorm      |      | R16Snorm        |
+| A16U      | 38     | r16ui          |      | R16Uint         |
+| A16I      | 28     | r16i           |      | R16Sint         |
+| A16F      | 9      | r16f           |      | R16Float        |
+| A32U      | 33     | r32ui          |      | R32Uint         |
+| A32I      | 24     | r32i           |      | R32Sint         |
+| A32F      | 3      | r32f           |      | R32Float        |
+| A64U      | 40     | ?              |      | ?               |
+| A64I      | 41     | ?              |      | ?               |
+| A64F      | ?      | ?              |      | ?               |
+| I8UN      | 15     | r8             |      | R8Unorm         |
+| I8IN      | 20     | r8_snorm       |      | R8Snorm         |
+| I8U       | 39     | r8ui           |      | R8Uint          |
+| I8I       | 29     | r8i            |      | R8Sint          |
+| I16UN     | 14     | r16            |      | R16Unorm        |
+| I16IN     | 19     | r16_snorm      |      | R16Snorm        |
+| I16U      | 38     | r16ui          |      | R16Uint         |
+| I16I      | 28     | r16i           |      | R16Sint         |
+| I16F      | 9      | r16f           |      | R16Float        |
+| I32U      | 33     | r32ui          |      | R32Uint         |
+| I32I      | 24     | r32i           |      | R32Sint         |
+| I32F      | 3      | r32f           |      | R32Float        |
+| I64U      | 40     | ?              |      | ?               |
+| I64I      | 41     | ?              |      | ?               |
+| I64F      | ?      | ?              |      | ?               |
+| L8UN      | 15     | r8             |      | R8Unorm         |
+| L8IN      | 20     | r8_snorm       |      | R8Snorm         |
+| L8U       | 39     | r8ui           |      | R8Uint          |
+| L8I       | 29     | r8i            |      | R8Sint          |
+| L16UN     | 14     | r16            |      | R16Unorm        |
+| L16IN     | 19     | r16_snorm      |      | R16Snorm        |
+| L16U      | 38     | r16ui          |      | R16Uint         |
+| L16I      | 28     | r16i           |      | R16Sint         |
+| L16F      | 9      | r16f           |      | R16Float        |
+| L32U      | 33     | r32ui          |      | R32Uint         |
+| L32I      | 24     | r32i           |      | R32Sint         |
+| L32F      | 3      | r32f           |      | R32Float        |
+| L64U      | 40     | ?              |      | ?               |
+| L64I      | 41     | ?              |      | ?               |
+| L64F      | ?      | ?              |      | ?               |
 | RG8UN     | 13     | rg8            |      | RG8Unorm        |
 | RG8IN     | 18     | rg8_snorm      |      | RG8Snorm        |
 | RG8U      | 37     | rg8ui          |      | RG8Uint         |

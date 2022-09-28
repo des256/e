@@ -45,36 +45,6 @@ impl<T: Copy> From<&[T; 2]> for Vec2<T> {
     }
 }
 
-macro_rules! vec2_from {
-    ($t:ty => $($u:ty)+) => {
-        $(
-            impl From<Vec2<$u>> for Vec2<$t> {
-                fn from(v: Vec2<$u>) -> Self {
-                    Vec2 {
-                        x: v.x as $t,
-                        y: v.y as $t,
-                    }
-                }
-            }
-        )+
-    }
-}
-
-vec2_from!(u8 => u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize f32 f64);
-vec2_from!(u16 => u8 u32 u64 u128 usize i8 i16 i32 i64 i128 isize f32 f64);
-vec2_from!(u32 => u8 u16 u64 u128 usize i8 i16 i32 i64 i128 isize f32 f64);
-vec2_from!(u64 => u8 u16 u32 u128 usize i8 i16 i32 i64 i128 isize f32 f64);
-vec2_from!(u128 => u8 u16 u32 u64 usize i8 i16 i32 i64 i128 isize f32 f64);
-vec2_from!(usize => u8 u16 u32 u64 u128 i8 i16 i32 i64 i128 isize f32 f64);
-vec2_from!(i8 => u8 u16 u32 u64 u128 usize i16 i32 i64 i128 isize f32 f64);
-vec2_from!(i16 => u8 u16 u32 u64 u128 usize i8 i32 i64 i128 isize f32 f64);
-vec2_from!(i32 => u8 u16 u32 u64 u128 usize i8 i16 i64 i128 isize f32 f64);
-vec2_from!(i64 => u8 u16 u32 u64 u128 usize i8 i16 i32 i128 isize f32 f64);
-vec2_from!(i128 => u8 u16 u32 u64 u128 usize i8 i16 i32 i64 isize f32 f64);
-vec2_from!(isize => u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 f32 f64);
-vec2_from!(f32 => u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize f64);
-vec2_from!(f64 => u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize f32);
-
 impl<T: PartialEq> PartialEq for Vec2<T> {
     fn eq(&self,other: &Self) -> bool {
         (self.x == other.x) && (self.y == other.y)
@@ -202,32 +172,3 @@ macro_rules! vec2_float {
 }
 
 vec2_float!(f32 f64);
-
-#[allow(non_camel_case_types)]
-pub type u8xy = Vec2<u8>;
-#[allow(non_camel_case_types)]
-pub type u16xy = Vec2<u16>;
-#[allow(non_camel_case_types)]
-pub type u32xy = Vec2<u32>;
-#[allow(non_camel_case_types)]
-pub type u64xy = Vec2<u64>;
-#[allow(non_camel_case_types)]
-pub type u128xy = Vec2<u128>;
-#[allow(non_camel_case_types)]
-pub type usizexy = Vec2<usize>;
-#[allow(non_camel_case_types)]
-pub type i8xy = Vec2<i8>;
-#[allow(non_camel_case_types)]
-pub type i16xy = Vec2<i16>;
-#[allow(non_camel_case_types)]
-pub type i32xy = Vec2<i32>;
-#[allow(non_camel_case_types)]
-pub type i64xy = Vec2<i64>;
-#[allow(non_camel_case_types)]
-pub type i128xy = Vec2<i128>;
-#[allow(non_camel_case_types)]
-pub type isizexy = Vec2<isize>;
-#[allow(non_camel_case_types)]
-pub type f32xy = Vec2<f32>;
-#[allow(non_camel_case_types)]
-pub type f64xy = Vec2<f64>;

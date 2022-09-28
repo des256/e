@@ -1,3 +1,6 @@
+mod half;
+pub use half::*;
+
 pub trait Zero {
     const ZERO: Self;
 }
@@ -14,6 +17,7 @@ impl Zero for i32 { const ZERO: i32 = 0; }
 impl Zero for i64 { const ZERO: i64 = 0; }
 impl Zero for i128 { const ZERO: i128 = 0; }
 impl Zero for isize { const ZERO: isize = 0; }
+impl Zero for f16 { const ZERO: f16 = f16(0); }
 impl Zero for f32 { const ZERO: f32 = 0.0; }
 impl Zero for f64 { const ZERO: f64 = 0.0; }
 
@@ -31,6 +35,9 @@ pub use vec3::*;
 
 mod vec4;
 pub use vec4::*;
+
+mod mat2x2;
+pub use mat2x2::*;
 
 mod color;
 pub use color::*;

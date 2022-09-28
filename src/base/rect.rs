@@ -51,20 +51,3 @@ rect_contains!(i128,u128);
 rect_contains!(isize,usize);
 rect_contains!(f32,f32);
 rect_contains!(f64,f64);
-
-#[allow(non_camel_case_types)]
-pub type i8r = Rect<i8,u8>;
-#[allow(non_camel_case_types)]
-pub type i16r = Rect<i16,u16>;
-#[allow(non_camel_case_types)]
-pub type i32r = Rect<i32,u32>;
-#[allow(non_camel_case_types)]
-pub type i64r = Rect<i64,u64>;
-#[allow(non_camel_case_types)]
-pub type i128r = Rect<i128,u128>;
-#[allow(non_camel_case_types)]
-pub type isizer = Rect<isize,usize>;
-#[allow(non_camel_case_types)]
-pub type f32r = Rect<f32,f32>;
-#[allow(non_camel_case_types)]
-pub type f64r = Rect<f64,f64>;
