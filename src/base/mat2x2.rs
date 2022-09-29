@@ -58,7 +58,7 @@ impl<T: Copy> From<[T; 4]> for Mat2x2<T> {
     fn from(array: [T; 4]) -> Self {
         Mat2x2 {
             x: Vec2 { x: array[0],y: array[1], },
-            y: Vec2 { x: array[2],y: array[2], },
+            y: Vec2 { x: array[2],y: array[3], },
         }
     }
 }
@@ -67,7 +67,7 @@ impl<T: Copy> From<&[T; 4]> for Mat2x2<T> {
     fn from(slice: &[T; 4]) -> Self {
         Mat2x2 {
             x: Vec2 { x: slice[0],y: slice[1], },
-            y: Vec2 { x: slice[2],y: slice[2], },
+            y: Vec2 { x: slice[2],y: slice[3], },
         }
     }
 }
@@ -122,41 +122,6 @@ impl<T: SubAssign<T>> SubAssign<Mat2x2<T>> for Mat2x2<T> {
     }
 }
 
-/*
-
-A00 A01 ... A0n
-A10 A11 ... A1n
- :           :
-Am0 Am1 ... Amn
-
-times
-
-B00 B01 ... B0p
-B10 B11 ... B1p
- :           :
-Bn0 Bn1 ... Bnp
-
-equals
-
-C00 C01 ... C0p
-C10 C11 ... C1p
- :           :
-Cm0 Cm1 ... Cmp
-
-such that
-
-Cij = Ai0 B0j + Ai1 B1j + ... + Ain Bnj = sum(k = 0..n,Aik Bkj)
-
-so multiplying an mxn-dimensional matrix by an n-dimensional column vector:
-
-Ci = Ai0 B0 + Ai1 B1 + ... + Ain Bn = sum(k = 0..n,Aik Bk)
-
-and multiplying an m-dimensional row vector by an nxp-dimensional matrix:
-
-row vector Cj = A0 B0j + A1 B1j + ... + An Bnj = sum(k = 0..n,Ak Bkj)
-
-*/
-
 // scalar * matrix
 macro_rules! scalar_mat2x2_mul {
     ($($t:ty)+) => {
@@ -164,7 +129,10 @@ macro_rules! scalar_mat2x2_mul {
             impl Mul<Mat2x2<$t>> for $t {
                 type Output = Mat2x2<$t>;
                 fn mul(self,other: Mat2x2<$t>) -> Mat2x2<$t> {
-                    Mat2x2 { x: self * other.x,y: self * other.y, }
+                    Mat2x2 {
+                        x: self * other.x,
+                        y: self * other.y,
+                    }
                 }
             }
         )+
@@ -227,10 +195,10 @@ impl<T: Copy + Mul<T,Output=T> + Add<T,Output=T>> MulAssign<Mat2x2<T>> for Mat2x
     fn mul_assign(&mut self,other: Mat2x2<T>) {
         let xx = self.x.x * other.x.x + self.x.y * other.y.x;
         let xy = self.x.x * other.x.y + self.x.y * other.y.y;
-        self.x = Vec2 { x: xx, y: xy, };
+        self.x = Vec2 { x: xx,y: xy, };
         let yx = self.y.x * other.x.x + self.y.y * other.y.x;
         let yy = self.y.x * other.x.y + self.y.y * other.y.y;
-        self.y = Vec2 { x: yx, y: yy, };
+        self.y = Vec2 { x: yx,y: yy, };
     }
 }
 
@@ -265,3 +233,65 @@ impl<T: Neg<Output=T>> Neg for Mat2x2<T> {
         }
     }
 }
+
+macro_rules! mat2x2_float {
+    ($($t:ty)+) => {
+        $(
+            impl Mat2x2<$t> {
+                pub fn transpose(self) -> Mat2x2<$t> {
+                    Mat2x2 {
+                        x: Vec2 { x: self.x.x,y: self.y.x, },
+                        y: Vec2 { x: self.x.y,y: self.y.y, },
+                    }
+                }
+
+                pub fn determinant(self) -> $t {
+                    // xx  yx
+                    // xy  yy
+                    let xx = self.x.x;
+                    let xy = self.x.y;
+                    let yx = self.y.x;
+                    let yy = self.y.y;
+
+                    // adjoint of first column
+                    let axx = yy;
+                    let axy = -yx;
+
+                    // determinant
+                    xx * axx + xy * axy
+                }
+
+                pub fn inverse(self) -> Self {
+                    // xx  yx
+                    // xy  yy
+                    let xx = self.x.x;
+                    let xy = self.x.y;
+                    let yx = self.y.x;
+                    let yy = self.y.y;
+
+                    // adjoint of first column
+                    let axx = yy;
+                    let axy = -yx;
+
+                    // determinant
+                    let det = xx * axx + xy * axy;
+                    if det == 0.0 {
+                        return self;
+                    }
+
+                    // rest of adjoint
+                    let ayx = -xy;
+                    let ayy = xx;
+
+                    // transpose of adjoint divided by determinant
+                    Mat2x2::new(
+                        axx,ayx,
+                        axy,ayy,
+                    ) / det
+                }
+            }
+        )+
+    }
+}
+
+mat2x2_float!(f32 f64);

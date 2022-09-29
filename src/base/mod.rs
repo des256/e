@@ -21,6 +21,9 @@ impl Zero for f16 { const ZERO: f16 = f16(0); }
 impl Zero for f32 { const ZERO: f32 = 0.0; }
 impl Zero for f64 { const ZERO: f64 = 0.0; }
 
+mod float;
+pub use float::*;
+
 mod mat;
 pub use mat::*;
 
@@ -38,6 +41,30 @@ pub use vec4::*;
 
 mod mat2x2;
 pub use mat2x2::*;
+
+mod mat2x3;
+pub use mat2x3::*;
+
+mod mat2x4;
+pub use mat2x4::*;
+
+mod mat3x2;
+pub use mat3x2::*;
+
+mod mat3x3;
+pub use mat3x3::*;
+
+mod mat3x4;
+pub use mat3x4::*;
+
+mod mat4x2;
+pub use mat4x2::*;
+
+mod mat4x3;
+pub use mat4x3::*;
+
+mod mat4x4;
+pub use mat4x4::*;
 
 mod color;
 pub use color::*;
