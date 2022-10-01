@@ -269,11 +269,10 @@ image*
 
 ### Built-in Functions
 
-#### Boolean Scalar and Vector
+#### Boolean Vector
 
 | Rust            | GLSL         | HLSL | MSL             | WGSL |
 | --------------- | ------------ | ---- | --------------- | ---- |
-| `x.select(a,b)` | `mix(y,z,x)` |      | `select(y,z,x)` |      |
 | `x.all()`       | `all(x)`     |      | `all(x)`        |      |
 | `x.any()`       | `any(x)`     |      | `any(x)`        |      |
 | `x.not()`       | `not(x)`     |      | `not(x)`        |      |
@@ -325,6 +324,7 @@ image*
 | `x.modf(y)`          | `modf(x,y)`         | `modf(x,y)`            | `modf(x,y)`         | `modf(x,y)`         |
 | `x.mix(y,a)`         | `mix(x,y,a)`        | `lerp(x,y,a)`          | `mix(x,y,a)`        | `mix(x,y,a)`        |
 | `x.smix(y,a)`        | `mix(x,y,a)`        | `lerp(x,y,a)`          | `mix(x,y,a)`        | `mix(x,y,a)`        |
+| `x.select(y,a)`      | `mix(x,y,a)`        |                        | `select(x,y,a)`     |                     |
 | `x.step(y)`          | `step(x,y)`         | `step(x,y)`            | `step(x,y)`         | `step(x,y)`         |
 | `x.sstep(y)`         | `step(x,y)`         | `step(x,y)`            | `step(x,y)`         | `step(x,y)`         |
 | `x.smoothstep(y,z)`  | `smoothstep(y,z,x)` | `smoothstep(y,z,x)`    | `smoothstep(y,z,x)` | `smoothstep(y,z,x)` |

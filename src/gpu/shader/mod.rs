@@ -1,11 +1,8 @@
-mod resolveunknows;
-pub use resolveunknows::*;
-
-mod resolveanontuples;
-pub use resolveanontuples::*;
-
 mod common;
 pub use common::*;
+
+mod resolvesymbols;
+pub use resolvesymbols::*;
 
 #[cfg(any(gpu="opengl"))]
 mod glsl;

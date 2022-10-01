@@ -1,5 +1,6 @@
 use {
     crate::*,
+    sr::*,
     std::{
         rc::Rc,
         cell::{
@@ -512,15 +513,34 @@ impl System {
 
         let mut vao: sys::GLuint = 0;
         let mut vbo: sys::GLuint = 0;
-        let fields = T::get_fields();
+        let vertex_ast = T::ast();
         let mut i = 0usize;
         let mut size = 0i32;
-        for field in fields.iter() {
-            if let sr::Type::Base(bt) = &field.type_ {
-                size += bt.size() as i32;
-            }
-            else {
-                panic!("vertex field should be base type, not {}",field.type_);
+        for field in vertex_ast.fields.iter() {
+            match field.type_ {
+                ast::Type::Inferred => panic!("vertex field type needs to be specified"),
+                ast::Type::Void => panic!("vertex field type cannot be ()"),
+                ast::Type::Bool => panic!("vertex field type cannot be bool"),
+                ast::Type::U8 |
+                ast::Type::I8 => size += 1,
+                ast::Type::U16 |
+                ast::Type::I16 => size += 2,
+                ast::Type::U32 |
+                ast::Type::I32 => size += 4,
+                ast::Type::U64 |
+                ast::Type::I64 => size += 8,
+                ast::Type::USize |
+                ast::Type::ISize => size += 4,
+                ast::Type::F16 => size += 2,
+                ast::Type::F32 => size += 4,
+                ast::Type::F64 => size += 4,
+                ast::Type::AnonTuple(_) => panic!("vertex field cannot be anonymous tuple"),
+                ast::Type::Array(_,_) => panic!("vertex field cannot be array"),
+                ast::Type::UnknownIdent(ident) => panic!("vertex field cannot be unknown identifier {}"),
+                ast::Type::Tuple(_) => panic!("vertex field cannot be tuple"),  // TODO
+                ast::Type::Struct(_) => panic!("vertex field cannot be struct"),  // TODO
+                ast::Type::Enum(_) => panic!("vertex field cannot be enum"),  // TODO
+                ast::Type::Alias(_) => panic!("vertex field cannot be alias"),  // TODO
             }
         }
         println!("vertex size: {} bytes",size);
@@ -531,7 +551,8 @@ impl System {
             sys::glGenBuffers(1,&mut vbo);
             sys::glBindBuffer(sys::GL_ARRAY_BUFFER,vbo);
             //sys::glBufferData(sys::GL_ARRAY_BUFFER,1,null_mut() as *const c_void,sys::GL_STATIC_DRAW);
-            for field in fields.iter() {
+            for field in vertex_ast.fields.iter() {
+                /*
                 if let sr::Type::Base(bt) = &field.type_ {
                     sys::glEnableVertexAttribArray(i as u32);
                     match bt {
@@ -592,6 +613,7 @@ impl System {
                 else {
                     panic!("vertex fields should be base type, not {}",field.type_);
                 }
+                */
             }
             sys::glBufferData(sys::GL_ARRAY_BUFFER,(size as usize * vertices.len()) as sys::GLsizeiptr,vertices.as_ptr() as *const c_void,sys::GL_STATIC_DRAW);
         }

@@ -1,134 +1,138 @@
-use crate::*;
+use {
+    crate::*,
+    sr::*,
+};
 
 impl Parser {
 
-    // Literal, Ident (Local, Param, Const), Struct, Tuple (Call), Variant, Base, AnonTuple, Array, Cloned
-    fn primary_expr(&mut self) -> Expr {
+    // Boolean, Integer, Float, UnknownIdent, UnknownStruct, UnknownTupleOrCall, UnknownVariant, AnonTuple, Array, Cloned
+    pub(crate) fn primary_expr(&mut self) -> ast::Expr {
 
-        // Literal
+        // Boolean
         if let Some(value) = self.boolean_literal() {
-            Expr::Boolean(value)
-        }
-        else if let Some(value) = self.integer_literal() {
-            Expr::Integer(value as i64)
-        }
-        else if let Some(value) = self.float_literal() {
-            Expr::Float(value)
+            ast::Expr::Boolean(value)
         }
 
-        // Local, Param, Const, Struct, Tuple, Variant, Base, Call
+        // Integer
+        else if let Some(value) = self.integer_literal() {
+            ast::Expr::Integer(value as i64)
+        }
+
+        // Float
+        else if let Some(value) = self.float_literal() {
+            ast::Expr::Float(value)
+        }
+
+        // UnknownIdent, UnknownStruct, UnknownTupleOrCall, UnknownVariant
         else if let Some(ident) = self.ident() {
 
-            // Struct
+            // UnknownStruct
             if let Some(ident_exprs) = self.brace_ident_exprs() {
-                Expr::UnknownStruct(ident,ident_exprs)
+                ast::Expr::UnknownStruct(ident,ident_exprs)
             }
 
-            // Call, Tuple
+            // UnknownTupleOrCall
             else if let Some(exprs) = self.paren_exprs() {
-                Expr::UnknownCallOrTuple(ident,exprs)
+                ast::Expr::UnknownTupleOrCall(ident,exprs)
             }
 
-            // Base
-            else if self.punct('<') {
-                // Vec2<T>, etc. literals
-                let element_type = self.ident().expect("identifier expected");
-                self.punct('>');
-                let ident = format!("{}<{}>",ident,element_type);
-                let base_type = sr::BaseType::from_rust(&ident).expect("base type expected");
-                let ident_exprs = self.brace_ident_exprs().expect("{ expected");
-                Expr::Base(base_type,ident_exprs)
-            }
-
-            // Variant, Base
+            // UnknownVariant
             else if self.punct2(':',':') {
                 if self.punct('<') {
-                    // Vec2::<T>, etc. literals
+                    // process double :: style (Vec2::<T>) as UnknownStruct
                     let element_type = self.ident().expect("identifier expected");
                     self.punct('>');
                     let ident = format!("{}<{}>",ident,element_type);
-                    let base_type = sr::BaseType::from_rust(&ident).expect("base type expected");
-                    let ident_exprs = self.brace_ident_exprs().expect("{ expected");
-                    Expr::Base(base_type,ident_exprs)
+                    if let Some(ident_exprs) = self.brace_ident_exprs() {
+                        ast::Expr::UnknownStruct(ident,ident_exprs)
+                    }
+                    else {
+                        self.fatal(&format!("struct literal expected after {}",ident));
+                    }
                 }
                 else {
                     let variant = self.ident().expect("identifier expected");
                     if let Some(ident_exprs) = self.brace_ident_exprs() {
-                        Expr::UnknownVariant(ident,VariantExpr::Struct(variant,ident_exprs))
+                        ast::Expr::UnknownVariant(ident,ast::UnknownExprVariant::Struct(variant,ident_exprs))
                     }
                     else if let Some(exprs) = self.paren_exprs() {
-                        Expr::UnknownVariant(ident,VariantExpr::Tuple(variant,exprs))
+                        ast::Expr::UnknownVariant(ident,ast::UnknownExprVariant::Tuple(variant,exprs))
                     }
                     else {
-                        Expr::UnknownVariant(ident,VariantExpr::Naked(variant))
+                        ast::Expr::UnknownVariant(ident,ast::UnknownExprVariant::Naked(variant))
                     }
                 }
             }
 
-            // Local, Param, Const
+            // UnknownIdent
             else {
-                Expr::UnknownIdent(ident)
+                ast::Expr::UnknownIdent(ident)
             }
+        }
+
+        // AnonTuple
+        else if let Some(exprs) = self.paren_exprs() {
+            ast::Expr::AnonTuple(exprs)
         }
 
         // Array, Cloned
         else if let Some(mut parser) = self.group('[') {
-            let mut exprs: Vec<Expr> = Vec::new();
+            let mut exprs: Vec<ast::Expr> = Vec::new();
             while !parser.done() {
                 let expr = parser.expr();
                 if parser.punct(';') {
                     let expr2 = parser.expr();
-                    return Expr::Cloned(Box::new(expr),Box::new(expr2));
+                    return ast::Expr::Cloned(Box::new(expr),Box::new(expr2));
                 }
                 else {
                     exprs.push(expr);
                 }
                 parser.punct(',');
             }
-            Expr::Array(exprs)
-        }
-
-        // AnonTuple
-        else if let Some(exprs) = self.paren_exprs() {
-            Expr::AnonTuple(exprs)
+            ast::Expr::Array(exprs)
         }
 
         else {
-            panic!("expression expected");
+            self.fatal("expression expected");
         }
     }
 
-    // Field, TupleIndex, Index, Cast
-    fn postfix_expr(&mut self) -> Expr {
+    // UnknownField, UnknownMethod, UnknownTupleIndex, Index, Cast
+    pub(crate) fn postfix_expr(&mut self) -> ast::Expr {
         let mut expr = self.primary_expr();
         loop {
 
-            // Field, Tuple
+            // UnknownField, UnknownMethod, UnknownTupleIndex
             if self.punct('.') {
 
-                // Field
+                // UnknownField, UnknownMethod
                 if let Some(ident) = self.ident() {
-                    expr = Expr::Field(Box::new(expr),ident);
+                    if let Some(exprs) = self.paren_exprs() {
+                        expr = ast::Expr::UnknownMethod(Box::new(expr),ident,exprs);
+                    }
+                    else {
+                        expr = ast::Expr::UnknownField(Box::new(expr),ident);
+                    }
                 }
 
-                // Tuple
+                // TupleIndex
                 else if let Some(value) = self.integer_literal() {
-                    expr = Expr::Field(Box::new(expr),format!("_{}",value));
+                    expr = ast::Expr::UnknownTupleIndex(Box::new(expr),value as usize);
                 }
 
                 else {
-                    panic!("field or tuple index expected");
+                    self.fatal("field or tuple index expected");
                 }
             }
 
             // Index
             else if let Some(mut parser) = self.group('[') {
-                expr = Expr::Index(Box::new(expr),Box::new(parser.expr()));
+                expr = ast::Expr::Index(Box::new(expr),Box::new(parser.expr()));
             }
 
             // Cast
             else if self.keyword("as") {
-                expr = Expr::Cast(Box::new(expr),Box::new(self.type_()));
+                expr = ast::Expr::Cast(Box::new(expr),Box::new(self.type_()));
             }
 
             else {
@@ -139,16 +143,16 @@ impl Parser {
     }
 
     // Neg, Not
-    fn prefix_expr(&mut self) -> Expr {
+    pub(crate) fn prefix_expr(&mut self) -> ast::Expr {
 
         // Neg
         if self.punct('-') {
-            Expr::Neg(Box::new(self.prefix_expr()))
+            ast::Expr::Unary(ast::UnaryOp::Neg,Box::new(self.prefix_expr()))
         }
 
         // Not
         else if self.punct('!') {
-            Expr::Not(Box::new(self.prefix_expr()))
+            ast::Expr::Unary(ast::UnaryOp::Not,Box::new(self.prefix_expr()))
         }
 
         else {
@@ -157,23 +161,23 @@ impl Parser {
     }
 
     // Mul, Div, Mod
-    fn mul_expr(&mut self) -> Expr {
+    pub(crate) fn mul_expr(&mut self) -> ast::Expr {
         let mut expr = self.prefix_expr();
         loop {
 
             // Mul
             if self.punct('*') {
-                expr = Expr::Mul(Box::new(expr),Box::new(self.prefix_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Mul,Box::new(self.prefix_expr()));
             }
 
             // Div
             else if self.punct('/') {
-                expr = Expr::Div(Box::new(expr),Box::new(self.prefix_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Div,Box::new(self.prefix_expr()));
             }
 
             // Mod
             else if self.punct('%') {
-                expr = Expr::Mod(Box::new(expr),Box::new(self.prefix_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Mod,Box::new(self.prefix_expr()));
             }
 
             else {
@@ -184,18 +188,18 @@ impl Parser {
     }
 
     // Add, Sub
-    fn add_expr(&mut self) -> Expr {
+    pub(crate) fn add_expr(&mut self) -> ast::Expr {
         let mut expr = self.mul_expr();
         loop {
 
             // Add
             if self.punct('+') {
-                expr = Expr::Add(Box::new(expr),Box::new(self.mul_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Add,Box::new(self.mul_expr()));
             }
 
             // Sub
             else if self.punct('-') {
-                expr = Expr::Sub(Box::new(expr),Box::new(self.mul_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Sub,Box::new(self.mul_expr()));
             }
 
             else {
@@ -206,18 +210,18 @@ impl Parser {
     }
 
     // Shl, Shr
-    fn shift_expr(&mut self) -> Expr {
+    pub(crate) fn shift_expr(&mut self) -> ast::Expr {
         let mut expr = self.add_expr();
         loop {
 
             // Shl
             if self.punct2('<','<') {
-                expr = Expr::Shl(Box::new(expr),Box::new(self.add_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Shl,Box::new(self.add_expr()));
             }
 
             // Shr
             else if self.punct2('>','>') {
-                expr = Expr::Shr(Box::new(expr),Box::new(self.add_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Shr,Box::new(self.add_expr()));
             }
 
             else {
@@ -228,65 +232,65 @@ impl Parser {
     }
 
     // And
-    fn and_expr(&mut self) -> Expr {
+    pub(crate) fn and_expr(&mut self) -> ast::Expr {
         let mut expr = self.shift_expr();
         while self.punct('&') {
-            expr = Expr::And(Box::new(expr),Box::new(self.shift_expr()));
+            expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::And,Box::new(self.shift_expr()));
         }
         expr
     }
 
     // Or
-    fn or_expr(&mut self) -> Expr {
+    pub(crate) fn or_expr(&mut self) -> ast::Expr {
         let mut expr = self.and_expr();
         while self.punct('|') {
-            expr = Expr::Or(Box::new(expr),Box::new(self.and_expr()));
+            expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Or,Box::new(self.and_expr()));
         }
         expr
     }
 
     // Xor
-    fn xor_expr(&mut self) -> Expr {
+    pub(crate) fn xor_expr(&mut self) -> ast::Expr {
         let mut expr = self.or_expr();
         while self.punct('^') {
-            expr = Expr::Xor(Box::new(expr),Box::new(self.or_expr()));
+            expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Xor,Box::new(self.or_expr()));
         }
         expr
     }
 
     // Eq, NotEq, Less, Greater, LessEq, GreaterEq
-    fn comp_expr(&mut self) -> Expr {
+    pub(crate) fn comp_expr(&mut self) -> ast::Expr {
         let mut expr = self.xor_expr();
         loop {
 
             // Eq
             if self.punct2('=','=') {
-                expr = Expr::Eq(Box::new(expr),Box::new(self.xor_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Eq,Box::new(self.xor_expr()));
             }
 
             // NotEq
             if self.punct2('!','=') {
-                expr = Expr::NotEq(Box::new(expr),Box::new(self.xor_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::NotEq,Box::new(self.xor_expr()));
             }
 
             // Less
             if self.punct('<') {
-                expr = Expr::Less(Box::new(expr),Box::new(self.xor_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Less,Box::new(self.xor_expr()));
             }
 
             // Greater
             if self.punct('>') {
-                expr = Expr::Greater(Box::new(expr),Box::new(self.xor_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Greater,Box::new(self.xor_expr()));
             }
 
             // LessEq
             if self.punct2('<','=') {
-                expr = Expr::LessEq(Box::new(expr),Box::new(self.xor_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::LessEq,Box::new(self.xor_expr()));
             }
 
             // GreaterEq
             if self.punct2('>','=') {
-                expr = Expr::GreaterEq(Box::new(expr),Box::new(self.xor_expr()));
+                expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::GreaterEq,Box::new(self.xor_expr()));
             }
 
             else {
@@ -297,58 +301,58 @@ impl Parser {
     }
 
     // LogAnd
-    fn logand_expr(&mut self) -> Expr {
+    pub(crate) fn logand_expr(&mut self) -> ast::Expr {
         let mut expr = self.comp_expr();
         while self.punct2('&','&') {
-            expr = Expr::LogAnd(Box::new(expr),Box::new(self.comp_expr()));
+            expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::LogAnd,Box::new(self.comp_expr()));
         }
         expr
     }
 
     // LogOr
-    fn logor_expr(&mut self) -> Expr {
+    pub(crate) fn logor_expr(&mut self) -> ast::Expr {
         let mut expr = self.logand_expr();
         while self.punct2('|','|') {
-            expr = Expr::LogOr(Box::new(expr),Box::new(self.logand_expr()));
+            expr = ast::Expr::Binary(Box::new(expr),ast::BinaryOp::LogOr,Box::new(self.logand_expr()));
         }
         expr
     }
 
     // Assign, AddAssign, SubAssign, MulAssign, DivAssign, ModAssign, AndAssign, OrAssign, XorAssign, ShlAssign, ShrAssign
-    fn assign_expr(&mut self) -> Expr {
+    pub(crate) fn assign_expr(&mut self) -> ast::Expr {
         let expr = self.logor_expr();
         if self.punct('=') {
-            Expr::Assign(Box::new(expr),Box::new(self.logor_expr()))
+            ast::Expr::Binary(Box::new(expr),ast::BinaryOp::Assign,Box::new(self.logor_expr()))
         }
         else if self.punct2('+','=') {
-            Expr::AddAssign(Box::new(expr),Box::new(self.logor_expr()))
+            ast::Expr::Binary(Box::new(expr),ast::BinaryOp::AddAssign,Box::new(self.logor_expr()))
         }
         else if self.punct2('-','=') {
-            Expr::SubAssign(Box::new(expr),Box::new(self.logor_expr()))
+            ast::Expr::Binary(Box::new(expr),ast::BinaryOp::SubAssign,Box::new(self.logor_expr()))
         }
         else if self.punct2('*','=') {
-            Expr::MulAssign(Box::new(expr),Box::new(self.logor_expr()))
+            ast::Expr::Binary(Box::new(expr),ast::BinaryOp::MulAssign,Box::new(self.logor_expr()))
         }
         else if self.punct2('/','=') {
-            Expr::DivAssign(Box::new(expr),Box::new(self.logor_expr()))
+            ast::Expr::Binary(Box::new(expr),ast::BinaryOp::DivAssign,Box::new(self.logor_expr()))
         }
         else if self.punct2('%','=') {
-            Expr::ModAssign(Box::new(expr),Box::new(self.logor_expr()))
+            ast::Expr::Binary(Box::new(expr),ast::BinaryOp::ModAssign,Box::new(self.logor_expr()))
         }
         else if self.punct2('&','=') {
-            Expr::AndAssign(Box::new(expr),Box::new(self.logor_expr()))
+            ast::Expr::Binary(Box::new(expr),ast::BinaryOp::AndAssign,Box::new(self.logor_expr()))
         }
         else if self.punct2('|','=') {
-            Expr::OrAssign(Box::new(expr),Box::new(self.logor_expr()))
+            ast::Expr::Binary(Box::new(expr),ast::BinaryOp::OrAssign,Box::new(self.logor_expr()))
         }
         else if self.punct2('^','=') {
-            Expr::XorAssign(Box::new(expr),Box::new(self.logor_expr()))
+            ast::Expr::Binary(Box::new(expr),ast::BinaryOp::XorAssign,Box::new(self.logor_expr()))
         }
         else if self.punct3('<','<','=') {
-            Expr::ShlAssign(Box::new(expr),Box::new(self.logor_expr()))
+            ast::Expr::Binary(Box::new(expr),ast::BinaryOp::ShlAssign,Box::new(self.logor_expr()))
         }
         else if self.punct3('>','>','=') {
-            Expr::ShrAssign(Box::new(expr),Box::new(self.logor_expr()))
+            ast::Expr::Binary(Box::new(expr),ast::BinaryOp::ShrAssign,Box::new(self.logor_expr()))
         }
         else {
             expr
@@ -356,10 +360,10 @@ impl Parser {
     }
 
     // Block
-    pub fn block(&mut self) -> Option<Block> {
-        let mut last_expr: Option<Box<Expr>> = None;
+    pub(crate) fn block(&mut self) -> Option<ast::Block> {
+        let mut last_expr: Option<Box<ast::Expr>> = None;
         if let Some(mut parser) = self.group('{') {
-            let mut stats: Vec<Stat> = Vec::new();
+            let mut stats: Vec<ast::Stat> = Vec::new();
             while !parser.done() {
 
                 // Let
@@ -369,19 +373,19 @@ impl Parser {
                         parser.type_()
                     }
                     else {
-                        Type::Inferred
+                        ast::Type::Inferred
                     };
                     parser.punct('=');
                     let expr = parser.expr();
                     parser.punct(';');
-                    stats.push(Stat::Let(Box::new(pat),Box::new(type_),Box::new(expr)));
+                    stats.push(ast::Stat::Let(Box::new(pat),Box::new(type_),Box::new(expr)));
                 }
 
-                // Expr
+                // ast::Expr
                 else {
                     let expr = parser.expr();
                     if parser.punct(';') {
-                        stats.push(Stat::Expr(Box::new(expr)));
+                        stats.push(ast::Stat::Expr(Box::new(expr)));
                     }
                     else {
                         // assuming that no ; only happens at the end of a block...
@@ -389,7 +393,7 @@ impl Parser {
                     }
                 }
             }
-            Some(Block { stats,expr: last_expr, })
+            Some(ast::Block { stats,expr: last_expr, })
         }
         else {
             None
@@ -397,11 +401,11 @@ impl Parser {
     }
 
     // If, IfLet, Block
-    fn else_expr(&mut self) -> Option<Expr> {
+    pub(crate) fn else_expr(&mut self) -> Option<ast::Expr> {
 
         // Block
         if let Some(block) = self.block() {
-            Some(Expr::Block(block))
+            Some(ast::Expr::Block(block))
         }
 
         // If, IfLet
@@ -415,10 +419,10 @@ impl Parser {
                 let block = self.block().expect("{ expected");
                 if self.keyword("else") {
                     let else_expr = self.else_expr().expect("if, if let, or block expected");
-                    Some(Expr::IfLet(pats,Box::new(expr),block,Some(Box::new(else_expr))))
+                    Some(ast::Expr::IfLet(pats,Box::new(expr),block,Some(Box::new(else_expr))))
                 }
                 else {
-                    Some(Expr::IfLet(pats,Box::new(expr),block,None))
+                    Some(ast::Expr::IfLet(pats,Box::new(expr),block,None))
                 }
             }
 
@@ -428,10 +432,10 @@ impl Parser {
                 let block = self.block().expect("{ expected");
                 if self.keyword("else") {
                     let else_expr = self.else_expr().expect("if, if let, or block expected");
-                    Some(Expr::If(Box::new(expr),block,Some(Box::new(else_expr))))
+                    Some(ast::Expr::If(Box::new(expr),block,Some(Box::new(else_expr))))
                 }
                 else {
-                    Some(Expr::If(Box::new(expr),block,None))
+                    Some(ast::Expr::If(Box::new(expr),block,None))
                 }
             }
         }
@@ -442,21 +446,21 @@ impl Parser {
     }
 
     // Continue, Break, Return, Block, If, IfLet, Loop, For, While, WhileLet, Match, *Assign
-    pub fn expr(&mut self) -> Expr {
+    pub(crate) fn expr(&mut self) -> ast::Expr {
 
         // Continue
         if self.keyword("continue") {
-            Expr::Continue
+            ast::Expr::Continue
         }
 
         // Break
         else if self.keyword("break") {
             if !self.peek_punct(';') {
                 let expr = self.expr();
-                Expr::Break(Some(Box::new(expr)))
+                ast::Expr::Break(Some(Box::new(expr)))
             }
             else {
-                Expr::Break(None)
+                ast::Expr::Break(None)
             }
         }
 
@@ -464,10 +468,10 @@ impl Parser {
         else if self.keyword("return") {
             if !self.peek_punct(';') {
                 let expr = self.expr();
-                Expr::Return(Some(Box::new(expr)))
+                ast::Expr::Return(Some(Box::new(expr)))
             }
             else {
-                Expr::Return(None)
+                ast::Expr::Return(None)
             }
         }
 
@@ -485,20 +489,20 @@ impl Parser {
                 self.punct('=');
                 let expr = self.expr();
                 let block = self.block().expect("{ expected");
-                Expr::WhileLet(pats,Box::new(expr),block)
+                ast::Expr::WhileLet(pats,Box::new(expr),block)
             }
 
             // While
             else {
                 let expr = self.expr();
                 let block = self.block().expect("{ expected");
-                Expr::While(Box::new(expr),block)
+                ast::Expr::While(Box::new(expr),block)
             }
         }
 
         // Loop
         else if self.keyword("loop") {
-            Expr::Loop(self.block().expect("{ expected"))
+            ast::Expr::Loop(self.block().expect("{ expected"))
         }
 
         // For
@@ -507,14 +511,14 @@ impl Parser {
             self.keyword("in");
             let range = if self.punct2('.','.') {
                 if self.peek_group('{') {
-                    Range::All
+                    ast::Range::All
                 }
                 else {
                     if self.punct('=') {
-                        Range::ToIncl(Box::new(self.expr()))
+                        ast::Range::ToIncl(Box::new(self.expr()))
                     }
                     else {
-                        Range::To(Box::new(self.expr()))
+                        ast::Range::To(Box::new(self.expr()))
                     }
                 }
             }
@@ -522,29 +526,29 @@ impl Parser {
                 let expr = self.expr();
                 if self.punct2('.','.') {
                     if self.peek_group('{') {
-                        Range::From(Box::new(expr))
+                        ast::Range::From(Box::new(expr))
                     }
                     else {
                         if self.punct('=') {
-                            Range::FromToIncl(Box::new(expr),Box::new(self.expr()))
+                            ast::Range::FromToIncl(Box::new(expr),Box::new(self.expr()))
                         }
                         else {
-                            Range::FromTo(Box::new(expr),Box::new(self.expr()))
+                            ast::Range::FromTo(Box::new(expr),Box::new(self.expr()))
                         }
                     }
                 }
                 else {
-                    Range::Only(Box::new(expr))
+                    ast::Range::Only(Box::new(expr))
                 }
             };
             let block = self.block().expect("block expected");
-            Expr::For(pats,range,block)
+            ast::Expr::For(pats,range,block)
         }
 
         // Match
         else if self.keyword("match") {
             let expr = self.expr();
-            let mut arms: Vec<(Vec<Pat>,Option<Box<Expr>>,Box<Expr>)> = Vec::new();
+            let mut arms: Vec<(Vec<ast::Pat>,Option<Box<ast::Expr>>,Box<ast::Expr>)> = Vec::new();
             if let Some(mut parser) = self.group('{') {
                 while !parser.done() {
                     let pats = parser.or_pats();
@@ -563,7 +567,7 @@ impl Parser {
             else {
                 panic!("{}","{ expected");
             }
-            Expr::Match(Box::new(expr),arms)
+            ast::Expr::Match(Box::new(expr),arms)
         }
 
         // *Assign

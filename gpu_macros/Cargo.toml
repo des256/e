@@ -9,4 +9,3 @@ proc-macro = true
 
 [dependencies]
 sr = { path = "../sr" }
-proc-macro-error = "*"

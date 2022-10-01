@@ -1,101 +1,100 @@
 use {
     crate::*,
+    sr::*,
 };
 
 impl Parser {
 
-    // Wildcard, Rest, Literal, Ident (Const), Struct, Tuple, Array, AnonTuple, Variant
-    pub(crate) fn pat(&mut self) -> Pat {
+    // Wildcard, Rest, Boolean, Integer, Float, UnknownIdent, UnknownTuple, UnknownStruct, UnknownVariant, AnonTuple, Array, Range
+    pub(crate) fn pat(&mut self) -> ast::Pat {
         
         // Wildcard
         if self.punct('_') {
-            Pat::Wildcard
+            ast::Pat::Wildcard
         }
 
         // Rest
         else if self.punct2('.','.') {
-            Pat::Rest
+            ast::Pat::Rest
         }
 
-        // Literal
+        // Boolean
         else if let Some(value) = self.boolean_literal() {
-            Pat::Boolean(value)
-        }
-        else if let Some(value) = self.integer_literal() {
-            Pat::Integer(value as i64)
-        }
-        else if let Some(value) = self.float_literal() {
-            Pat::Float(value)
+            ast::Pat::Boolean(value)
         }
 
-        // Ident (Const), Struct, Tuple, Variant
+        // Integer
+        else if let Some(value) = self.integer_literal() {
+            ast::Pat::Integer(value as i64)
+        }
+
+        // Float
+        else if let Some(value) = self.float_literal() {
+            ast::Pat::Float(value)
+        }
+
+        // UnknownIdent, UnknownTuple, UnknownStruct, UnknownVariant
         else if let Some(ident) = self.ident() {
 
-            // Struct
+            // UnknownStruct
             if let Some(ident_pats) = self.brace_ident_pats() {
-                Pat::UnknownStruct(ident,ident_pats)
+                ast::Pat::UnknownStruct(ident,ident_pats)
             }
 
-            // Tuple
+            // UnknownTuple
             else if let Some(pats) = self.paren_pats() {
-                let mut ident_pats: Vec<IdentPat> = Vec::new();
-                let mut i = 0usize;
-                for pat in pats {
-                    ident_pats.push(IdentPat::IdentPat(format!("_{}",i),pat));
-                    i += 1;
-                }
-                Pat::UnknownStruct(ident,ident_pats)
+                ast::Pat::UnknownTuple(ident,pats)
             }
 
-            // Variant
+            // UnknownVariant
             else if self.punct2(':',':') {
-                let variant = self.ident().expect("identifier expected");
+                let variant_ident = self.ident().expect("identifier expected");
                 if let Some(ident_pats) = self.brace_ident_pats() {
-                    Pat::UnknownVariant(ident,VariantPat::Struct(variant,ident_pats))
+                    ast::Pat::UnknownVariant(ident,ast::UnknownPatVariant::Struct(variant_ident,ident_pats))
                 }
                 else if let Some(pats) = self.paren_pats() {
-                    Pat::UnknownVariant(ident,VariantPat::Tuple(variant,pats))
+                    ast::Pat::UnknownVariant(ident,ast::UnknownPatVariant::Tuple(variant_ident,pats))
                 }
                 else {
-                    Pat::UnknownVariant(ident,VariantPat::Naked(variant))
+                    ast::Pat::UnknownVariant(ident,ast::UnknownPatVariant::Naked(variant_ident))
                 }
             }
 
-            // Ident (Const)
+            // UnknownIdent
             else {
-                Pat::Ident(ident)
+                ast::Pat::UnknownIdent(ident)
             }
         }
         
-        // Array
-        else if let Some(pats) = self.bracket_pats() {
-            Pat::Array(pats)
-        }
-
         // AnonTuple
         else if let Some(pats) = self.paren_pats() {
-            Pat::AnonTuple(pats)
+            ast::Pat::AnonTuple(pats)
+        }
+
+        // Array
+        else if let Some(pats) = self.bracket_pats() {
+            ast::Pat::Array(pats)
         }
 
         else {
-            panic!("pattern expected");
+            self.fatal("pattern expected");
         }
     }
 
     // Range
-    pub(crate) fn ranged_pat(&mut self) -> Pat {
+    pub(crate) fn ranged_pat(&mut self) -> ast::Pat {
         let pat = self.pat();
         if self.punct3('.','.','=') {
-            Pat::Range(Box::new(pat),Box::new(self.pat()))
+            ast::Pat::Range(Box::new(pat),Box::new(self.pat()))
         }
         else {
             pat
         }
     }
 
-    pub(crate) fn or_pats(&mut self) -> Vec<Pat> {
+    pub(crate) fn or_pats(&mut self) -> Vec<ast::Pat> {
         self.punct('|');
-        let mut pats: Vec<Pat> = Vec::new();
+        let mut pats: Vec<ast::Pat> = Vec::new();
         pats.push(self.ranged_pat());
         while self.punct('|') {
             pats.push(self.ranged_pat());

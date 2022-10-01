@@ -200,7 +200,7 @@ impl Resolver {
 
                 // and return the tightest of the two
                 self.tightest(&function.return_type,should_type).expect(&format!("function should return {} instead of {}",should_type,function.return_type))
-            }
+            },
             sr::Expr::Field(expr,ident) => {
                 // check if expr is a struct and extract the field
                 let type_ = if let sr::Type::Struct(struct_) = self.expr(expr,&sr::Type::Inferred) {
@@ -219,7 +219,19 @@ impl Resolver {
 
                 // and return the tightest of the two
                 self.tightest(&type_,should_type).expect(&format!("{} expected instead of {}",should_type,type_))
-            }
+            },
+            sr::Expr::Method(expr,ident,exprs) => {
+                /*
+                // check if the params match the method params
+                for i in 0..methods.params.len() {
+                    self.expr(&mut exprs[i],&methods.params[i].type_);
+                }
+
+                // and return the tightest of the two
+                self.tightest(&function.return_type,should_type).expect(&format!("function should return {} instead of {}",should_type,function.return_type))
+                */
+                sr::Type::Inferred
+            },
             sr::Expr::Index(expr,_) => {
                 // check if expr is an array
                 let type_ = if let sr::Type::Array(type_,_) = self.expr(expr,&sr::Type::Inferred) {

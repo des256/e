@@ -10,7 +10,10 @@ struct Unfolder {
 }
 
 impl Unfolder {
+
+    // construct boolean equation to see if pattern fits scrutinee
     fn make_pat_boolean(&self,pat: &Pat,scrut: &Expr) -> Option<Expr> {
+        
         match pat {
             // no influence on the result
             Pat::Wildcard |
@@ -470,6 +473,12 @@ impl Unfolder {
             Expr::Cast(expr,_) |
             Expr::Neg(expr) |
             Expr::Not(expr) => self.expr(expr),
+            Expr::Method(expr,_,exprs) => {
+                self.expr(expr);
+                for expr in exprs.iter_mut() {
+                    self.expr(expr);
+                }
+            },
             Expr::Index(expr,expr2) |
             Expr::Mul(expr,expr2) |
             Expr::Div(expr,expr2) |

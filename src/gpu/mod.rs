@@ -1,7 +1,9 @@
-pub use sr;
+use {
+    sr::*,
+};
 
 pub trait Vertex where Self: Sized {
-    fn get_fields() -> Vec<sr::Field>;
+    fn ast() -> ast::Struct;
 }
 
 pub trait Uniform where Self: Sized {

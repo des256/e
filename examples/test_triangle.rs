@@ -62,10 +62,10 @@ fn main() {
 
     // create the vertices
     let mut vertices = Vec::<MyVertex>::new();
-    vertices.push(MyVertex { pos: f32xy { x: -0.5,y: -0.5, }, color: Color::<f32>::from(0xFFFF0000), });
-    vertices.push(MyVertex { pos: f32xy { x: 0.5,y: -0.5, }, color: Color::<f32>::from(0xFF00FF00), });
-    vertices.push(MyVertex { pos: f32xy { x: 0.5,y: 0.5, }, color: Color::<f32>::from(0xFF0000FF), });
-    vertices.push(MyVertex { pos: f32xy { x: -0.5,y: 0.5, }, color: Color::<f32>::from(0xFFFFFF00), });
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: -0.5, }, color: Color::<f32>::from(0xFFFF0000), });
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: -0.5, }, color: Color::<f32>::from(0xFF00FF00), });
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: 0.5, }, color: Color::<f32>::from(0xFF0000FF), });
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: 0.5, }, color: Color::<f32>::from(0xFFFFFF00), });
     let vertex_buffer = system.create_vertex_buffer(&vertices).expect("unable to create vertex buffer");
 
     // create the indices

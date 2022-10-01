@@ -130,6 +130,12 @@ impl Resolver {
 
             // process exprs and type
             sr::Expr::Field(expr,_) => self.expr(expr),
+            sr::Expr::Method(expr,ident,exprs) => {
+                self.expr(expr);
+                for expr in exprs.iter_mut() {
+                    self.expr(expr);
+                }
+            },
             sr::Expr::Index(expr,expr2) => {
                 self.expr(expr);
                 self.expr(expr2);
