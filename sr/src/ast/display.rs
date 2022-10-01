@@ -456,6 +456,100 @@ impl Display for Expr {
             },
             Expr::UnknownField(expr,ident) => write!(f,"{}.{}",expr,ident),
             Expr::UnknownTupleIndex(expr,index) => write!(f,"{}.{}",expr,index),
+            Expr::Param(param) => write!(f,"{}",param.ident),
+            Expr::Local(local) => write!(f,"{}",local.ident),
+            Expr::Const(const_) => write!(f,"{}",const_.ident),
+            Expr::Tuple(tuple,exprs) => {
+                write!(f,"{}(",tuple.ident)?;
+                let mut first = true;
+                for expr in exprs.iter() {
+                    if !first {
+                        write!(f,",")?;
+                    }
+                    write!(f,"{}",expr)?;
+                    first = false;
+                }
+                write!(f,")")
+            },
+            Expr::Call(function,exprs) => {
+                write!(f,"{}(",function.ident)?;
+                let mut first = true;
+                for expr in exprs.iter() {
+                    if !first {
+                        write!(f,",")?;
+                    }
+                    write!(f,"{}",expr)?;
+                    first = false;
+                }
+                write!(f,")")
+            },
+            Expr::Struct(struct_,exprs) => {
+                write!(f,"{} {{ ",struct_.ident)?;
+                let mut first = true;
+                for i in 0..struct_.fields.len() {
+                    if !first {
+                        write!(f,", ")?;
+                    }
+                    write!(f,"{}: {}",struct_.fields[i],exprs[i])?;
+                    first = false;
+                }
+                write!(f," }}")
+            },
+            Expr::Variant(enum_,variant) => {
+                write!(f,"{}::",enum_.ident)?;
+                match variant {
+                    ExprVariant::Naked(index) => if let Variant::Naked(ident) = &enum_.variants[*index] {
+                        write!(f,"{}",ident)
+                    }
+                    else {
+                        panic!("enum variant mismatch");
+                    },
+                    ExprVariant::Tuple(index,exprs) => if let Variant::Tuple(ident,_) = &enum_.variants[*index] {
+                        write!(f,"{}(",ident)?;
+                        let mut first = true;
+                        for expr in exprs.iter() {
+                            if !first {
+                                write!(f,",")?;
+                            }
+                            write!(f,"{}",expr)?;
+                            first = false;
+                        }
+                        write!(f,")")
+                    }
+                    else {
+                        panic!("enum variant mismatch");
+                    },
+                    ExprVariant::Struct(index,exprs) => if let Variant::Struct(ident,fields) = &enum_.variants[*index] {
+                        write!(f,"{} {{ ",ident)?;
+                        let mut first = true;
+                        for i in 0..fields.len() {
+                            if !first {
+                                write!(f,",")?;
+                            }
+                            write!(f,"{}: {}",fields[i].ident,exprs[i])?;
+                            first = false;
+                        }
+                        write!(f," }}")
+                    }
+                    else {
+                        panic!("enum variant mismatch");
+                    },
+                }
+            },
+            Expr::Method(expr,method,exprs) => {
+                write!(f,"{}.{}(",expr,method.ident)?;
+                let mut first = true;
+                for expr in exprs.iter() {
+                    if !first {
+                        write!(f,",")?;
+                    }
+                    write!(f,"{}",expr)?;
+                    first = false;
+                }
+                write!(f,")")
+            },
+            Expr::Field(struct_,expr,index) => write!(f,"{}.{}",expr,struct_.fields[*index].ident),
+            Expr::TupleIndex(_,expr,index) => write!(f,"{}.{}",expr,index),
         }
     }
 }

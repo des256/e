@@ -1,1 +1,1 @@
-# 
+- better naming scheme for IdentPat and IndexPat, and variant, etc.

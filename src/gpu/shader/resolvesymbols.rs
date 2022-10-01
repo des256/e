@@ -108,8 +108,27 @@ impl ResolveSymbols for ast::Pat {
             },
             ast::Pat::UnknownStruct(ident,ident_pats) => {
                 if library.structs.contains_key(ident) {
-                    // TODO: convert ident_pats to Vec<IndexPat>
-                    *self = ast::Pat::Structs(Rc::clone(&library.structs[ident]),TODO);
+                    let struct_ = &library.structs[ident];
+                    let indexpats: Vec<IndexPat> = Vec::new();
+                    for identpat in ident_pats {
+                        indexpats.push(match identpat {
+                            IdentPat::Wildcard => IndexPat::Wildcard,
+                            IdentPat::Rest => IndexPat::Rest,
+                            IdentPat::Ident(ident) => if let Some(index) = struct_.find_field(ident) {
+                                IndexPat::Index(index)
+                            }
+                            else {
+                                panic!("field {} not found in struct {}",ident,struct_.ident);
+                            }
+                            IdentPat::IdentPat(ident,pat) => if let Some(index) = struct_.find_field(ident) {
+                                IndexPat::IndexPat(index,pat)
+                            }
+                            else {
+                                panic!("field {} not found in struct {}",ident,struct_.ident);
+                            }
+                        });
+                    }
+                    *self = ast::Pat::Struct(Rc::clone(struct_),indexpats);
                 }
                 else {
                     panic!("unknown struct {}",ident);

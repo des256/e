@@ -357,6 +357,18 @@ impl Render for ast::Expr {
             },
             ast::Expr::UnknownField(expr,ident) => format!("ast::Expr::UnknownField({},\"{}\")",expr.render(),ident),
             ast::Expr::UnknownTupleIndex(expr,index) => format!("ast::Expr::UnknowTupleIndex({},{})",expr.render(),index),
+            ast::Expr::Param(_) |
+            ast::Expr::Local(_) |
+            ast::Expr::Const(_) |
+            ast::Expr::Tuple(_,_) |
+            ast::Expr::Call(_,_) |
+            ast::Expr::Struct(_,_) |
+            ast::Expr::Variant(_,_) |
+            ast::Expr::Method(_,_,_) |
+            ast::Expr::Field(_,_,_) |
+            ast::Expr::TupleIndex(_,_,_) => {
+                panic!("unable to render Expr containing Rc reference");
+            }
         }
     }
 }

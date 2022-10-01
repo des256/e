@@ -80,7 +80,7 @@ pub enum Pat {
 pub enum ExprVariant {
     Naked(usize),  // ident
     Tuple(usize,Vec<Expr>),  // ident ( expr, ..., expr, )
-    Struct(usize,Vec<(usize,Expr)>),  // ident { ident: expr, ..., ident: expr, }
+    Struct(usize,Vec<Expr>),  // ident { ident: expr, ..., ident: expr, }
 }
 
 #[derive(Clone)]
@@ -165,7 +165,7 @@ pub enum Expr {
     Call(Rc<Function>,Vec<Expr>),
     Struct(Rc<Struct>,Vec<Expr>),
     Variant(Rc<Enum>,ExprVariant),
-    Method(Rc<Method>,Box<Expr>,Vec<Expr>),
+    Method(Box<Expr>,Rc<Method>,Vec<Expr>),
     Field(Rc<Struct>,Box<Expr>,usize),
     TupleIndex(Rc<Tuple>,Box<Expr>,usize),
 }
@@ -208,6 +208,17 @@ pub struct Tuple {
 pub struct Struct {
     pub ident: String,
     pub fields: Vec<Symbol>,
+}
+
+impl Struct {
+    pub fn find_field(&self,ident: &str) -> Option<usize> {
+        for i in 0..self.fields.len() {
+            if self.fields[i].ident == ident {
+                return Some(i);
+            }
+        }
+        None
+    }
 }
 
 pub enum Variant {
