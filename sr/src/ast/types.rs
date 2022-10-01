@@ -8,93 +8,103 @@ use {
 // type
 #[derive(Clone)]
 pub enum Type {
-    Inferred,  // type needs to be inferred from context
-    Void,  // ()
-    Integer,  // integer
-    Float,  // float
-    Bool,  // boolean
-    U8,I8,U16,I16,U32,I32,U64,I64,USize,ISize,  // strict integer
-    F16,F32,F64,  // strict float
-    AnonTuple(Vec<Type>),  // ( type, ..., type, )
-    Array(Box<Type>,Box<Expr>),  // [ type; expr ]
-    UnknownIdent(String),  // unknown Tuple, Struct, Enum or Alias
+    // during macro
+    Inferred,
+    Void,
+    Integer,
+    Float,
+    Bool,
+    U8,I8,U16,I16,U32,I32,U64,I64,USize,ISize,
+    F16,F32,F64,
+    AnonTuple(Vec<Type>),
+    Array(Box<Type>,Box<Expr>),
+    UnknownIdent(String),  // resolves to Tuple, Struct, Enum or Alias
+
+    // during run-time
     Tuple(Rc<Tuple>),
     Struct(Rc<Struct>),
     Enum(Rc<Enum>),
     Alias(Rc<Alias>),
 }
 
+// field-pattern during macro
 #[derive(Clone)]
-pub enum IndexPat {
-    Wildcard,  // match anything
-    Rest,  // skip the rest
-    Index(usize),  // ident
-    IndexPat(usize,Pat),  // ident: pat
+pub enum UnknownFieldPat {
+    Wildcard,
+    Rest,
+    Ident(String),
+    IdentPat(String,Pat),
 }
 
-// unknown struct field pattern
+// variant-pattern during macro
 #[derive(Clone)]
-pub enum IdentPat {
-    Wildcard,  // match anything
-    Rest,  // skip the rest
-    Ident(String),  // ident
-    IdentPat(String,Pat),  // ident: pat
+pub enum UnknownVariantPat {
+    Naked(String),
+    Tuple(String,Vec<Pat>),
+    Struct(String,Vec<UnknownFieldPat>),
 }
 
+// field-pattern during run-time
 #[derive(Clone)]
-pub enum PatVariant {
-    Naked(usize),  // ident
-    Tuple(usize,Vec<Pat>),  // ident ( pat, ..., pat, )
-    Struct(usize,Vec<IndexPat>),  // ident { patfield, ..., patfield, }
+pub enum FieldPat {
+    Wildcard,
+    Rest,
+    Index(usize),
+    IndexPat(usize,Pat),
 }
 
-// unknown enum variant pattern
+// variant-pattern during run-time
 #[derive(Clone)]
-pub enum UnknownPatVariant {
-    Naked(String),  // ident
-    Tuple(String,Vec<Pat>),  // ident ( pat, ..., pat, )
-    Struct(String,Vec<IdentPat>),  // ident { patfield, ..., patfield, }
+pub enum VariantPat {
+    Naked(usize),
+    Tuple(usize,Vec<Pat>),
+    Struct(usize,Vec<FieldPat>),
 }
 
 // pattern
 #[derive(Clone)]
 pub enum Pat {
-    Wildcard,  // match anything
-    Rest,  // skip the rest
-    Boolean(bool),  // boolean
-    Integer(i64),  // integer
-    Float(f64),  // float
-    AnonTuple(Vec<Pat>),  // ( pat, ..., pat, )
-    Array(Vec<Pat>),  // [ pat, ..., pat, ]
-    Range(Box<Pat>,Box<Pat>),  // pat ..= pat
-    UnknownIdent(String),  // unknown pattern local or Const
-    UnknownTuple(String,Vec<Pat>),  // ident ( pat, ..., pat, )
-    UnknownStruct(String,Vec<IdentPat>),  // ident { patfield, ..., patfield, }
-    UnknownVariant(String,UnknownPatVariant),  // ident :: patvariant
+    // macro
+    Wildcard,
+    Rest,
+    Boolean(bool),
+    Integer(i64),
+    Float(f64),
+    AnonTuple(Vec<Pat>),
+    Array(Vec<Pat>),
+    Range(Box<Pat>,Box<Pat>),
+    UnknownIdent(String),
+    UnknownTuple(String,Vec<Pat>),
+    UnknownStruct(String,Vec<UnknownFieldPat>),
+    UnknownVariant(String,UnknownVariantPat),
+
+    // run-time
     Tuple(Rc<Tuple>,Vec<Pat>),
-    Struct(Rc<Struct>,Vec<IndexPat>),
-    Variant(Rc<Enum>,PatVariant),
+    Struct(Rc<Struct>,Vec<FieldPat>),
+    Variant(Rc<Enum>,VariantPat),
 }
 
+// variant-expression during run-time
 #[derive(Clone)]
-pub enum ExprVariant {
-    Naked(usize),  // ident
-    Tuple(usize,Vec<Expr>),  // ident ( expr, ..., expr, )
-    Struct(usize,Vec<Expr>),  // ident { ident: expr, ..., ident: expr, }
+pub enum VariantExpr {
+    Naked(usize),
+    Tuple(usize,Vec<Expr>),
+    Struct(usize,Vec<Expr>),
 }
 
+// variant-expression during macro
 #[derive(Clone)]
-pub enum UnknownExprVariant {
-    Naked(String),  // ident
-    Tuple(String,Vec<Expr>),  // ident ( expr, ..., expr, )
-    Struct(String,Vec<(String,Expr)>),  // ident { ident: expr, ..., ident: expr, }
+pub enum UnknownVariantExpr {
+    Naked(String),
+    Tuple(String,Vec<Expr>),
+    Struct(String,Vec<(String,Expr)>),
 }
 
-// { stat; ... stat; expr }
+// block
 #[derive(Clone)]
 pub struct Block {
-    pub stats: Vec<Stat>,  // stat ... stat
-    pub expr: Option<Box<Expr>>,  // expr
+    pub stats: Vec<Stat>,
+    pub expr: Option<Box<Expr>>,
 }
 
 // unary operator
@@ -115,69 +125,75 @@ pub enum BinaryOp {
     AndAssign,OrAssign,XorAssign,ShlAssign,ShrAssign,
 }
 
-// for range
+// for-range
 #[derive(Clone)]
 pub enum Range {
-    Only(Box<Expr>),  // expr
-    FromTo(Box<Expr>,Box<Expr>),  // expr .. expr
-    FromToIncl(Box<Expr>,Box<Expr>),  // expr ..= expr
-    From(Box<Expr>),  // expr ..
-    To(Box<Expr>),  // .. expr
-    ToIncl(Box<Expr>),  // ..= expr
-    All,  // ..
+    Only(Box<Expr>),
+    FromTo(Box<Expr>,Box<Expr>),
+    FromToIncl(Box<Expr>,Box<Expr>),
+    From(Box<Expr>),
+    To(Box<Expr>),
+    ToIncl(Box<Expr>),
+    All,
 }
 
 // expression
 #[derive(Clone)]
 pub enum Expr {
-    Boolean(bool),  // boolean
-    Integer(i64),  // integer
-    Float(f64),  // float
-    Array(Vec<Expr>),  // [ expr, ..., expr, ]
-    Cloned(Box<Expr>,Box<Expr>),  // [ expr; expr ]
-    Index(Box<Expr>,Box<Expr>),  // expr [ expr ]
-    Cast(Box<Expr>,Box<Type>),  // expr as type
-    AnonTuple(Vec<Expr>),  // ( expr, ..., expr, )
-    Unary(UnaryOp,Box<Expr>),  // unaryop expr
-    Binary(Box<Expr>,BinaryOp,Box<Expr>),  // expr binaryop expr
-    Continue,  // continue
-    Break(Option<Box<Expr>>),  // break expr
-    Return(Option<Box<Expr>>),  // return expr
-    Block(Block),  // block
-    If(Box<Expr>,Block,Option<Box<Expr>>),  // if expr block else expr
-    Loop(Block),  // loop block
-    While(Box<Expr>,Block),  // while expr block
-    IfLet(Vec<Pat>,Box<Expr>,Block,Option<Box<Expr>>),  // if let pat = expr block else expr
-    For(Vec<Pat>,Range,Block),  // for pat in range block
-    WhileLet(Vec<Pat>,Box<Expr>,Block),  // while let pat = expr block
-    Match(Box<Expr>,Vec<(Vec<Pat>,Option<Box<Expr>>,Box<Expr>)>),  // match expr { pat | ... | pat if expr => block, ..., pat | ... | pat if expr => block, }
-    UnknownIdent(String),  // unknown Param, Local or Const
-    UnknownTupleOrCall(String,Vec<Expr>),  // unknown Tuple or Call
-    UnknownStruct(String,Vec<(String,Expr)>),  // unknown Struct
-    UnknownVariant(String,UnknownExprVariant),  // unknown Variant
-    UnknownMethod(Box<Expr>,String,Vec<Expr>),  // unknown Method
-    UnknownField(Box<Expr>,String),  // unknown Field
-    UnknownTupleIndex(Box<Expr>,usize),  // unknown TupleIndex
+    // macro
+    Boolean(bool),
+    Integer(i64),
+    Float(f64),
+    Array(Vec<Expr>),
+    Cloned(Box<Expr>,Box<Expr>),
+    Index(Box<Expr>,Box<Expr>),
+    Cast(Box<Expr>,Box<Type>),
+    AnonTuple(Vec<Expr>),
+    Unary(UnaryOp,Box<Expr>),
+    Binary(Box<Expr>,BinaryOp,Box<Expr>),
+    Continue,
+    Break(Option<Box<Expr>>),
+    Return(Option<Box<Expr>>),
+    Block(Block),
+    If(Box<Expr>,Block,Option<Box<Expr>>),
+    While(Box<Expr>,Block),
+    Loop(Block),
+    IfLet(Vec<Pat>,Box<Expr>,Block,Option<Box<Expr>>),
+    For(Vec<Pat>,Range,Block),
+    WhileLet(Vec<Pat>,Box<Expr>,Block),
+    Match(Box<Expr>,Vec<(Vec<Pat>,Option<Box<Expr>>,Box<Expr>)>),
+    UnknownIdent(String),
+    UnknownTupleOrCall(String,Vec<Expr>),
+    UnknownStruct(String,Vec<(String,Expr)>),
+    UnknownVariant(String,UnknownVariantExpr),
+    UnknownMethod(Box<Expr>,String,Vec<Expr>),
+    UnknownField(Box<Expr>,String),
+    UnknownTupleIndex(Box<Expr>,usize),
+
+    // run-time
     Param(Rc<Symbol>),
     Local(Rc<Symbol>),
     Const(Rc<Const>),
     Tuple(Rc<Tuple>,Vec<Expr>),
     Call(Rc<Function>,Vec<Expr>),
     Struct(Rc<Struct>,Vec<Expr>),
-    Variant(Rc<Enum>,ExprVariant),
+    Variant(Rc<Enum>,VariantExpr),
     Method(Box<Expr>,Rc<Method>,Vec<Expr>),
     Field(Rc<Struct>,Box<Expr>,usize),
     TupleIndex(Rc<Tuple>,Box<Expr>,usize),
 }
 
-// block statement
+// statement
 #[derive(Clone)]
 pub enum Stat {
-    Let(Box<Pat>,Box<Type>,Box<Expr>),  // let pat: type = expr;
-    Expr(Box<Expr>),  // expr;
+    // macro
+    Let(Box<Pat>,Box<Type>,Box<Expr>),
+    Expr(Box<Expr>),
+
+    // run-time
+    Local(Rc<Symbol>,Box<Expr>),
 }
 
-// ident: type
 pub struct Symbol {
     pub ident: String,
     pub type_: Type,

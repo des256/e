@@ -106,10 +106,10 @@ impl Display for Pat {
                         write!(f,", ")?;
                     }
                     match identpat {
-                        IdentPat::Wildcard => write!(f,"_")?,
-                        IdentPat::Rest => write!(f,"..")?,
-                        IdentPat::Ident(ident) => write!(f,"{}",ident)?,
-                        IdentPat::IdentPat(ident,pat) => write!(f,"{}: {}",ident,pat)?,
+                        UnknownFieldPat::Wildcard => write!(f,"_")?,
+                        UnknownFieldPat::Rest => write!(f,"..")?,
+                        UnknownFieldPat::Ident(ident) => write!(f,"{}",ident)?,
+                        UnknownFieldPat::IdentPat(ident,pat) => write!(f,"{}: {}",ident,pat)?,
                     }
                     first = false;
                 }
@@ -118,8 +118,8 @@ impl Display for Pat {
             Pat::UnknownVariant(ident,identpatvariant) => {
                 write!(f,"{}::",ident)?;
                 match identpatvariant {
-                    UnknownPatVariant::Naked(ident) => write!(f,"{}",ident),
-                    UnknownPatVariant::Tuple(ident,pats) => {
+                    UnknownVariantPat::Naked(ident) => write!(f,"{}",ident),
+                    UnknownVariantPat::Tuple(ident,pats) => {
                         write!(f,"{}(",ident)?;
                         let mut first = true;
                         for pat in pats.iter() {
@@ -131,7 +131,7 @@ impl Display for Pat {
                         }
                         write!(f,")")
                     },
-                    UnknownPatVariant::Struct(ident,identpats) => {
+                    UnknownVariantPat::Struct(ident,identpats) => {
                         write!(f,"{} {{ ",ident)?;
                         let mut first = true;
                         for identpat in identpats.iter() {
@@ -139,10 +139,10 @@ impl Display for Pat {
                                 write!(f,", ")?;
                             }
                             match identpat {
-                                IdentPat::Wildcard => write!(f,"_")?,
-                                IdentPat::Rest => write!(f,"..")?,
-                                IdentPat::Ident(ident) => write!(f,"{}",ident)?,
-                                IdentPat::IdentPat(ident,pat) => write!(f,"{}: {}",ident,pat)?,
+                                UnknownFieldPat::Wildcard => write!(f,"_")?,
+                                UnknownFieldPat::Rest => write!(f,"..")?,
+                                UnknownFieldPat::Ident(ident) => write!(f,"{}",ident)?,
+                                UnknownFieldPat::IdentPat(ident,pat) => write!(f,"{}: {}",ident,pat)?,
                             }
                             first = false;
                         }
@@ -170,10 +170,10 @@ impl Display for Pat {
                         write!(f,", ")?;
                     }
                     match indexpat {
-                        IndexPat::Wildcard => write!(f,"_")?,
-                        IndexPat::Rest => write!(f,"..")?,
-                        IndexPat::Index(index) => write!(f,"{}",struct_.fields[*index].ident)?,
-                        IndexPat::IndexPat(index,pat) => write!(f,"{}: {}",struct_.fields[*index].ident,pat)?,
+                        FieldPat::Wildcard => write!(f,"_")?,
+                        FieldPat::Rest => write!(f,"..")?,
+                        FieldPat::Index(index) => write!(f,"{}",struct_.fields[*index].ident)?,
+                        FieldPat::IndexPat(index,pat) => write!(f,"{}: {}",struct_.fields[*index].ident,pat)?,
                     }
                     first = false;
                 }
@@ -415,8 +415,8 @@ impl Display for Expr {
             Expr::UnknownVariant(ident,variant) => {
                 write!(f,"{}::",ident)?;
                 match variant {
-                    UnknownExprVariant::Naked(ident) => write!(f,"{}",ident),
-                    UnknownExprVariant::Tuple(ident,exprs) => {
+                    UnknownVariantExpr::Naked(ident) => write!(f,"{}",ident),
+                    UnknownVariantExpr::Tuple(ident,exprs) => {
                         write!(f,"{}(",ident)?;
                         let mut first = true;
                         for expr in exprs.iter() {
@@ -428,7 +428,7 @@ impl Display for Expr {
                         }
                         write!(f,")")
                     },
-                    UnknownExprVariant::Struct(ident,fields) => {
+                    UnknownVariantExpr::Struct(ident,fields) => {
                         write!(f,"{} {{",ident)?;
                         let mut first = true;
                         for (ident,expr) in fields.iter() {
@@ -498,13 +498,13 @@ impl Display for Expr {
             Expr::Variant(enum_,variant) => {
                 write!(f,"{}::",enum_.ident)?;
                 match variant {
-                    ExprVariant::Naked(index) => if let Variant::Naked(ident) = &enum_.variants[*index] {
+                    VariantExpr::Naked(index) => if let Variant::Naked(ident) = &enum_.variants[*index] {
                         write!(f,"{}",ident)
                     }
                     else {
                         panic!("enum variant mismatch");
                     },
-                    ExprVariant::Tuple(index,exprs) => if let Variant::Tuple(ident,_) = &enum_.variants[*index] {
+                    VariantExpr::Tuple(index,exprs) => if let Variant::Tuple(ident,_) = &enum_.variants[*index] {
                         write!(f,"{}(",ident)?;
                         let mut first = true;
                         for expr in exprs.iter() {
@@ -519,7 +519,7 @@ impl Display for Expr {
                     else {
                         panic!("enum variant mismatch");
                     },
-                    ExprVariant::Struct(index,exprs) => if let Variant::Struct(ident,fields) = &enum_.variants[*index] {
+                    VariantExpr::Struct(index,exprs) => if let Variant::Struct(ident,fields) = &enum_.variants[*index] {
                         write!(f,"{} {{ ",ident)?;
                         let mut first = true;
                         for i in 0..fields.len() {
@@ -557,9 +557,9 @@ impl Display for Expr {
 impl Display for Stat {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
-            //Stat::Local(local,expr) => write!(f,"let {} = {};",local.ident,expr),
             Stat::Expr(expr) => write!(f,"{};",expr),
             Stat::Let(pat,type_,expr) => write!(f,"let {}: {} = {};",pat,type_,expr),
+            Stat::Local(local,expr) => write!(f,"let {} = {};",local.ident,expr),
         }
     }
 }

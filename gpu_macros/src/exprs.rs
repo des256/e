@@ -53,13 +53,13 @@ impl Parser {
                 else {
                     let variant = self.ident().expect("identifier expected");
                     if let Some(ident_exprs) = self.brace_ident_exprs() {
-                        ast::Expr::UnknownVariant(ident,ast::UnknownExprVariant::Struct(variant,ident_exprs))
+                        ast::Expr::UnknownVariant(ident,ast::UnknownVariantExpr::Struct(variant,ident_exprs))
                     }
                     else if let Some(exprs) = self.paren_exprs() {
-                        ast::Expr::UnknownVariant(ident,ast::UnknownExprVariant::Tuple(variant,exprs))
+                        ast::Expr::UnknownVariant(ident,ast::UnknownVariantExpr::Tuple(variant,exprs))
                     }
                     else {
-                        ast::Expr::UnknownVariant(ident,ast::UnknownExprVariant::Naked(variant))
+                        ast::Expr::UnknownVariant(ident,ast::UnknownVariantExpr::Naked(variant))
                     }
                 }
             }

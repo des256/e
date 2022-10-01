@@ -50,13 +50,13 @@ impl Parser {
             else if self.punct2(':',':') {
                 let variant_ident = self.ident().expect("identifier expected");
                 if let Some(ident_pats) = self.brace_ident_pats() {
-                    ast::Pat::UnknownVariant(ident,ast::UnknownPatVariant::Struct(variant_ident,ident_pats))
+                    ast::Pat::UnknownVariant(ident,ast::UnknownVariantPat::Struct(variant_ident,ident_pats))
                 }
                 else if let Some(pats) = self.paren_pats() {
-                    ast::Pat::UnknownVariant(ident,ast::UnknownPatVariant::Tuple(variant_ident,pats))
+                    ast::Pat::UnknownVariant(ident,ast::UnknownVariantPat::Tuple(variant_ident,pats))
                 }
                 else {
-                    ast::Pat::UnknownVariant(ident,ast::UnknownPatVariant::Naked(variant_ident))
+                    ast::Pat::UnknownVariant(ident,ast::UnknownVariantPat::Naked(variant_ident))
                 }
             }
 

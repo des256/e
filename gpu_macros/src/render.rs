@@ -83,10 +83,10 @@ impl Render for ast::Pat {
                 let mut r = format!("ast::Pat::UnknownStruct(\"{}\",vec![",ident);
                 for identpat in identpats.iter() {
                     match identpat {
-                        ast::IdentPat::Wildcard => r += "ast::IdentPat::Wildcard,",
-                        ast::IdentPat::Rest => r += "ast::IdentPat::Rest,",
-                        ast::IdentPat::Ident(ident) => r += &format!("ast::IdentPat::Ident(\"{}\"),",ident),
-                        ast::IdentPat::IdentPat(ident,pat) => r += &format!("ast::IdentPat::IdentPat(\"{}\",{}),",ident,pat.render()),
+                        ast::UnknownFieldPat::Wildcard => r += "ast::UnknownFieldPat::Wildcard,",
+                        ast::UnknownFieldPat::Rest => r += "ast::UnknownFieldPat::Rest,",
+                        ast::UnknownFieldPat::Ident(ident) => r += &format!("ast::UnknownFieldPat::Ident(\"{}\"),",ident),
+                        ast::UnknownFieldPat::IdentPat(ident,pat) => r += &format!("ast::UnknownFieldPat::IdentPat(\"{}\",{}),",ident,pat.render()),
                     }
                 }
                 r += "])";
@@ -95,22 +95,22 @@ impl Render for ast::Pat {
             ast::Pat::UnknownVariant(ident,variant) => {
                 let mut r = format!("ast::Pat::UnknownVariant(\"{}\",",ident);
                 match variant {
-                    ast::UnknownPatVariant::Naked(ident) => r += &format!("ast::UnknownPatVariant::Naked(\"{}\")",ident),
-                    ast::UnknownPatVariant::Tuple(ident,pats) => {
+                    ast::UnknownVariantPat::Naked(ident) => r += &format!("ast::UnknownVariantPat::Naked(\"{}\")",ident),
+                    ast::UnknownVariantPat::Tuple(ident,pats) => {
                         r += &format!("ast::UnknownPatVariant::Tuple(\"{}\",vec![",ident);
                         for pat in pats.iter() {
                             r += &format!("{},",pat.render());
                         }
                         r += "])";
                     },
-                    ast::UnknownPatVariant::Struct(ident,identpats) => {
+                    ast::UnknownVariantPat::Struct(ident,identpats) => {
                         r += &format!("ast::UnknownPatVariant::Struct(\"{}\",vec![",ident);
                         for identpat in identpats.iter() {
                             match identpat {
-                                ast::IdentPat::Wildcard => r += "ast::IdentPat::Wildcard,",
-                                ast::IdentPat::Rest => r += "ast::IdentPat::Rest,",
-                                ast::IdentPat::Ident(ident) => r += &format!("ast::IdentPat::Ident(\"{}\"),",ident),
-                                ast::IdentPat::IdentPat(ident,pat) => r += &format!("ast::IdentPat::IdentPat(\"{}\",{}),",ident,pat.render()),
+                                ast::UnknownFieldPat::Wildcard => r += "ast::UnknownFieldPat::Wildcard,",
+                                ast::UnknownFieldPat::Rest => r += "ast::UnknownFieldPat::Rest,",
+                                ast::UnknownFieldPat::Ident(ident) => r += &format!("ast::UnknownFieldPat::Ident(\"{}\"),",ident),
+                                ast::UnknownFieldPat::IdentPat(ident,pat) => r += &format!("ast::UnknownFieldPat::IdentPat(\"{}\",{}),",ident,pat.render()),
                             }
                         }
                         r += "])";
@@ -328,16 +328,16 @@ impl Render for ast::Expr {
             ast::Expr::UnknownVariant(ident,variant) => {
                 let mut r = format!("ast::Expr::UnknownVariant(\"{}\",",ident);
                 match variant {
-                    ast::UnknownExprVariant::Naked(ident) => r += &format!("ast::UnknownExprVariant::Naked(\"{}\")",ident),
-                    ast::UnknownExprVariant::Tuple(ident,exprs) => {
-                        r += &format!("ast::UnknownExprVariant::Tuple(\"{}\",vec![",ident);
+                    ast::UnknownVariantExpr::Naked(ident) => r += &format!("ast::UnknownVariantExpr::Naked(\"{}\")",ident),
+                    ast::UnknownVariantExpr::Tuple(ident,exprs) => {
+                        r += &format!("ast::UnknownVariantExpr::Tuple(\"{}\",vec![",ident);
                         for expr in exprs.iter() {
                             r += &format!("{},",expr.render());
                         }
                         r += "])";
                     },
-                    ast::UnknownExprVariant::Struct(ident,fields) => {
-                        r += &format!("ast::UnknownExprVariant::Struct(\"{}\",vec![",ident);
+                    ast::UnknownVariantExpr::Struct(ident,fields) => {
+                        r += &format!("ast::UnknownVariantExpr::Struct(\"{}\",vec![",ident);
                         for (ident,expr) in fields.iter() {
                             r += &format!("(\"{}\",{}),",ident,expr.render());
                         }
@@ -378,6 +378,7 @@ impl Render for ast::Stat {
         match self {
             ast::Stat::Let(pat,type_,expr) => format!("ast::Stat::Let({},{},{})",pat.render(),type_.render(),expr.render()),
             ast::Stat::Expr(expr) => format!("ast::Stat::Expr({})",expr.render()),
+            ast::Stat::Local(_,_) => panic!("unable to render Stat containing Rc reference"),
         }
     }
 }

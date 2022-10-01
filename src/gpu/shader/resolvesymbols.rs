@@ -109,19 +109,19 @@ impl ResolveSymbols for ast::Pat {
             ast::Pat::UnknownStruct(ident,ident_pats) => {
                 if library.structs.contains_key(ident) {
                     let struct_ = &library.structs[ident];
-                    let indexpats: Vec<IndexPat> = Vec::new();
+                    let indexpats: Vec<ast::FieldPat> = Vec::new();
                     for identpat in ident_pats {
                         indexpats.push(match identpat {
-                            IdentPat::Wildcard => IndexPat::Wildcard,
-                            IdentPat::Rest => IndexPat::Rest,
-                            IdentPat::Ident(ident) => if let Some(index) = struct_.find_field(ident) {
-                                IndexPat::Index(index)
+                            ast::UnknownFieldPat::Wildcard => ast::FieldPat::Wildcard,
+                            ast::UnknownFieldPat::Rest => ast::FieldPat::Rest,
+                            ast::UnknownFieldPat::Ident(ident) => if let Some(index) = struct_.find_field(ident) {
+                                ast::FieldPat::Index(index)
                             }
                             else {
                                 panic!("field {} not found in struct {}",ident,struct_.ident);
                             }
-                            IdentPat::IdentPat(ident,pat) => if let Some(index) = struct_.find_field(ident) {
-                                IndexPat::IndexPat(index,pat)
+                            ast::UnknownFieldPat::IdentPat(ident,pat) => if let Some(index) = struct_.find_field(ident) {
+                                ast::FieldPat::IndexPat(index,pat)
                             }
                             else {
                                 panic!("field {} not found in struct {}",ident,struct_.ident);
@@ -136,7 +136,8 @@ impl ResolveSymbols for ast::Pat {
             }
             ast::Pat::UnknownVariant(ident,variant) => {
                 if library.enums.contains_key(ident) {
-                    // TODO: convert variant to PatVariant
+                    let enum_ = Rc::clone(&library.enums[ident]);
+                    
                     *self = ast::Pat::Variant(Rc::clone(&library.enums[ident]),TODO);
                 }
             },
@@ -147,21 +148,21 @@ impl ResolveSymbols for ast::Pat {
             },
             ast::Pat::Struct(_,index_pats) => {
                 for index_pat in index_pats.iter() {
-                    if let ast::IndexPat::IndexPat(_,pat) = index_pat {
+                    if let ast::FieldPat::IndexPat(_,pat) = index_pat {
                         pat.resolve_symbols(libary);
                     }
                 }
             },
             ast::Pat::Variant(_,variant) => {
                 match variant {
-                    ast::PatVariant::Tuple(_,pats) => {
+                    ast::VariantPat::Tuple(_,pats) => {
                         for pat in pats.iter() {
                             pat.resolve_symbols(library);
                         }
                     },
-                    ast::PatVariant::Struct(_,index_pats) => {
+                    ast::VariantPat::Struct(_,index_pats) => {
                         for index_pat in index_pats.iter() {
-                            if let ast::IndexPat::IndexPat(_,pat) = index_pat {
+                            if let ast::FieldPat::IndexPat(_,pat) = index_pat {
                                 pat.resolve_symbols(library);
                             }
                         }
@@ -176,57 +177,57 @@ impl ResolveSymbols for ast::Pat {
 impl ResolveSymbols for ast::Expr {
     fn resolve_symbols(&mut self,library: &mut Library) {
         match self {
-            Expr::Boolean(_) |
-            Expr::Integer(_) |
-            Expr::Float(_) => { },
-            Expr::Array(exprs) => {
+            ast::Expr::Boolean(_) |
+            ast::Expr::Integer(_) |
+            ast::Expr::Float(_) => { },
+            ast::Expr::Array(exprs) => {
                 for expr in exprs.iter() {
                     expr.resolve_symbols(library);
                 }
             },
-            Expr::Cloned(expr,expr2) => {
+            ast::Expr::Cloned(expr,expr2) => {
                 expr.resolve_symbols(library);
                 expr2.resolve_symbols(library);
             },
-            Expr::Index(expr,expr2) => {
+            ast::Expr::Index(expr,expr2) => {
                 expr.resolve_symbols(library);
                 expr2.resolve_symbols(library);
             },
-            Expr::Cast(expr,type_) => {
+            ast::Expr::Cast(expr,type_) => {
                 expr.resolve_symbols(library);
                 type_.resolve_symbols(library);
             },
-            Expr::AnonTuple(exprs) => {
+            ast::Expr::AnonTuple(exprs) => {
                 for expr in exprs.iter() {
                     expr.resolve_symbols(library);
                 }
             },
-            Expr::Unary(op,expr) => expr.resolve_symbols(library),
-            Expr::Binary(expr,op,expr2) => {
+            ast::Expr::Unary(op,expr) => expr.resolve_symbols(library),
+            ast::Expr::Binary(expr,op,expr2) => {
                 expr.resolve_symbols(library);
                 expr2.resolve_symbols(library);
             },
-            Expr::Continue => { },
-            Expr::Break(expr) => if let Some(expr) = expr {
+            ast::Expr::Continue => { },
+            ast::Expr::Break(expr) => if let Some(expr) = expr {
                 expr.resolve_symbols(library);
             },
-            Expr::Return(expr) => if let Some(expr) = expr {
+            ast::Expr::Return(expr) => if let Some(expr) = expr {
                 expr.resolve_symbols(library);
             },
-            Expr::Block(block) => block.resolve_symbols(library),
-            Expr::If(expr,block,else_expr) => {
+            ast::Expr::Block(block) => block.resolve_symbols(library),
+            ast::Expr::If(expr,block,else_expr) => {
                 expr.resolve_symbols(library);
                 block.resolve_symbols(library);
                 if let Some(else_expr) = else_expr {
                     else_expr.resolve_symbols(library);
                 }
             },
-            Expr::Loop(block) => block.resolve_symbols(library),
-            Expr::While(expr,block) => {
+            ast::Expr::Loop(block) => block.resolve_symbols(library),
+            ast::Expr::While(expr,block) => {
                 expr.resolve_symbols(library);
                 block.resolve_symbols(library);
             },
-            Expr::IfLet(pats,expr,block,else_expr) => {
+            ast::Expr::IfLet(pats,expr,block,else_expr) => {
                 for pat in pats.iter() {
                     pat.resolve_symbols(library);
                 }
@@ -236,21 +237,21 @@ impl ResolveSymbols for ast::Expr {
                     else_expr.resolve_symbols(library);
                 }
             },
-            Expr::For(pats,range,block) => {
+            ast::Expr::For(pats,range,block) => {
                 for pat in pats.iter() {
                     pat.resolve_symbols(library);
                 }
                 range.resolve_symbols(library);
                 block.resolve_symbols(library);
             },
-            Expr::WhileLet(pats,expr,block) => {
+            ast::Expr::WhileLet(pats,expr,block) => {
                 for pat in pats.iter() {
                     pat.resolve_symbols(library);
                 }
                 expr.resolve_symbols(library);
                 block.resolve_symbols(library);
             },
-            Expr::Match(expr,arms) => {
+            ast::Expr::Match(expr,arms) => {
                 expr.resolve_symbols(library);
                 for (pats,if_expr,expr) in arms.iter() {
                     for pat in pats.iter() {
@@ -262,25 +263,25 @@ impl ResolveSymbols for ast::Expr {
                     expr.resolve_symbols(library);                    
                 }
             },
-            Expr::UnknownIdent(ident) => {
+            ast::Expr::UnknownIdent(ident) => {
                 // TODO: Param, Local, Const
             },
-            Expr::UnknownTupleOrCall(ident,exprs) => {
+            ast::Expr::UnknownTupleOrCall(ident,exprs) => {
                 // TODO: Tuple, Call
             },
-            Expr::UnknownStruct(ident,fields) => {
+            ast::Expr::UnknownStruct(ident,fields) => {
                 // TODO: Struct
             },
-            Expr::UnknownVariant(ident,variant) => {
+            ast::Expr::UnknownVariant(ident,variant) => {
                 // TODO: Variant
             },
-            Expr::UnknownMethod(expr,ident,exprs) => {
+            ast::Expr::UnknownMethod(expr,ident,exprs) => {
                 // TODO: Method
             },
-            Expr::UnknownField(expr,ident) => {
+            ast::Expr::UnknownField(expr,ident) => {
                 // TODO: Field
             },
-            Expr::UnknownTupleIndex(expr,index) => {
+            ast::Expr::UnknownTupleIndex(expr,index) => {
                 // TODO: TupleIndex
             }
         }
