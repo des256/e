@@ -20,6 +20,7 @@ trait ResolveSymbols {
     fn resolve_symbols(&mut self,library: &mut Library);
 }
 
+// resolve all UnknownIdent types to Tuple, Struct, Enum or Alias types
 impl ResolveSymbols for ast::Type {
     fn resolve_symbols(&mut self,library: &mut Library) {
         match self {
@@ -136,8 +137,33 @@ impl ResolveSymbols for ast::Pat {
             }
             ast::Pat::UnknownVariant(ident,variant) => {
                 if library.enums.contains_key(ident) {
-                    let enum_ = Rc::clone(&library.enums[ident]);
-                    
+                    let enum_ = &library.enums[ident];
+                    match variant {
+                        ast::UnknownVariantPat::Naked(unknown_ident) => {
+                            for i in 0..enum_.variants.len() {
+                                if let ast::Variant::Naked(ident) = enum_.variants[i] {
+                                    if *unknown_ident == ident {
+                                        *self = ast::Pat::Variant(Rc::clone(&enum_),ast::VariantPat::Naked(i));
+                                        break;
+                                    }
+                                }
+                            }
+                            panic!("{} not found in {}",ident,enum_.ident);
+                        },
+
+                        // HERE
+                        
+                        ast::UnknownVariantPat::Tuple(ident,pats) => {
+                            for i in 0..enum_.variants.len() {
+                                if enum_.variants[i].ident == ident {
+                                    if let ast::Variant::Tuple(ref_pats) = 
+                                }
+                            }
+                        },
+                        ast::UnknownVariantPat::Struct(ident,identpats) => {
+
+                        },
+                    }                    
                     *self = ast::Pat::Variant(Rc::clone(&library.enums[ident]),TODO);
                 }
             },
