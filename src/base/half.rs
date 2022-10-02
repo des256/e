@@ -2,11 +2,11 @@
 pub struct f16(pub u16);
 
 impl f16 {
-    pub fn from_f32(value: f32) -> f16 {
+    pub fn from_f32(_value: f32) -> f16 {
         f16(0)
     }
 
-    pub fn from_f64(value: f64) -> f16 {
+    pub fn from_f64(_value: f64) -> f16 {
         f16(0)
     }
 

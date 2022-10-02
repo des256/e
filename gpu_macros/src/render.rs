@@ -36,7 +36,7 @@ impl Render for ast::Type {
                 r
             },
             ast::Type::Array(type_,expr) => format!("ast::Type::Array(Box::new({}),Box::new({}))",type_.render(),expr.render()),
-            ast::Type::UnknownIdent(ident) => format!("ast::Type::UnknownIdent(\"{}\")",ident),
+            ast::Type::UnknownIdent(ident) => format!("ast::Type::UnknownIdent(\"{}\".to_string())",ident),
             ast::Type::Tuple(_) => panic!("unable to render ast::Type::Tuple"),
             ast::Type::Struct(_) => panic!("unable to render ast::Type::Struct"),
             ast::Type::Enum(_) => panic!("unable to render ast::Type::Enum"),
@@ -70,9 +70,9 @@ impl Render for ast::Pat {
                 r
             },
             ast::Pat::Range(pat0,pat1) => format!("ast::Pat::Range({},{})",pat0.render(),pat1.render()),
-            ast::Pat::UnknownIdent(ident) => format!("ast::Pat::UnknownIdent(\"{}\"",ident),
+            ast::Pat::UnknownIdent(ident) => format!("ast::Pat::UnknownIdent(\"{}\".to_string()",ident),
             ast::Pat::UnknownTuple(ident,pats) => {
-                let mut r = format!("ast::Pat::UnknownTuple(\"{}\",vec![",ident);
+                let mut r = format!("ast::Pat::UnknownTuple(\"{}\".to_string(),vec![",ident);
                 for pat in pats.iter() {
                     r += &format!("{},",pat.render());
                 }
@@ -80,37 +80,37 @@ impl Render for ast::Pat {
                 r
             },
             ast::Pat::UnknownStruct(ident,identpats) => {
-                let mut r = format!("ast::Pat::UnknownStruct(\"{}\",vec![",ident);
+                let mut r = format!("ast::Pat::UnknownStruct(\"{}\".to_string(),vec![",ident);
                 for identpat in identpats.iter() {
                     match identpat {
                         ast::UnknownFieldPat::Wildcard => r += "ast::UnknownFieldPat::Wildcard,",
                         ast::UnknownFieldPat::Rest => r += "ast::UnknownFieldPat::Rest,",
-                        ast::UnknownFieldPat::Ident(ident) => r += &format!("ast::UnknownFieldPat::Ident(\"{}\"),",ident),
-                        ast::UnknownFieldPat::IdentPat(ident,pat) => r += &format!("ast::UnknownFieldPat::IdentPat(\"{}\",{}),",ident,pat.render()),
+                        ast::UnknownFieldPat::Ident(ident) => r += &format!("ast::UnknownFieldPat::Ident(\"{}\".to_string()),",ident),
+                        ast::UnknownFieldPat::IdentPat(ident,pat) => r += &format!("ast::UnknownFieldPat::IdentPat(\"{}\".to_string(),{}),",ident,pat.render()),
                     }
                 }
                 r += "])";
                 r
             },
             ast::Pat::UnknownVariant(ident,variant) => {
-                let mut r = format!("ast::Pat::UnknownVariant(\"{}\",",ident);
+                let mut r = format!("ast::Pat::UnknownVariant(\"{}\".to_string(),",ident);
                 match variant {
-                    ast::UnknownVariantPat::Naked(ident) => r += &format!("ast::UnknownVariantPat::Naked(\"{}\")",ident),
+                    ast::UnknownVariantPat::Naked(ident) => r += &format!("ast::UnknownVariantPat::Naked(\"{}\".to_string())",ident),
                     ast::UnknownVariantPat::Tuple(ident,pats) => {
-                        r += &format!("ast::UnknownPatVariant::Tuple(\"{}\",vec![",ident);
+                        r += &format!("ast::UnknownPatVariant::Tuple(\"{}\".to_string(),vec![",ident);
                         for pat in pats.iter() {
                             r += &format!("{},",pat.render());
                         }
                         r += "])";
                     },
                     ast::UnknownVariantPat::Struct(ident,identpats) => {
-                        r += &format!("ast::UnknownPatVariant::Struct(\"{}\",vec![",ident);
+                        r += &format!("ast::UnknownPatVariant::Struct(\"{}\".to_string(),vec![",ident);
                         for identpat in identpats.iter() {
                             match identpat {
                                 ast::UnknownFieldPat::Wildcard => r += "ast::UnknownFieldPat::Wildcard,",
                                 ast::UnknownFieldPat::Rest => r += "ast::UnknownFieldPat::Rest,",
-                                ast::UnknownFieldPat::Ident(ident) => r += &format!("ast::UnknownFieldPat::Ident(\"{}\"),",ident),
-                                ast::UnknownFieldPat::IdentPat(ident,pat) => r += &format!("ast::UnknownFieldPat::IdentPat(\"{}\",{}),",ident,pat.render()),
+                                ast::UnknownFieldPat::Ident(ident) => r += &format!("ast::UnknownFieldPat::Ident(\"{}\".to_string()),",ident),
+                                ast::UnknownFieldPat::IdentPat(ident,pat) => r += &format!("ast::UnknownFieldPat::IdentPat(\"{}\".to_string(),{}),",ident,pat.render()),
                             }
                         }
                         r += "])";
@@ -140,7 +140,7 @@ impl Render for ast::Block {
         }
         r += "],expr: ";
         if let Some(expr) = &self.expr {
-            r += &format!("Some({})",expr.render());
+            r += &format!("Some(Box::new({}))",expr.render());
         }
         else {
             r += "None";
@@ -213,8 +213,8 @@ impl Render for ast::Expr {
     fn render(&self) -> String {
         match self {
             ast::Expr::Boolean(value) => format!("ast::Expr::Boolean({})",if *value { "true" } else { "false" }),
-            ast::Expr::Integer(value) => format!("ast::Expr::Integer({})",*value),
-            ast::Expr::Float(value) => format!("ast::Expr::Float({})",*value),
+            ast::Expr::Integer(value) => format!("ast::Expr::Integer({} as i64)",*value),
+            ast::Expr::Float(value) => format!("ast::Expr::Float({} as f64)",*value),
             ast::Expr::Array(exprs) => {
                 let mut r = "ast::Expr::Array(vec![".to_string();
                 for expr in exprs.iter() {
@@ -223,9 +223,9 @@ impl Render for ast::Expr {
                 r += "])";
                 r
             },
-            ast::Expr::Cloned(expr,expr2) => format!("ast::Expr::Cloned({},{})",expr.render(),expr2.render()),
-            ast::Expr::Index(expr,expr2) => format!("ast::Expr::Index({},{})",expr.render(),expr2.render()),
-            ast::Expr::Cast(expr,type_) => format!("ast::Expr::Cast({},{})",expr.render(),type_.render()),
+            ast::Expr::Cloned(expr,expr2) => format!("ast::Expr::Cloned(Box::new({}),Box::new({}))",expr.render(),expr2.render()),
+            ast::Expr::Index(expr,expr2) => format!("ast::Expr::Index(Box::new({}),Box::new({}))",expr.render(),expr2.render()),
+            ast::Expr::Cast(expr,type_) => format!("ast::Expr::Cast(Box::new({}),Box::new({}))",expr.render(),type_.render()),
             ast::Expr::AnonTuple(exprs) => {
                 let mut r = "ast::Expr::AnonTuple(vec![".to_string();
                 for expr in exprs.iter() {
@@ -234,8 +234,8 @@ impl Render for ast::Expr {
                 r += "])";
                 r
             },
-            ast::Expr::Unary(op,expr) => format!("ast::Expr::Unary({},{})",op.render(),expr.render()),
-            ast::Expr::Binary(expr,op,expr2) => format!("ast::Expr::Binary({},{},{})",expr.render(),op.render(),expr2.render()),
+            ast::Expr::Unary(op,expr) => format!("ast::Expr::Unary({},Box::new({}))",op.render(),expr.render()),
+            ast::Expr::Binary(expr,op,expr2) => format!("ast::Expr::Binary(Box::new({}),{},Box::new({}))",expr.render(),op.render(),expr2.render()),
             ast::Expr::Continue => "ast::Expr::Continue".to_string(),
             ast::Expr::Break(expr) => if let Some(expr) = expr {
                 format!("ast::Expr::Break(Some({}))",expr.render())
@@ -251,19 +251,19 @@ impl Render for ast::Expr {
             },
             ast::Expr::Block(block) => format!("ast::Expr::Block({})",block.render()),
             ast::Expr::If(expr,block,else_expr) => if let Some(else_expr) = else_expr {
-                format!("ast::Expr::If({},{},Some({}))",expr.render(),block.render(),else_expr.render())
+                format!("ast::Expr::If(Box::new({}),{},Some({}))",expr.render(),block.render(),else_expr.render())
             }
             else {
-                format!("ast::Expr::If({},{},None)",expr.render(),block.render())
+                format!("ast::Expr::If(Box::new({}),{},None)",expr.render(),block.render())
             },
             ast::Expr::Loop(block) => format!("ast::Expr::Loop({})",block.render()),
-            ast::Expr::While(expr,block) => format!("ast::Expr::While({},{})",expr.render(),block.render()),
+            ast::Expr::While(expr,block) => format!("ast::Expr::While(Box::new({}),{})",expr.render(),block.render()),
             ast::Expr::IfLet(pats,expr,block,else_expr) => {
                 let mut r = "ast::Expr::IfLet(vec![".to_string();
                 for pat in pats.iter() {
                     r += &format!("{},",pat.render());
                 }
-                r += &format!("],{},{},",expr.render(),block.render());
+                r += &format!("],Box::new({}),{},",expr.render(),block.render());
                 if let Some(else_expr) = else_expr {
                     r += &format!("Some({})",else_expr.render());
                 }
@@ -286,11 +286,11 @@ impl Render for ast::Expr {
                 for pat in pats.iter() {
                     r += &format!("{},",pat.render());
                 }
-                r += &format!("],{},{})",expr.render(),block.render());
+                r += &format!("],Box::new({}),{})",expr.render(),block.render());
                 r
             },
             ast::Expr::Match(expr,arms) => {
-                let mut r = format!("ast::Expr::Match({},vec![",expr.render());
+                let mut r = format!("ast::Expr::Match(Box::new({}),vec![",expr.render());
                 for (pats,if_expr,expr) in arms.iter() {
                     r += "(vec![";
                     for pat in pats.iter() {
@@ -308,9 +308,9 @@ impl Render for ast::Expr {
                 r += "])";
                 r
             },
-            ast::Expr::UnknownIdent(ident) => format!("ast::Expr::UnknownIdent(\"{}\")",ident),
+            ast::Expr::UnknownIdent(ident) => format!("ast::Expr::UnknownIdent(\"{}\".to_string())",ident),
             ast::Expr::UnknownTupleOrCall(ident,exprs) => {
-                let mut r = format!("ast::Expr::UnknownTupleOrCall(\"{}\",vec![",ident);
+                let mut r = format!("ast::Expr::UnknownTupleOrCall(\"{}\".to_string(),vec![",ident);
                 for expr in exprs.iter() {
                     r += &format!("{},",expr.render());
                 }
@@ -318,28 +318,28 @@ impl Render for ast::Expr {
                 r
             },
             ast::Expr::UnknownStruct(ident,fields) => {
-                let mut r = format!("ast::Expr::UnknownStruct(\"{}\",vec![",ident);
+                let mut r = format!("ast::Expr::UnknownStruct(\"{}\".to_string(),vec![",ident);
                 for (ident,expr) in fields.iter() {
-                    r += &format!("(\"{}\",{})",ident,expr.render());
+                    r += &format!("(\"{}\".to_string(),{}),",ident,expr.render());
                 }
                 r += "])";
                 r
             },
             ast::Expr::UnknownVariant(ident,variant) => {
-                let mut r = format!("ast::Expr::UnknownVariant(\"{}\",",ident);
+                let mut r = format!("ast::Expr::UnknownVariant(\"{}\".to_string(),",ident);
                 match variant {
-                    ast::UnknownVariantExpr::Naked(ident) => r += &format!("ast::UnknownVariantExpr::Naked(\"{}\")",ident),
+                    ast::UnknownVariantExpr::Naked(ident) => r += &format!("ast::UnknownVariantExpr::Naked(\"{}\".to_string())",ident),
                     ast::UnknownVariantExpr::Tuple(ident,exprs) => {
-                        r += &format!("ast::UnknownVariantExpr::Tuple(\"{}\",vec![",ident);
+                        r += &format!("ast::UnknownVariantExpr::Tuple(\"{}\".to_string(),vec![",ident);
                         for expr in exprs.iter() {
                             r += &format!("{},",expr.render());
                         }
                         r += "])";
                     },
                     ast::UnknownVariantExpr::Struct(ident,fields) => {
-                        r += &format!("ast::UnknownVariantExpr::Struct(\"{}\",vec![",ident);
+                        r += &format!("ast::UnknownVariantExpr::Struct(\"{}\".to_string(),vec![",ident);
                         for (ident,expr) in fields.iter() {
-                            r += &format!("(\"{}\",{}),",ident,expr.render());
+                            r += &format!("(\"{}\".to_string(),{}),",ident,expr.render());
                         }
                         r += "])";
                     },
@@ -348,15 +348,15 @@ impl Render for ast::Expr {
                 r
             },
             ast::Expr::UnknownMethod(expr,ident,exprs) => {
-                let mut r = format!("ast::Expr::UnknownMethod({},\"{}\",vec![",expr.render(),ident);
+                let mut r = format!("ast::Expr::UnknownMethod(Box::new({}),\"{}\".to_string(),vec![",expr.render(),ident);
                 for expr in exprs.iter() {
                     r += &format!("{},",expr.render());
                 }
                 r += "])";
                 r
             },
-            ast::Expr::UnknownField(expr,ident) => format!("ast::Expr::UnknownField({},\"{}\")",expr.render(),ident),
-            ast::Expr::UnknownTupleIndex(expr,index) => format!("ast::Expr::UnknowTupleIndex({},{})",expr.render(),index),
+            ast::Expr::UnknownField(expr,ident) => format!("ast::Expr::UnknownField(Box::new({}),\"{}\".to_string())",expr.render(),ident),
+            ast::Expr::UnknownTupleIndex(expr,index) => format!("ast::Expr::UnknowTupleIndex(Box::new({}),{})",expr.render(),index),
             ast::Expr::Param(_) |
             ast::Expr::Local(_) |
             ast::Expr::Const(_) |
@@ -385,9 +385,9 @@ impl Render for ast::Stat {
 
 impl Render for ast::Struct {
     fn render(&self) -> String {
-        let mut r = format!("ast::Struct {{ ident: \"{}\",vec![",self.ident);
+        let mut r = format!("ast::Struct {{ ident: \"{}\".to_string(),fields: vec![",self.ident);
         for field in self.fields.iter() {
-            r += &format!("ast::Symbol {{ ident: \"{}\",type_: {}, }},",field.ident,field.type_);
+            r += &format!("ast::Symbol {{ ident: \"{}\".to_string(),type_: {}, }},",field.ident,field.type_.render());
         }
         r += "], }";
         r
@@ -396,7 +396,7 @@ impl Render for ast::Struct {
 
 impl Render for ast::Tuple {
     fn render(&self) -> String {
-        let mut r = format!("ast::Tuple {{ ident: \"{}\",vec![",self.ident);
+        let mut r = format!("ast::Tuple {{ ident: \"{}\".to_string(),vec![",self.ident);
         for type_ in self.types.iter() {
             r += &format!("{},",type_.render());
         }
@@ -407,21 +407,21 @@ impl Render for ast::Tuple {
 
 impl Render for ast::Enum {
     fn render(&self) -> String {
-        let mut r = format!("ast::Enum {{ ident: \"{}\",variants: vec![",self.ident);
+        let mut r = format!("ast::Enum {{ ident: \"{}\".to_string(),variants: vec![",self.ident);
         for variant in self.variants.iter() {
             match variant {
-                ast::Variant::Naked(ident) => r += &format!("ast::Variant::Naked(\"{}\"),",ident),
+                ast::Variant::Naked(ident) => r += &format!("ast::Variant::Naked(\"{}\".to_string()),",ident),
                 ast::Variant::Tuple(ident,types) => {
-                    r += &format!("ast::Variant::Tuple(\"{}\",vec![",ident);
+                    r += &format!("ast::Variant::Tuple(\"{}\".to_string(),vec![",ident);
                     for type_ in types.iter() {
                         r += &format!("{},",type_.render());
                     }
                     r += "]),";
                 },
                 ast::Variant::Struct(ident,fields) => {
-                    r += &format!("ast::Variant::Struct(\"{}\",vec![",ident);
+                    r += &format!("ast::Variant::Struct(\"{}\".to_string(),vec![",ident);
                     for field in fields.iter() {
-                        r += &format!("ast::Symbol {{ ident: \"{}\",type_: {}, }},",field.ident,field.type_);
+                        r += &format!("ast::Symbol {{ ident: \"{}\".to_string(),type_: {}, }},",field.ident,field.type_);
                     }
                     r += "]),";
                 },
@@ -434,21 +434,21 @@ impl Render for ast::Enum {
 
 impl Render for ast::Alias {
     fn render(&self) -> String {
-        format!("ast::Alias {{ ident: \"{}\",type_: {}, }}",self.ident,self.type_.render())
+        format!("ast::Alias {{ ident: \"{}\".to_string(),type_: {}, }}",self.ident,self.type_.render())
     }
 }
 
 impl Render for ast::Const {
     fn render(&self) -> String {
-        format!("ast::Const {{ ident: \"{}\",type_: {},expr: {}, }}",self.ident,self.type_.render(),self.expr.render())
+        format!("ast::Const {{ ident: \"{}\".to_string(),type_: {},expr: {}, }}",self.ident,self.type_.render(),self.expr.render())
     }
 }
 
 impl Render for ast::Function {
     fn render(&self) -> String {
-        let mut r = format!("ast::Function {{ ident: \"{}\",params: vec![",self.ident);
+        let mut r = format!("ast::Function {{ ident: \"{}\".to_string(),params: vec![",self.ident);
         for param in self.params.iter() {
-            r += &format!("Symbol {{ ident: \"{}\",type_: {}, }},",param.ident,param.type_.render());
+            r += &format!("Rc::new(RefCell::new(ast::Symbol {{ ident: \"{}\".to_string(),type_: {}, }})),",param.borrow().ident,param.borrow().type_.render());
         }
         r += &format!("],type_: {},block: {}, }}",self.type_.render(),self.block.render());
         r
@@ -458,60 +458,76 @@ impl Render for ast::Function {
 impl Render for ast::Module {
     fn render(&self) -> String {
 
-        let mut r = String::new();
+        let mut extern_struct_idents: Vec<String> = Vec::new();
+        if !self.functions.contains_key("main") {
+            panic!("missing main function");
+        }
+        for param in self.functions["main"].borrow().params.iter() {
+            if let ast::Type::UnknownIdent(ident) = param.borrow().type_.clone() {
+                // bit of a hack: if type identifier contains <, it's propably a Vec or Mat, and should not be added to the struct list
+                if !ident.contains("<") {
+                    extern_struct_idents.push(ident);
+                }
+            }
+        }
+
+        let mut r = "{ use { super::*,std::{ rc::Rc,collections::HashMap,cell::RefCell, }, }; ".to_string();
 
         if self.tuples.len() > 0 {
-            r += "let mut tuples: HashMap<String,Rc<ast::Tuple>> = HashMap::new(); ";
+            r += "let mut tuples: HashMap<String,Rc<RefCell<ast::Tuple>>> = HashMap::new(); ";
             for tuple in self.tuples.values() {
-                r += &format!("tuples.insert(\"{}\",Rc::new({})); ",tuple.ident,tuple.render());
+                r += &format!("tuples.insert(\"{}\".to_string(),Rc::new(RefCell::new({}))); ",tuple.borrow().ident,tuple.borrow().render());
             }
         }
         else {
-            r += "let tuples: HashMap<String,Rc<ast::Tuple>> = HashMap::new(); ";
+            r += "let tuples: HashMap<String,Rc<RefCell<ast::Tuple>>> = HashMap::new(); ";
         }
 
-        if self.structs.len() > 0 {
-            for struct_ in self.structs.values() {
-                r += &format!("structs.insert(\"{}\",Rc::new({}));",struct_.ident,struct_.render());
-            }
+        r += "let mut structs: HashMap<String,Rc<RefCell<ast::Struct>>> = HashMap::new(); ";
+        for extern_struct_ident in extern_struct_idents.iter() {
+            r += &format!("structs.insert(\"{}\".to_string(),Rc::new(RefCell::new(super::{}::ast()))); ",extern_struct_ident,extern_struct_ident);
         }
-        else {
-            r += "let structs: HashMap<String,Rc<ast::Struct>> = HashMap::new(); ";
+        for struct_ in self.structs.values() {
+            r += &format!("structs.insert(\"{}\".to_string(),Rc::new(RefCell::new({}))); ",struct_.borrow().ident,struct_.borrow().render());
         }
 
         if self.enums.len() > 0 {
+            r += "let mut enums: HashMap<String,Rc<RefCell<ast::Enum>>> = HashMap::new(); ";
             for enum_ in self.enums.values() {
-                r += &format!("enums.insert(\"{}\",Rc::new({})); ",enum_.ident,enum_.render());
+                r += &format!("enums.insert(\"{}\".to_string(),Rc::new(RefCell::new({}))); ",enum_.borrow().ident,enum_.borrow().render());
             }
         }
         else {
-            r += "let enums: HashMap<String,Rc<ast::Enum>> = HashMap::new(); ";
+            r += "let enums: HashMap<String,Rc<RefCell<ast::Enum>>> = HashMap::new(); ";
         }
         if self.aliases.len() > 0 {
+            r += "let mut aliases: HashMap<String,Rc<RefCell<ast::Alias>>> = HashMap::new(); ";
             for alias in self.aliases.values() {
-                r += &format!("aliases.insert(\"{}\",Rc::new({})); ",alias.ident,alias.render());
+                r += &format!("aliases.insert(\"{}\".to_string(),Rc::new(RefCell::new({}))); ",alias.borrow().ident,alias.borrow().render());
             }
         }
         else {
-            r += "let aliases: HashMap<String,Rc<ast::Alias>> = HashMap::new(); ";
+            r += "let aliases: HashMap<String,Rc<RefCell<ast::Alias>>> = HashMap::new(); ";
         }
         if self.consts.len() > 0 {
+            r += "let mut consts: HashMap<String,Rc<RefCell<ast::Const>>> = HashMap::new(); ";
             for const_ in self.consts.values() {
-                r += &format!("consts.insert(\"{}\",Rc::new({})); ",const_.ident,const_.render());
+                r += &format!("consts.insert(\"{}\",Rc::new(RefCell::new({}))); ",const_.borrow().ident,const_.borrow().render());
             }
         }
         else {
-            r += "let consts: HashMap<String,Rc<ast::Const>> = HashMap::new(); ";
+            r += "let consts: HashMap<String,Rc<RefCell<ast::Const>>> = HashMap::new(); ";
         }
         if self.functions.len() > 0 {
+            r += "let mut functions: HashMap<String,Rc<RefCell<ast::Function>>> = HashMap::new(); ";
             for function in self.functions.values() {
-                r += &format!("functions.insert(\"{}\",Rc::new({})); ",function.ident,function.render());
+                r += &format!("functions.insert(\"{}\".to_string(),Rc::new(RefCell::new({}))); ",function.borrow().ident,function.borrow().render());
             }
         }
         else {
-            r += "let functions: HashMap<String,Rc<ast::Function>> = HashMap::new();";
+            r += "let functions: HashMap<String,Rc<RefCell<ast::Function>>> = HashMap::new(); ";
         }
-        r += &format!("ast::Module {{ ident: \"{}\".to_string(),tuples,structs,enums,aliases,consts,functions, }}",self.ident);
+        r += &format!("ast::Module {{ ident: \"{}\".to_string(),tuples,structs,enums,aliases,consts,functions, }} }}",self.ident);
         r
     }
 }

@@ -2,6 +2,8 @@ use {
     std::{
         collections::HashMap,
         rc::Rc,
+        cell::RefCell,
+        cmp::PartialEq,
     },
 };
 
@@ -21,10 +23,84 @@ pub enum Type {
     UnknownIdent(String),  // resolves to Tuple, Struct, Enum or Alias
 
     // during run-time
-    Tuple(Rc<Tuple>),
-    Struct(Rc<Struct>),
-    Enum(Rc<Enum>),
-    Alias(Rc<Alias>),
+    Tuple(Rc<RefCell<Tuple>>),
+    Struct(Rc<RefCell<Struct>>),
+    Enum(Rc<RefCell<Enum>>),
+    Alias(Rc<RefCell<Alias>>),
+}
+
+impl PartialEq for Type {
+    fn eq(&self,other: &Self) -> bool {
+        match (self,other) {
+            (Type::Inferred,Type::Inferred) => true,
+            (Type::Void,Type::Void) => true,
+            (Type::Integer,Type::Integer) => true,
+            (Type::Float,Type::Float) => true,
+            (Type::Bool,Type::Bool) => true,
+            (Type::U8,Type::U8) => true,
+            (Type::I8,Type::I8) => true,
+            (Type::U16,Type::U16) => true,
+            (Type::I16,Type::I16) => true,
+            (Type::U32,Type::U32) => true,
+            (Type::I32,Type::I32) => true,
+            (Type::U64,Type::U64) => true,
+            (Type::I64,Type::I64) => true,
+            (Type::USize,Type::USize) => true,
+            (Type::ISize,Type::ISize) => true,
+            (Type::F16,Type::F16) => true,
+            (Type::F32,Type::F32) => true,
+            (Type::F64,Type::F64) => true,
+            (Type::AnonTuple(types),Type::AnonTuple(other_types)) => {
+                if types.len() == other_types.len() {
+                    let mut equal = true;
+                    for i in 0..types.len() {
+                        if types[i] != other_types[i] {
+                            equal = false;
+                            break;
+                        }
+                    }
+                    equal
+                }
+                else {
+                    false
+                }
+            },
+            (Type::Array(type_,expr),Type::Array(other_type,other_expr)) => {
+                if type_ == other_type {
+                    if let Expr::Integer(size) = **expr {
+                        if let Expr::Integer(other_size) = **other_expr {
+                            size == other_size
+                        }
+                        else {
+                            false
+                        }
+                    }
+                    else {
+                        false
+                    }
+                }
+                else {
+                    false
+                }
+            },
+            (Type::UnknownIdent(ident),Type::UnknownIdent(other_ident)) => {
+                ident == other_ident
+            },
+            (Type::Tuple(tuple),Type::Tuple(other_tuple)) => {
+                tuple.borrow().ident == other_tuple.borrow().ident
+            },
+            (Type::Struct(struct_),Type::Struct(other_struct)) => {
+                struct_.borrow().ident == other_struct.borrow().ident
+            },
+            (Type::Enum(enum_),Type::Enum(other_enum)) => {
+                enum_.borrow().ident == other_enum.borrow().ident
+            },
+            (Type::Alias(alias),Type::Alias(other_alias)) => {
+                alias.borrow().ident == other_alias.borrow().ident
+            },
+            _ => false,
+        }
+    }
 }
 
 // field-pattern during macro
@@ -79,9 +155,9 @@ pub enum Pat {
     UnknownVariant(String,UnknownVariantPat),
 
     // run-time
-    Tuple(Rc<Tuple>,Vec<Pat>),
-    Struct(Rc<Struct>,Vec<FieldPat>),
-    Variant(Rc<Enum>,VariantPat),
+    Tuple(Rc<RefCell<Tuple>>,Vec<Pat>),
+    Struct(Rc<RefCell<Struct>>,Vec<FieldPat>),
+    Variant(Rc<RefCell<Enum>>,VariantPat),
 }
 
 // variant-expression during run-time
@@ -171,16 +247,16 @@ pub enum Expr {
     UnknownTupleIndex(Box<Expr>,usize),
 
     // run-time
-    Param(Rc<Symbol>),
-    Local(Rc<Symbol>),
-    Const(Rc<Const>),
-    Tuple(Rc<Tuple>,Vec<Expr>),
-    Call(Rc<Function>,Vec<Expr>),
-    Struct(Rc<Struct>,Vec<Expr>),
-    Variant(Rc<Enum>,VariantExpr),
-    Method(Box<Expr>,Rc<Method>,Vec<Expr>),
-    Field(Rc<Struct>,Box<Expr>,usize),
-    TupleIndex(Rc<Tuple>,Box<Expr>,usize),
+    Param(Rc<RefCell<Symbol>>),
+    Local(Rc<RefCell<Symbol>>),
+    Const(Rc<RefCell<Const>>),
+    Tuple(Rc<RefCell<Tuple>>,Vec<Expr>),
+    Call(Rc<RefCell<Function>>,Vec<Expr>),
+    Struct(Rc<RefCell<Struct>>,Vec<Expr>),
+    Variant(Rc<RefCell<Enum>>,VariantExpr),
+    Method(Box<Expr>,Rc<RefCell<Method>>,Vec<Expr>),
+    Field(Rc<RefCell<Struct>>,Box<Expr>,usize),
+    TupleIndex(Rc<RefCell<Tuple>>,Box<Expr>,usize),
 }
 
 // statement
@@ -194,6 +270,7 @@ pub enum Stat {
     Local(Rc<Symbol>,Box<Expr>),
 }
 
+#[derive(Clone)]
 pub struct Symbol {
     pub ident: String,
     pub type_: Type,
@@ -209,7 +286,7 @@ pub struct Method {
 // fn ident ( ident: type, ..., ident: type, ) -> type { stat; ... stat; expr }
 pub struct Function {
     pub ident: String,
-    pub params: Vec<Symbol>,
+    pub params: Vec<Rc<RefCell<Symbol>>>,
     pub type_: Type,
     pub block: Block,
 }
@@ -243,10 +320,58 @@ pub enum Variant {
     Struct(String,Vec<Symbol>),  // ident { ident: type, ..., ident: type, }
 }
 
+impl Variant {
+    pub fn find_struct_element(&self,ident: &str) -> Option<usize> {
+        if let Variant::Struct(_,symbols) = self {
+            for i in 0..symbols.len() {
+                if symbols[i].ident == ident {
+                    return Some(i);
+                }
+            }
+        }
+        None
+    }
+}
+
 // enum { variant, ..., variant, }
 pub struct Enum {
     pub ident: String,
     pub variants: Vec<Variant>,
+}
+
+impl Enum {
+    pub fn find_naked_variant(&self,ident: &str) -> Option<usize> {
+        for i in 0..self.variants.len() {
+            if let Variant::Naked(variant_ident) = &self.variants[i] {
+                if ident == variant_ident {
+                    return Some(i);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn find_tuple_variant(&self,ident: &str) -> Option<usize> {
+        for i in 0..self.variants.len() {
+            if let Variant::Tuple(variant_ident,_) = &self.variants[i] {
+                if ident == variant_ident {
+                    return Some(i);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn find_struct_variant(&self,ident: &str) -> Option<usize> {
+        for i in 0..self.variants.len() {
+            if let Variant::Struct(variant_ident,_) = &self.variants[i] {
+                if ident == variant_ident {
+                    return Some(i);
+                }
+            }
+        }
+        None
+    }
 }
 
 // const ident: type = expr;
@@ -265,10 +390,10 @@ pub struct Alias {
 // mod ident { ... }
 pub struct Module {
     pub ident: String,
-    pub tuples: HashMap<String,Rc<Tuple>>,
-    pub structs: HashMap<String,Rc<Struct>>,
-    pub enums: HashMap<String,Rc<Enum>>,
-    pub aliases: HashMap<String,Rc<Alias>>,
-    pub consts: HashMap<String,Rc<Const>>,
-    pub functions: HashMap<String,Rc<Function>>,
+    pub tuples: HashMap<String,Rc<RefCell<Tuple>>>,
+    pub structs: HashMap<String,Rc<RefCell<Struct>>>,
+    pub enums: HashMap<String,Rc<RefCell<Enum>>>,
+    pub aliases: HashMap<String,Rc<RefCell<Alias>>>,
+    pub consts: HashMap<String,Rc<RefCell<Const>>>,
+    pub functions: HashMap<String,Rc<RefCell<Function>>>,
 }

@@ -3,6 +3,7 @@ use {
     std::{
         collections::HashMap,
         rc::Rc,
+        cell::RefCell,
     },
     std::fmt::{
         Display,
@@ -12,11 +13,13 @@ use {
 };
 
 pub struct StandardLib {
-    pub consts: HashMap<String,Rc<Const>>,
-    pub structs: HashMap<String,Rc<Struct>>,
-    pub enums: HashMap<String,Rc<Enum>>,
-    pub functions: HashMap<String,Vec<Rc<Function>>>,
-    pub methods: HashMap<String,Vec<Rc<Method>>>,
+    pub tuples: HashMap<String,Rc<RefCell<Tuple>>>,
+    pub structs: HashMap<String,Rc<RefCell<Struct>>>,
+    pub enums: HashMap<String,Rc<RefCell<Enum>>>,
+    pub aliases: HashMap<String,Rc<RefCell<Alias>>>,
+    pub consts: HashMap<String,Rc<RefCell<Const>>>,
+    pub functions: HashMap<String,Vec<Rc<RefCell<Function>>>>,
+    pub methods: HashMap<String,Vec<Rc<RefCell<Method>>>>,
 }
 
 impl StandardLib {
@@ -39,10 +42,10 @@ impl StandardLib {
         if r > 3 {
             fields.push(Symbol { ident: "w".to_string(),type_: comp_type.clone(), });
         }
-        let struct_ = Rc::new(Struct {
+        let struct_ = Rc::new(RefCell::new(Struct {
             ident: ident.clone(),
             fields,
-        });
+        }));
         self.structs.insert(ident,struct_);
     }
 
@@ -58,20 +61,20 @@ impl StandardLib {
         if c > 3 {
             fields.push(Symbol { ident: "w".to_string(),type_: Type::Struct(Rc::clone(&component)), });
         }
-        let struct_ = Rc::new(Struct {
+        let struct_ = Rc::new(RefCell::new(Struct {
             ident: ident.clone(),
             fields: fields,
-        });
+        }));
         self.structs.insert(ident,struct_);
     }
 
     fn insert_method(&mut self,from_type: &Type,ident: &str,params: Vec<Symbol>,type_: &Type) {
-        let method = Rc::new(Method {
+        let method = Rc::new(RefCell::new(Method {
             from_type: from_type.clone(),
             ident: ident.to_string(),
             params,
             type_: type_.clone(),
-        });
+        }));
         if self.methods.contains_key(ident) {
             self.methods.get_mut(ident).unwrap().push(method);
         }
@@ -83,9 +86,11 @@ impl StandardLib {
     pub fn new() -> StandardLib {
 
         let mut stdlib = StandardLib {
-            consts: HashMap::new(),
+            tuples: HashMap::new(),
             structs: HashMap::new(),
             enums: HashMap::new(),
+            aliases: HashMap::new(),
+            consts: HashMap::new(),
             functions: HashMap::new(),
             methods: HashMap::new(),
         };
@@ -393,22 +398,22 @@ impl StandardLib {
 impl Display for StandardLib {
     fn fmt(&self,f: &mut Formatter) -> Result {
         for ident in self.consts.keys() {
-            write!(f,"{}\n",self.consts[ident])?;
+            write!(f,"{}\n",self.consts[ident].borrow())?;
         }
         for ident in self.structs.keys() {
-            write!(f,"{}\n",self.structs[ident])?;
+            write!(f,"{}\n",self.structs[ident].borrow())?;
         }
         for ident in self.enums.keys() {
-            write!(f,"{}\n",self.enums[ident])?;
+            write!(f,"{}\n",self.enums[ident].borrow())?;
         }
         for ident in self.functions.keys() {
             for function in &self.functions[ident] {
-                write!(f,"{}\n",function)?;
+                write!(f,"{}\n",function.borrow())?;
             }
         }
         for ident in self.methods.keys() {
             for method in &self.methods[ident] {
-                write!(f,"{}\n",method)?;
+                write!(f,"{}\n",method.borrow())?;
             }
         }
         write!(f,"")

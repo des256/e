@@ -514,12 +514,14 @@ impl System {
         let mut vao: sys::GLuint = 0;
         let mut vbo: sys::GLuint = 0;
         let vertex_ast = T::ast();
-        let mut i = 0usize;
+        //let mut i = 0usize;
         let mut size = 0i32;
         for field in vertex_ast.fields.iter() {
-            match field.type_ {
+            match &field.type_ {
                 ast::Type::Inferred => panic!("vertex field type needs to be specified"),
                 ast::Type::Void => panic!("vertex field type cannot be ()"),
+                ast::Type::Integer => panic!("{}","vertex field type cannot be {integer}"),
+                ast::Type::Float => panic!("{}","vertex field type cannot be {float}"),
                 ast::Type::Bool => panic!("vertex field type cannot be bool"),
                 ast::Type::U8 |
                 ast::Type::I8 => size += 1,
@@ -536,7 +538,7 @@ impl System {
                 ast::Type::F64 => size += 4,
                 ast::Type::AnonTuple(_) => panic!("vertex field cannot be anonymous tuple"),
                 ast::Type::Array(_,_) => panic!("vertex field cannot be array"),
-                ast::Type::UnknownIdent(ident) => panic!("vertex field cannot be unknown identifier {}"),
+                ast::Type::UnknownIdent(ident) => panic!("vertex field cannot be unknown identifier {}",ident),
                 ast::Type::Tuple(_) => panic!("vertex field cannot be tuple"),  // TODO
                 ast::Type::Struct(_) => panic!("vertex field cannot be struct"),  // TODO
                 ast::Type::Enum(_) => panic!("vertex field cannot be enum"),  // TODO
@@ -544,14 +546,14 @@ impl System {
             }
         }
         println!("vertex size: {} bytes",size);
-        let mut offset = 0usize;
+        //let mut offset = 0usize;
         unsafe {
             sys::glGenVertexArrays(1,&mut vao);
             sys::glBindVertexArray(vao);
             sys::glGenBuffers(1,&mut vbo);
             sys::glBindBuffer(sys::GL_ARRAY_BUFFER,vbo);
             //sys::glBufferData(sys::GL_ARRAY_BUFFER,1,null_mut() as *const c_void,sys::GL_STATIC_DRAW);
-            for field in vertex_ast.fields.iter() {
+            for _field in vertex_ast.fields.iter() {
                 /*
                 if let sr::Type::Base(bt) = &field.type_ {
                     sys::glEnableVertexAttribArray(i as u32);

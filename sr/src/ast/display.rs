@@ -44,10 +44,10 @@ impl Display for Type {
             },
             Type::Array(type_,expr) => write!(f,"[{}; {}]",type_,expr),
             Type::UnknownIdent(ident) => write!(f,"{}",ident),
-            Type::Tuple(_) => write!(f,"TODO:Tuple"),
-            Type::Struct(_) => write!(f,"TODO:Struct"),
-            Type::Enum(_) => write!(f,"TODO:Enum"),
-            Type::Alias(_) => write!(f,"TODO:Alias"),
+            Type::Tuple(tuple) => write!(f,"{}",tuple.borrow().ident),
+            Type::Struct(struct_) => write!(f,"{}",struct_.borrow().ident),
+            Type::Enum(enum_) => write!(f,"{}",enum_.borrow().ident),
+            Type::Alias(alias) => write!(f,"{}",alias.borrow().ident),
         }
     }
 }
@@ -151,7 +151,7 @@ impl Display for Pat {
                 }
             },
             Pat::Tuple(tuple,pats) => {
-                write!(f,"{}(",tuple.ident)?;
+                write!(f,"{}(",tuple.borrow().ident)?;
                 let mut first = true;
                 for pat in pats.iter() {
                     if !first {
@@ -163,7 +163,7 @@ impl Display for Pat {
                 write!(f,")")
             },
             Pat::Struct(struct_,index_pats) => {
-                write!(f,"{} {{ ",struct_.ident)?;
+                write!(f,"{} {{ ",struct_.borrow().ident)?;
                 let mut first = true;
                 for indexpat in index_pats.iter() {
                     if !first {
@@ -172,8 +172,8 @@ impl Display for Pat {
                     match indexpat {
                         FieldPat::Wildcard => write!(f,"_")?,
                         FieldPat::Rest => write!(f,"..")?,
-                        FieldPat::Index(index) => write!(f,"{}",struct_.fields[*index].ident)?,
-                        FieldPat::IndexPat(index,pat) => write!(f,"{}: {}",struct_.fields[*index].ident,pat)?,
+                        FieldPat::Index(index) => write!(f,"{}",struct_.borrow().fields[*index].ident)?,
+                        FieldPat::IndexPat(index,pat) => write!(f,"{}: {}",struct_.borrow().fields[*index].ident,pat)?,
                     }
                     first = false;
                 }
@@ -263,8 +263,8 @@ impl Display for Expr {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
             Expr::Boolean(value) => write!(f,"{}",if *value { "true" } else { "false" }),
-            Expr::Integer(value) => write!(f,"{}",value),
-            Expr::Float(value) => write!(f,"{}",value),
+            Expr::Integer(value) => write!(f,"{}i64",value),
+            Expr::Float(value) => write!(f,"{}f64",value),
             Expr::Array(exprs) => {
                 write!(f,"[ ")?;
                 let mut first = true;
@@ -456,11 +456,11 @@ impl Display for Expr {
             },
             Expr::UnknownField(expr,ident) => write!(f,"{}.{}",expr,ident),
             Expr::UnknownTupleIndex(expr,index) => write!(f,"{}.{}",expr,index),
-            Expr::Param(param) => write!(f,"{}",param.ident),
-            Expr::Local(local) => write!(f,"{}",local.ident),
-            Expr::Const(const_) => write!(f,"{}",const_.ident),
+            Expr::Param(param) => write!(f,"{}",param.borrow().ident),
+            Expr::Local(local) => write!(f,"{}",local.borrow().ident),
+            Expr::Const(const_) => write!(f,"{}",const_.borrow().ident),
             Expr::Tuple(tuple,exprs) => {
-                write!(f,"{}(",tuple.ident)?;
+                write!(f,"{}(",tuple.borrow().ident)?;
                 let mut first = true;
                 for expr in exprs.iter() {
                     if !first {
@@ -472,7 +472,7 @@ impl Display for Expr {
                 write!(f,")")
             },
             Expr::Call(function,exprs) => {
-                write!(f,"{}(",function.ident)?;
+                write!(f,"{}(",function.borrow().ident)?;
                 let mut first = true;
                 for expr in exprs.iter() {
                     if !first {
@@ -484,27 +484,27 @@ impl Display for Expr {
                 write!(f,")")
             },
             Expr::Struct(struct_,exprs) => {
-                write!(f,"{} {{ ",struct_.ident)?;
+                write!(f,"{} {{ ",struct_.borrow().ident)?;
                 let mut first = true;
-                for i in 0..struct_.fields.len() {
+                for i in 0..struct_.borrow().fields.len() {
                     if !first {
                         write!(f,", ")?;
                     }
-                    write!(f,"{}: {}",struct_.fields[i],exprs[i])?;
+                    write!(f,"{}: {}",struct_.borrow().fields[i].ident,exprs[i])?;
                     first = false;
                 }
                 write!(f," }}")
             },
             Expr::Variant(enum_,variant) => {
-                write!(f,"{}::",enum_.ident)?;
+                write!(f,"{}::",enum_.borrow().ident)?;
                 match variant {
-                    VariantExpr::Naked(index) => if let Variant::Naked(ident) = &enum_.variants[*index] {
+                    VariantExpr::Naked(index) => if let Variant::Naked(ident) = &enum_.borrow().variants[*index] {
                         write!(f,"{}",ident)
                     }
                     else {
                         panic!("enum variant mismatch");
                     },
-                    VariantExpr::Tuple(index,exprs) => if let Variant::Tuple(ident,_) = &enum_.variants[*index] {
+                    VariantExpr::Tuple(index,exprs) => if let Variant::Tuple(ident,_) = &enum_.borrow().variants[*index] {
                         write!(f,"{}(",ident)?;
                         let mut first = true;
                         for expr in exprs.iter() {
@@ -519,14 +519,14 @@ impl Display for Expr {
                     else {
                         panic!("enum variant mismatch");
                     },
-                    VariantExpr::Struct(index,exprs) => if let Variant::Struct(ident,fields) = &enum_.variants[*index] {
+                    VariantExpr::Struct(index,elements) => if let Variant::Struct(ident,fields) = &enum_.borrow().variants[*index] {
                         write!(f,"{} {{ ",ident)?;
                         let mut first = true;
                         for i in 0..fields.len() {
                             if !first {
                                 write!(f,",")?;
                             }
-                            write!(f,"{}: {}",fields[i].ident,exprs[i])?;
+                            write!(f,"{}: {}",fields[i].ident,elements[i])?;
                             first = false;
                         }
                         write!(f," }}")
@@ -537,7 +537,7 @@ impl Display for Expr {
                 }
             },
             Expr::Method(expr,method,exprs) => {
-                write!(f,"{}.{}(",expr,method.ident)?;
+                write!(f,"{}.{}(",expr,method.borrow().ident)?;
                 let mut first = true;
                 for expr in exprs.iter() {
                     if !first {
@@ -548,7 +548,7 @@ impl Display for Expr {
                 }
                 write!(f,")")
             },
-            Expr::Field(struct_,expr,index) => write!(f,"{}.{}",expr,struct_.fields[*index].ident),
+            Expr::Field(struct_,expr,index) => write!(f,"{}.{}",expr,struct_.borrow().fields[*index].ident),
             Expr::TupleIndex(_,expr,index) => write!(f,"{}.{}",expr,index),
         }
     }
@@ -592,7 +592,7 @@ impl Display for Function {
             if !first {
                 write!(f,",")?;
             }
-            write!(f,"{}: {}",param.ident,param.type_)?;
+            write!(f,"{}: {}",param.borrow().ident,param.borrow().type_)?;
             first = false;
         }
         write!(f,")")?;
@@ -696,22 +696,22 @@ impl Display for Module {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"mod {} {{\n",self.ident)?;
         for ident in self.aliases.keys() {
-            write!(f,"{}\n",self.aliases[ident])?;
+            write!(f,"{}\n",self.aliases[ident].borrow())?;
         }
         for ident in self.tuples.keys() {
-            write!(f,"{}\n",self.tuples[ident])?;
+            write!(f,"{}\n",self.tuples[ident].borrow())?;
         }
         for ident in self.structs.keys() {
-            write!(f,"{}\n",self.structs[ident])?;
+            write!(f,"{}\n",self.structs[ident].borrow())?;
         }
         for ident in self.enums.keys() {
-            write!(f,"{}\n",self.enums[ident])?;
+            write!(f,"{}\n",self.enums[ident].borrow())?;
         }
         for ident in self.consts.keys() {
-            write!(f,"{}\n",self.consts[ident])?;
+            write!(f,"{}\n",self.consts[ident].borrow())?;
         }
         for ident in self.functions.keys() {
-            write!(f,"{}\n",self.functions[ident])?;
+            write!(f,"{}\n",self.functions[ident].borrow())?;
         }
         write!(f,"}}")
     }

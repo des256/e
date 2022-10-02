@@ -3,20 +3,20 @@ use {
     std::{
         rc::Rc,
         time::Instant,
-        collections::HashMap,
     },
     gpu_macros::*,
+    sr::*,
 };
 
 #[derive(Vertex)]
 struct MyVertex {
     pub pos: Vec2<f32>,
-    pub color: Color<f32>,
+    pub color: Vec4<f32>,
 }
 
 #[vertex_shader]
 mod my_vertex_shader {
-    fn main(vertex: MyVertex) -> (Vec4<f32>,Color<f32>) {
+    fn main(vertex: MyVertex) -> (Vec4<f32>,Vec4<f32>) {
         (
             Vec4::<f32> {
                 x: vertex.pos.x,
@@ -31,7 +31,7 @@ mod my_vertex_shader {
 
 #[fragment_shader]
 mod my_fragment_shader {
-    fn main(varying: Color<f32>) -> Color<f32> {
+    fn main(varying: Vec4<f32>) -> Vec4<f32> {
         varying
     }
 }
@@ -60,27 +60,6 @@ fn main() {
         }
     }
 
-    // create the vertices
-    let mut vertices = Vec::<MyVertex>::new();
-    vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: -0.5, }, color: Color::<f32>::from(0xFFFF0000), });
-    vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: -0.5, }, color: Color::<f32>::from(0xFF00FF00), });
-    vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: 0.5, }, color: Color::<f32>::from(0xFF0000FF), });
-    vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: 0.5, }, color: Color::<f32>::from(0xFFFFFF00), });
-    let vertex_buffer = system.create_vertex_buffer(&vertices).expect("unable to create vertex buffer");
-
-    // create the indices
-    let mut indices = Vec::<u32>::new();
-    indices.push(0);
-    indices.push(1);
-    indices.push(2);
-    indices.push(0);
-    indices.push(2);
-    indices.push(3);
-    let index_buffer = system.create_index_buffer(&indices).expect("unable to create index buffer");
-
-    // create pipeline layout
-    let pipeline_layout = system.create_pipeline_layout().expect("unable to create pipeline layout");
-
     // read vertex shader
     //let mut f = File::open("test_triangle_vert.spv").expect("unable to open vertex shader");
     //let mut code = Vec::<u8>::new();
@@ -100,6 +79,27 @@ fn main() {
 
     // create fragment shader
     let fragment_shader = system.create_fragment_shader(&code).expect("unable to create fragment shader");
+
+    // create the vertices
+    let mut vertices = Vec::<MyVertex>::new();
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: -0.5, }, color: Vec4::<f32>::new(1.0,0.0,0.0,1.0), });
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: -0.5, }, color: Vec4::<f32>::new(0.0,1.0,0.0,1.0), });
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: 0.5, }, color: Vec4::<f32>::new(0.0,0.0,1.0,1.0), });
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: 0.5, }, color: Vec4::<f32>::new(1.0,1.0,0.0,1.0), });
+    let vertex_buffer = system.create_vertex_buffer(&vertices).expect("unable to create vertex buffer");
+
+    // create the indices
+    let mut indices = Vec::<u32>::new();
+    indices.push(0);
+    indices.push(1);
+    indices.push(2);
+    indices.push(0);
+    indices.push(2);
+    indices.push(3);
+    let index_buffer = system.create_index_buffer(&indices).expect("unable to create index buffer");
+
+    // create pipeline layout
+    let pipeline_layout = system.create_pipeline_layout().expect("unable to create pipeline layout");
     
     // create graphics pipeline with this layout
     let graphics_pipeline = system.create_graphics_pipeline::<MyVertex>(
