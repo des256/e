@@ -1,3 +1,7 @@
+use {
+    sr::*,
+};
+
 mod findtype;
 pub use findtype::*;
 
