@@ -1,5 +1,5 @@
 use {
-    crate::*,
+    super::*,
 };
 
 use glsl::*;

@@ -30,7 +30,8 @@ impl Destructurer {
     }
 
     pub fn destructure_stat(&mut self,stat: Stat) -> Stat {
-        // TODO: pass down
+        // TODO: Let:
+        // TODO:     extract destructuring Local nodes
         stat
     }
 

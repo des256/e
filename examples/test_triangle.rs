@@ -29,6 +29,35 @@ mod my_vertex_shader {
     }
 }
 
+/*
+Detuplification turns this into:
+
+mod my_vertex_shader {
+
+    struct AnonTuple0 {
+        f0: Vec4<f32>,
+        f1: Vec4<f32>
+    }
+
+    struct MyVertex {
+        pos: Vec2<f32>,
+        color: Vec4<f32>
+    }
+
+    fn main(vertex: MyVertex) -> AnonTuple0 {
+        AnonTuple0 {
+            f0: Vec4<f32> {
+                x: vertex.pos.x,
+                y: vertex.pos.y,
+                z: 0f64,
+                w: 1f64
+            },
+            f1: vertex.color
+        }
+    }
+}
+*/
+
 #[fragment_shader]
 mod my_fragment_shader {
     fn main(varying: Vec4<f32>) -> Vec4<f32> {
