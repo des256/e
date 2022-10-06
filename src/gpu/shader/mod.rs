@@ -36,11 +36,11 @@ pub fn translate_module(module: ast::Module) -> ast::Module {
     // turn tuples and anonymous tuples into structs
     let mut detuplifier = Detuplifier::new();
     let module = detuplifier.detuplify_module(module);
-    panic!("after detuplification:\n{}",module);
 
     // destructure patterns into local variable declarations
-    //let mut destructurer = Destructurer::new();
-    //let module = destructurer.destructure_module(module);
+    let mut destructurer = Destructurer::new();
+    let module = destructurer.destructure_module(module);
+    panic!("after destructuring:\n{}",module);
 
     // turn enums into structs
     //let mut disenumifier = Disenumifier::new();

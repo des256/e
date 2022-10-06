@@ -212,6 +212,19 @@ impl FindType for Expr {
             Expr::Method(_,method,_) => method.borrow().type_.clone(),
             Expr::Field(struct_,_,index) => struct_.borrow().fields[*index].type_.clone(),
             Expr::TupleIndex(tuple,_,index) => tuple.borrow().types[*index].clone(),
+            Expr::Discriminant(_) => Type::USize,
+            Expr::Destructure(expr,variant_index,index) => {
+                if let Type::Enum(enum_) = expr.find_type() {
+                    match &enum_.borrow().variants[*variant_index] {
+                        Variant::Naked(_) => Type::Void,
+                        Variant::Tuple(_,types) => types[*index].clone(),
+                        Variant::Struct(_,fields) => fields[*index].type_.clone(),
+                    }
+                }
+                else {
+                    panic!("expression {} not an enum",expr);
+                }
+            },
         }
     }
 }

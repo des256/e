@@ -398,6 +398,14 @@ impl Detuplifier {
                 else {
                     panic!("ERROR: tuple {} cannot be found in tuple struct list",tuple.borrow().ident);
                 }
+            },
+            Expr::Discriminant(expr) => {
+                let new_expr = self.detuplify_expr(expr);
+                Expr::Discriminant(Box::new(new_expr))
+            },
+            Expr::Destructure(expr,variant_index,index) => {
+                let new_expr = self.detuplify_expr(expr);
+                Expr::Destructure(Box::new(new_expr),*variant_index,*index)
             }
         }
     }
@@ -479,6 +487,7 @@ impl Detuplifier {
             }
             self.tuple_structs.insert(tuple.borrow().ident.clone(),Rc::new(RefCell::new(Struct { ident: tuple.borrow().ident.clone(),fields, })));
         }
+        module.tuples.clear();
 
         for struct_ in module.structs.values() {
             let mut new_fields: Vec<Symbol> = Vec::new();

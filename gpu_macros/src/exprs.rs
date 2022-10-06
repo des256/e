@@ -547,7 +547,9 @@ impl Parser {
 
         // Match
         else if self.keyword("match") {
+
             let expr = self.expr();
+
             let mut arms: Vec<(Vec<ast::Pat>,Option<Box<ast::Expr>>,Box<ast::Expr>)> = Vec::new();
             if let Some(mut parser) = self.group('{') {
                 while !parser.done() {

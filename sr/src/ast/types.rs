@@ -257,6 +257,8 @@ pub enum Expr {
     Method(Box<Expr>,Rc<RefCell<Method>>,Vec<Expr>),
     Field(Rc<RefCell<Struct>>,Box<Expr>,usize),
     TupleIndex(Rc<RefCell<Tuple>>,Box<Expr>,usize),
+    Discriminant(Box<Expr>),
+    Destructure(Box<Expr>,usize,usize),
 }
 
 // statement
@@ -267,7 +269,7 @@ pub enum Stat {
     Expr(Box<Expr>),
 
     // run-time
-    Local(Rc<Symbol>,Box<Expr>),
+    Local(Rc<RefCell<Symbol>>,Box<Expr>),
 }
 
 #[derive(Clone)]

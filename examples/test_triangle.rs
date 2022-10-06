@@ -16,6 +16,59 @@ struct MyVertex {
 
 #[vertex_shader]
 mod my_vertex_shader {
+    // TEST SHADER ATTEMPTING TO USE ALL FEATURES
+    struct SomeTuple(u8,i8,f16);
+
+    type SomeAlias = SomeOtherAlias;
+
+    type SomeOtherAlias = f32;
+
+    const ORIGIN: Vec4<f16> = Vec4::<f16> { x: 0.0,y: 0.0,z: 0.0,w: 1.0, };
+    const MAYBES: Vec4<bool> = Vec4::<bool> { x: false,y: true,z: false,w: true, };
+
+    struct SomeStruct {
+        x: Vec4<f16>,
+        y: Vec4<bool>,
+    }
+
+    enum SomeEnum {
+        Euros(f64),
+        Dollars { coins: f64, },
+        OneGoldBar,
+        InfiniteBottleCaps,
+    }
+
+    struct JustTypes {
+        a: bool,
+        b: i64,
+        c: f64,
+        d: (u8,u8,u16),
+        e: [u8; 4],
+        f: SomeTuple,
+        g: SomeAlias,
+        h: SomeEnum,
+        i: SomeStruct,
+    }
+
+    /*
+    fn do_stuff_with_enum(param: SomeEnum) -> SomeStruct {
+        match param {
+            SomeEnum::Euros(value) => SomeStruct { x: ORIGIN, y: MAYBES, },
+            SomeEnum::Dollars { coins: c, } => SomeStruct { x: ORIGIN.normalize(),y: MAYBES, },
+            SomeEnum::OneGoldBar => SomeStruct { x: ORIGIN * 2,y: MAYBES.not(), },
+            SomeEnum::InfiniteBottleCaps => SomeStruct { x: ORIGIN,y: MAYBES, },
+        }
+    }
+    */
+
+    fn check_enum(param: SomeEnum) {
+        match (param) {
+            SomeEnum::OneGoldBar => { },
+            _ => { },
+        }
+        let y = ORIGIN.cos();
+    }
+
     fn main(vertex: MyVertex) -> (Vec4<f32>,Vec4<f32>) {
         (
             Vec4::<f32> {
@@ -30,33 +83,16 @@ mod my_vertex_shader {
 }
 
 /*
-Detuplification turns this into:
-
-mod my_vertex_shader {
-
-    struct AnonTuple0 {
-        f0: Vec4<f32>,
-        f1: Vec4<f32>
+fn check_enum(param: SomeEnum) {
+    let y = ORIGIN.cos() as _;
+    if discriminant(scrut) == 2i64 {
+        { }
     }
-
-    struct MyVertex {
-        pos: Vec2<f32>,
-        color: Vec4<f32>
-    }
-
-    fn main(vertex: MyVertex) -> AnonTuple0 {
-        AnonTuple0 {
-            f0: Vec4<f32> {
-                x: vertex.pos.x,
-                y: vertex.pos.y,
-                z: 0f64,
-                w: 1f64
-            },
-            f1: vertex.color
-        }
+    else {
+        scrut
     }
 }
-*/
+ */
 
 #[fragment_shader]
 mod my_fragment_shader {

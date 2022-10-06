@@ -70,7 +70,7 @@ impl Render for ast::Pat {
                 r
             },
             ast::Pat::Range(pat0,pat1) => format!("ast::Pat::Range({},{})",pat0.render(),pat1.render()),
-            ast::Pat::UnknownIdent(ident) => format!("ast::Pat::UnknownIdent(\"{}\".to_string()",ident),
+            ast::Pat::UnknownIdent(ident) => format!("ast::Pat::UnknownIdent(\"{}\".to_string())",ident),
             ast::Pat::UnknownTuple(ident,pats) => {
                 let mut r = format!("ast::Pat::UnknownTuple(\"{}\".to_string(),vec![",ident);
                 for pat in pats.iter() {
@@ -298,12 +298,12 @@ impl Render for ast::Expr {
                     }
                     r += "],";
                     if let Some(if_expr) = if_expr {
-                        r += &format!("Some({})",if_expr.render());
+                        r += &format!("Some(Box::new({}))",if_expr.render());
                     }
                     else {
                         r += "None";
                     }
-                    r += &format!(",{}),",expr.render());
+                    r += &format!(",Box::new({})),",expr.render());
                 }
                 r += "])";
                 r
@@ -368,7 +368,9 @@ impl Render for ast::Expr {
             ast::Expr::Field(_,_,_) |
             ast::Expr::TupleIndex(_,_,_) => {
                 panic!("unable to render Expr containing Rc reference");
-            }
+            },
+            ast::Expr::Discriminant(expr) => format!("ast::Expr::Discriminant(Box::new({}))",expr.render()),
+            ast::Expr::Destructure(expr,variant_index,index) => format!("ast::Expr::Destructure(Box::new({}),{},{})",expr.render(),variant_index,index),
         }
     }
 }
@@ -376,7 +378,7 @@ impl Render for ast::Expr {
 impl Render for ast::Stat {
     fn render(&self) -> String {
         match self {
-            ast::Stat::Let(pat,type_,expr) => format!("ast::Stat::Let({},{},{})",pat.render(),type_.render(),expr.render()),
+            ast::Stat::Let(pat,type_,expr) => format!("ast::Stat::Let(Box::new({}),Box::new({}),Box::new({}))",pat.render(),type_.render(),expr.render()),
             ast::Stat::Expr(expr) => format!("ast::Stat::Expr({})",expr.render()),
             ast::Stat::Local(_,_) => panic!("unable to render Stat containing Rc reference"),
         }
@@ -396,7 +398,7 @@ impl Render for ast::Struct {
 
 impl Render for ast::Tuple {
     fn render(&self) -> String {
-        let mut r = format!("ast::Tuple {{ ident: \"{}\".to_string(),vec![",self.ident);
+        let mut r = format!("ast::Tuple {{ ident: \"{}\".to_string(),types: vec![",self.ident);
         for type_ in self.types.iter() {
             r += &format!("{},",type_.render());
         }
@@ -421,7 +423,7 @@ impl Render for ast::Enum {
                 ast::Variant::Struct(ident,fields) => {
                     r += &format!("ast::Variant::Struct(\"{}\".to_string(),vec![",ident);
                     for field in fields.iter() {
-                        r += &format!("ast::Symbol {{ ident: \"{}\".to_string(),type_: {}, }},",field.ident,field.type_);
+                        r += &format!("ast::Symbol {{ ident: \"{}\".to_string(),type_: {}, }},",field.ident,field.type_.render());
                     }
                     r += "]),";
                 },
@@ -512,7 +514,7 @@ impl Render for ast::Module {
         if self.consts.len() > 0 {
             r += "let mut consts: HashMap<String,Rc<RefCell<ast::Const>>> = HashMap::new(); ";
             for const_ in self.consts.values() {
-                r += &format!("consts.insert(\"{}\",Rc::new(RefCell::new({}))); ",const_.borrow().ident,const_.borrow().render());
+                r += &format!("consts.insert(\"{}\".to_string(),Rc::new(RefCell::new({}))); ",const_.borrow().ident,const_.borrow().render());
             }
         }
         else {

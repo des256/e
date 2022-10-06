@@ -550,6 +550,8 @@ impl Display for Expr {
             },
             Expr::Field(struct_,expr,index) => write!(f,"{}.{}",expr,struct_.borrow().fields[*index].ident),
             Expr::TupleIndex(_,expr,index) => write!(f,"{}.{}",expr,index),
+            Expr::Discriminant(expr) => write!(f,"discriminant({})",expr),
+            Expr::Destructure(expr,variant_index,index) => write!(f,"{}::{}.{}",expr,variant_index,index),
         }
     }
 }
@@ -559,7 +561,7 @@ impl Display for Stat {
         match self {
             Stat::Expr(expr) => write!(f,"{};",expr),
             Stat::Let(pat,type_,expr) => write!(f,"let {}: {} = {};",pat,type_,expr),
-            Stat::Local(local,expr) => write!(f,"let {} = {};",local.ident,expr),
+            Stat::Local(local,expr) => write!(f,"let {} = {};",local.borrow().ident,expr),
         }
     }
 }

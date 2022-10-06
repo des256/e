@@ -721,6 +721,10 @@ impl SymbolResolver {
             Expr::Field(struct_,expr,index) => Expr::Field(struct_,Box::new(self.resolve_expr(*expr)),index),
 
             Expr::TupleIndex(tuple,expr,index) => Expr::TupleIndex(tuple,Box::new(self.resolve_expr(*expr)),index),
+
+            Expr::Discriminant(expr) => Expr::Discriminant(Box::new(self.resolve_expr(*expr))),
+
+            Expr::Destructure(expr,variant_index,index) => Expr::Destructure(Box::new(self.resolve_expr(*expr)),variant_index,index),
         }
     }
 
