@@ -50,7 +50,6 @@ mod my_vertex_shader {
         i: SomeStruct,
     }
 
-    /*
     fn do_stuff_with_enum(param: SomeEnum) -> SomeStruct {
         match param {
             SomeEnum::Euros(value) => SomeStruct { x: ORIGIN, y: MAYBES, },
@@ -59,10 +58,9 @@ mod my_vertex_shader {
             SomeEnum::InfiniteBottleCaps => SomeStruct { x: ORIGIN,y: MAYBES, },
         }
     }
-    */
 
     fn check_enum(param: SomeEnum) {
-        match (param) {
+        match param {
             SomeEnum::OneGoldBar => { },
             _ => { },
         }

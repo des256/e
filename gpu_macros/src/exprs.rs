@@ -72,7 +72,12 @@ impl Parser {
 
         // AnonTuple
         else if let Some(exprs) = self.paren_exprs() {
-            ast::Expr::AnonTuple(exprs)
+            if exprs.len() == 1 {
+                exprs[0].clone()
+            }
+            else {
+                ast::Expr::AnonTuple(exprs)
+            }
         }
 
         // Array, Cloned
@@ -445,6 +450,373 @@ impl Parser {
         }
     }
 
+    // expr { arms }
+    // ident { fields } { arms }
+    pub(crate) fn match_expr(&mut self) -> (ast::Expr,Vec<(Vec<ast::Pat>,Option<Box<ast::Expr>>,Box<ast::Expr>)>) {
+
+        // start with an identifier
+        if let Some(ident) = self.ident() {
+
+            // ident followed by a {
+            if let Some(mut parser) = self.group('{') {
+                
+                // ident { followed by ident
+                if let Some(sub_ident) = parser.ident() {
+
+                    // ident { sub_ident followed by :
+                    if parser.punct(':') {
+                        if parser.punct(':') {
+                            // this is some variant pattern already in a match arm
+                            let variant_ident = parser.ident().expect("identifier expected");
+                            let match_expr = ast::Expr::UnknownIdent(ident);
+                            let mut pat = if let Some(ident_pats) = parser.brace_ident_pats() {
+                                ast::Pat::UnknownVariant(sub_ident,ast::UnknownVariantPat::Struct(variant_ident,ident_pats))
+                            }
+                            else if let Some(pats) = parser.paren_pats() {
+                                ast::Pat::UnknownVariant(sub_ident,ast::UnknownVariantPat::Tuple(variant_ident,pats))
+                            }
+                            else {
+                                ast::Pat::UnknownVariant(sub_ident,ast::UnknownVariantPat::Naked(variant_ident))
+                            };
+                            if parser.punct3('.','.','=') {
+                                pat = ast::Pat::Range(Box::new(pat),Box::new(parser.pat()))
+                            }                
+                            let mut pats: Vec<ast::Pat> = Vec::new();
+                            pats.push(pat);
+                            while parser.punct('|') {
+                                pats.push(parser.ranged_pat());
+                            }
+                            let mut arms: Vec<(Vec<ast::Pat>,Option<Box<ast::Expr>>,Box<ast::Expr>)> = Vec::new();
+                            let if_expr = if parser.keyword("if") {
+                                Some(Box::new(parser.expr()))
+                            }
+                            else {
+                                None
+                            };
+                            parser.punct2('=','>');
+                            let expr = parser.expr();
+                            parser.punct(',');
+                            arms.push((pats,if_expr,Box::new(expr)));
+                            while !parser.done() {
+                                let pats = parser.or_pats();
+                                let if_expr = if parser.keyword("if") {
+                                    Some(Box::new(parser.expr()))
+                                }
+                                else {
+                                    None
+                                };
+                                parser.punct2('=','>');
+                                let expr = parser.expr();
+                                parser.punct(',');
+                                arms.push((pats,if_expr,Box::new(expr)));
+                            }
+                            (match_expr,arms)    
+                        }
+                        else {
+                            // this is an UnknownStruct as match expression, followed by the match arms
+                            let mut ident_exprs: Vec<(String,ast::Expr)> = Vec::new();
+                            let expr = parser.expr();
+                            ident_exprs.push((sub_ident,expr));
+                            parser.punct(',');
+                            while !parser.done() {
+                                let ident = parser.ident().expect("identifier expected");
+                                if !parser.punct(':') {
+                                    panic!(": expected");
+                                }
+                                let expr = parser.expr();
+                                ident_exprs.push((ident,expr));
+                            }
+                            let match_expr = ast::Expr::UnknownStruct(ident,ident_exprs);
+                            let mut arms: Vec<(Vec<ast::Pat>,Option<Box<ast::Expr>>,Box<ast::Expr>)> = Vec::new();
+                            if let Some(mut parser) = self.group('{') {
+                                while !parser.done() {
+                                    let pats = parser.or_pats();
+                                    let if_expr = if parser.keyword("if") {
+                                        Some(Box::new(parser.expr()))
+                                    }
+                                    else {
+                                        None
+                                    };
+                                    parser.punct2('=','>');
+                                    let expr = parser.expr();
+                                    parser.punct(',');
+                                    arms.push((pats,if_expr,Box::new(expr)));
+                                }
+                            }
+                            (match_expr,arms)
+                        }
+                    }
+
+                    // ident { sub_ident not followed by : treated as a regular match arm
+                    else {
+                        let match_expr = ast::Expr::UnknownIdent(ident);
+                        let mut pat = if let Some(ident_pats) = parser.brace_ident_pats() {
+                            ast::Pat::UnknownStruct(sub_ident,ident_pats)
+                        }
+                        else if let Some(pats) = parser.paren_pats() {
+                            ast::Pat::UnknownTuple(sub_ident,pats)
+                        }
+                        else if parser.punct2(':',':') {
+                            let variant_ident = parser.ident().expect("identifier expected");
+                            if let Some(ident_pats) = parser.brace_ident_pats() {
+                                ast::Pat::UnknownVariant(sub_ident,ast::UnknownVariantPat::Struct(variant_ident,ident_pats))
+                            }
+                            else if let Some(pats) = parser.paren_pats() {
+                                ast::Pat::UnknownVariant(sub_ident,ast::UnknownVariantPat::Tuple(variant_ident,pats))
+                            }
+                            else {
+                                ast::Pat::UnknownVariant(sub_ident,ast::UnknownVariantPat::Naked(variant_ident))
+                            }
+                        }
+                        else {
+                            ast::Pat::UnknownIdent(sub_ident)
+                        };
+                        if parser.punct3('.','.','=') {
+                            pat = ast::Pat::Range(Box::new(pat),Box::new(parser.pat()))
+                        }                
+                        let mut pats: Vec<ast::Pat> = Vec::new();
+                        pats.push(pat);
+                        while parser.punct('|') {
+                            pats.push(parser.ranged_pat());
+                        }
+                        let mut arms: Vec<(Vec<ast::Pat>,Option<Box<ast::Expr>>,Box<ast::Expr>)> = Vec::new();
+                        let if_expr = if parser.keyword("if") {
+                            Some(Box::new(parser.expr()))
+                        }
+                        else {
+                            None
+                        };
+                        parser.punct2('=','>');
+                        let expr = parser.expr();
+                        parser.punct(',');
+                        arms.push((pats,if_expr,Box::new(expr)));
+                        while !parser.done() {
+                            let pats = parser.or_pats();
+                            let if_expr = if parser.keyword("if") {
+                                Some(Box::new(parser.expr()))
+                            }
+                            else {
+                                None
+                            };
+                            parser.punct2('=','>');
+                            let expr = parser.expr();
+                            parser.punct(',');
+                            arms.push((pats,if_expr,Box::new(expr)));
+                        }
+                        (match_expr,arms)
+                    }
+                }
+
+                // ident { not followed by ident, treat as regular match arm
+                else {
+                    let match_expr = ast::Expr::UnknownIdent(ident);
+                    let mut arms: Vec<(Vec<ast::Pat>,Option<Box<ast::Expr>>,Box<ast::Expr>)> = Vec::new();
+                    while !parser.done() {
+                        let pats = parser.or_pats();
+                        let if_expr = if parser.keyword("if") {
+                            Some(Box::new(parser.expr()))
+                        }
+                        else {
+                            None
+                        };
+                        parser.punct2('=','>');
+                        let expr = parser.expr();
+                        parser.punct(',');
+                        arms.push((pats,if_expr,Box::new(expr)));
+                    }                    
+                    (match_expr,arms)
+                }
+            }
+
+            // ident not followed by a {, so treated as regular expression for match statement
+            else {
+                let mut match_expr = if let Some(exprs) = self.paren_exprs() {
+                    ast::Expr::UnknownTupleOrCall(ident,exprs)
+                }
+                else if self.punct2(':',':') {
+                    if self.punct('<') {
+                        let element_type = self.ident().expect("identifier expected");
+                        self.punct('>');
+                        let ident = format!("{}<{}>",ident,element_type);
+                        if let Some(ident_exprs) = self.brace_ident_exprs() {
+                            ast::Expr::UnknownStruct(ident,ident_exprs)
+                        }
+                        else {
+                            self.fatal(&format!("struct literal expected after {}",ident));
+                        }
+                    }
+                    else {
+                        let variant = self.ident().expect("identifier expected");
+                        if let Some(ident_exprs) = self.brace_ident_exprs() {
+                            ast::Expr::UnknownVariant(ident,ast::UnknownVariantExpr::Struct(variant,ident_exprs))
+                        }
+                        else if let Some(exprs) = self.paren_exprs() {
+                            ast::Expr::UnknownVariant(ident,ast::UnknownVariantExpr::Tuple(variant,exprs))
+                        }
+                        else {
+                            ast::Expr::UnknownVariant(ident,ast::UnknownVariantExpr::Naked(variant))
+                        }
+                    }
+                }
+                else {
+                    ast::Expr::UnknownIdent(ident)
+                };
+                loop {
+                    if self.punct('*') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Mul,Box::new(self.prefix_expr()));
+                    }
+                    else if self.punct('/') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Div,Box::new(self.prefix_expr()));
+                    }
+                    else if self.punct('%') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Mod,Box::new(self.prefix_expr()));
+                    }
+                    else {
+                        break;
+                    }
+                }        
+                loop {
+                    if self.punct('+') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Add,Box::new(self.mul_expr()));
+                    }
+                    else if self.punct('-') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Sub,Box::new(self.mul_expr()));
+                    }
+                    else {
+                        break;
+                    }
+                }
+                loop {
+                    if self.punct2('<','<') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Shl,Box::new(self.add_expr()));
+                    }
+                    else if self.punct2('>','>') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Shr,Box::new(self.add_expr()));
+                    }       
+                    else {
+                        break;
+                    }
+                }
+                while self.punct('&') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::And,Box::new(self.shift_expr()));
+                }
+                while self.punct('|') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Or,Box::new(self.and_expr()));
+                }
+                while self.punct('^') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Xor,Box::new(self.or_expr()));
+                }
+                loop {
+                    if self.punct2('=','=') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Eq,Box::new(self.xor_expr()));
+                    }
+                    if self.punct2('!','=') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::NotEq,Box::new(self.xor_expr()));
+                    }
+                    if self.punct('<') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Less,Box::new(self.xor_expr()));
+                    }
+                    if self.punct('>') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Greater,Box::new(self.xor_expr()));
+                    }
+                    if self.punct2('<','=') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::LessEq,Box::new(self.xor_expr()));
+                    }
+                    if self.punct2('>','=') {
+                        match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::GreaterEq,Box::new(self.xor_expr()));
+                    }      
+                    else {
+                        break;
+                    }
+                }
+                while self.punct2('&','&') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::LogAnd,Box::new(self.comp_expr()));
+                }
+                while self.punct2('|','|') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::LogOr,Box::new(self.logand_expr()));
+                }
+                if self.punct('=') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::Assign,Box::new(self.logor_expr()))
+                }
+                else if self.punct2('+','=') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::AddAssign,Box::new(self.logor_expr()))
+                }
+                else if self.punct2('-','=') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::SubAssign,Box::new(self.logor_expr()))
+                }
+                else if self.punct2('*','=') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::MulAssign,Box::new(self.logor_expr()))
+                }
+                else if self.punct2('/','=') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::DivAssign,Box::new(self.logor_expr()))
+                }
+                else if self.punct2('%','=') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::ModAssign,Box::new(self.logor_expr()))
+                }
+                else if self.punct2('&','=') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::AndAssign,Box::new(self.logor_expr()))
+                }
+                else if self.punct2('|','=') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::OrAssign,Box::new(self.logor_expr()))
+                }
+                else if self.punct2('^','=') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::XorAssign,Box::new(self.logor_expr()))
+                }
+                else if self.punct3('<','<','=') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::ShlAssign,Box::new(self.logor_expr()))
+                }
+                else if self.punct3('>','>','=') {
+                    match_expr = ast::Expr::Binary(Box::new(match_expr),ast::BinaryOp::ShrAssign,Box::new(self.logor_expr()))
+                }
+                let mut arms: Vec<(Vec<ast::Pat>,Option<Box<ast::Expr>>,Box<ast::Expr>)> = Vec::new();
+                if let Some(mut parser) = self.group('{') {
+                    while !parser.done() {
+                        let pats = parser.or_pats();
+                        let if_expr = if parser.keyword("if") {
+                            Some(Box::new(parser.expr()))
+                        }
+                        else {
+                            None
+                        };
+                        parser.punct2('=','>');
+                        let expr = parser.expr();
+                        parser.punct(',');
+                        arms.push((pats,if_expr,Box::new(expr)));
+                    }
+                }
+                else {
+                    panic!("{}","{ expected");
+                }
+                (match_expr,arms)   
+            }
+        }
+
+        // not an identifier, treat as normal match expression
+        else {
+            let match_expr = self.expr();
+            let mut arms: Vec<(Vec<ast::Pat>,Option<Box<ast::Expr>>,Box<ast::Expr>)> = Vec::new();
+            if let Some(mut parser) = self.group('{') {
+                while !parser.done() {
+                    let pats = parser.or_pats();
+                    let if_expr = if parser.keyword("if") {
+                        Some(Box::new(parser.expr()))
+                    }
+                    else {
+                        None
+                    };
+                    parser.punct2('=','>');
+                    let expr = parser.expr();
+                    parser.punct(',');
+                    arms.push((pats,if_expr,Box::new(expr)));
+                }
+            }
+            else {
+                panic!("{}","{ expected");
+            }
+            (match_expr,arms)
+        }
+    }
+
     // Continue, Break, Return, Block, If, IfLet, Loop, For, While, WhileLet, Match, *Assign
     pub(crate) fn expr(&mut self) -> ast::Expr {
 
@@ -548,27 +920,8 @@ impl Parser {
         // Match
         else if self.keyword("match") {
 
-            let expr = self.expr();
+            let (expr,arms) = self.match_expr();
 
-            let mut arms: Vec<(Vec<ast::Pat>,Option<Box<ast::Expr>>,Box<ast::Expr>)> = Vec::new();
-            if let Some(mut parser) = self.group('{') {
-                while !parser.done() {
-                    let pats = parser.or_pats();
-                    let if_expr = if parser.keyword("if") {
-                        Some(Box::new(parser.expr()))
-                    }
-                    else {
-                        None
-                    };
-                    parser.punct2('=','>');
-                    let expr = parser.expr();
-                    parser.punct(',');
-                    arms.push((pats,if_expr,Box::new(expr)));
-                }
-            }
-            else {
-                panic!("{}","{ expected");
-            }
             ast::Expr::Match(Box::new(expr),arms)
         }
 

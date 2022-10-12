@@ -97,14 +97,14 @@ impl Render for ast::Pat {
                 match variant {
                     ast::UnknownVariantPat::Naked(ident) => r += &format!("ast::UnknownVariantPat::Naked(\"{}\".to_string())",ident),
                     ast::UnknownVariantPat::Tuple(ident,pats) => {
-                        r += &format!("ast::UnknownPatVariant::Tuple(\"{}\".to_string(),vec![",ident);
+                        r += &format!("ast::UnknownVariantPat::Tuple(\"{}\".to_string(),vec![",ident);
                         for pat in pats.iter() {
                             r += &format!("{},",pat.render());
                         }
                         r += "])";
                     },
                     ast::UnknownVariantPat::Struct(ident,identpats) => {
-                        r += &format!("ast::UnknownPatVariant::Struct(\"{}\".to_string(),vec![",ident);
+                        r += &format!("ast::UnknownVariantPat::Struct(\"{}\".to_string(),vec![",ident);
                         for identpat in identpats.iter() {
                             match identpat {
                                 ast::UnknownFieldPat::Wildcard => r += "ast::UnknownFieldPat::Wildcard,",
