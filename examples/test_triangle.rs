@@ -51,12 +51,16 @@ mod my_vertex_shader {
     }
 
     fn do_stuff_with_enum(param: SomeEnum) -> SomeStruct {
-        match param {
+        let result = match param {
             SomeEnum::Euros(value) => SomeStruct { x: ORIGIN, y: MAYBES, },
             SomeEnum::Dollars { coins: c, } => SomeStruct { x: ORIGIN.normalize(),y: MAYBES, },
             SomeEnum::OneGoldBar => SomeStruct { x: ORIGIN * 2,y: MAYBES.not(), },
             SomeEnum::InfiniteBottleCaps => SomeStruct { x: ORIGIN,y: MAYBES, },
+        };
+        if result.y.x {
+            result.y.x = false;
         }
+        result
     }
 
     fn check_enum(param: SomeEnum) {
@@ -79,18 +83,6 @@ mod my_vertex_shader {
         )
     }
 }
-
-/*
-fn check_enum(param: SomeEnum) {
-    let y = ORIGIN.cos() as _;
-    if discriminant(scrut) == 2i64 {
-        { }
-    }
-    else {
-        scrut
-    }
-}
- */
 
 #[fragment_shader]
 mod my_fragment_shader {

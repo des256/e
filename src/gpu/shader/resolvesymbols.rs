@@ -747,9 +747,13 @@ impl SymbolResolver {
 
             // let statement: resolve pattern, type and expression
             Stat::Let(pat,type_,expr) => {
+                println!("Stat::Let({},{},{})",pat,type_,expr);
                 let new_pat = self.resolve_pat(*pat);
+                println!("new pattern = {}",new_pat);
                 let new_type = self.resolve_type(*type_);
+                println!("new type = {}",new_type);
                 let new_expr = self.resolve_expr(*expr);
+                println!("new expr = {}",new_expr);
                 Stat::Let(Box::new(new_pat),Box::new(new_type),Box::new(new_expr))
             },
 
