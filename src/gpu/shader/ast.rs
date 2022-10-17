@@ -2,15 +2,12 @@ use {
     std::{
         collections::HashMap,
         rc::Rc,
-        cell::RefCell,
         cmp::PartialEq,
     },
 };
 
-// type
 #[derive(Clone)]
 pub enum Type {
-    // during macro
     Inferred,
     Void,
     Integer,
@@ -20,13 +17,11 @@ pub enum Type {
     F16,F32,F64,
     AnonTuple(Vec<Type>),
     Array(Box<Type>,Box<Expr>),
-    UnknownIdent(String),  // resolves to Tuple, Struct, Enum or Alias
-
-    // during run-time
-    Tuple(Rc<RefCell<Tuple>>),
-    Struct(Rc<RefCell<Struct>>),
-    Enum(Rc<RefCell<Enum>>),
-    Alias(Rc<RefCell<Alias>>),
+    UnknownIdent(String),
+    Tuple(String),
+    Struct(String),
+    Enum(String),
+    Alias(String),
 }
 
 impl PartialEq for Type {
@@ -87,57 +82,37 @@ impl PartialEq for Type {
                 ident == other_ident
             },
             (Type::Tuple(tuple),Type::Tuple(other_tuple)) => {
-                tuple.borrow().ident == other_tuple.borrow().ident
+                tuple == other_tuple
             },
             (Type::Struct(struct_),Type::Struct(other_struct)) => {
-                struct_.borrow().ident == other_struct.borrow().ident
+                struct_ == other_struct
             },
             (Type::Enum(enum_),Type::Enum(other_enum)) => {
-                enum_.borrow().ident == other_enum.borrow().ident
+                enum_ == other_enum
             },
             (Type::Alias(alias),Type::Alias(other_alias)) => {
-                alias.borrow().ident == other_alias.borrow().ident
+                alias == other_alias
             },
             _ => false,
         }
     }
 }
 
-// field-pattern during macro
 #[derive(Clone)]
-pub enum UnknownFieldPat {
+pub enum FieldPat {
     Wildcard,
     Rest,
     Ident(String),
     IdentPat(String,Pat),
 }
 
-// variant-pattern during macro
-#[derive(Clone)]
-pub enum UnknownVariantPat {
-    Naked(String),
-    Tuple(String,Vec<Pat>),
-    Struct(String,Vec<UnknownFieldPat>),
-}
-
-// field-pattern during run-time
-#[derive(Clone)]
-pub enum FieldPat {
-    Wildcard,
-    Rest,
-    Index(usize),
-    IndexPat(usize,Pat),
-}
-
-// variant-pattern during run-time
 #[derive(Clone)]
 pub enum VariantPat {
-    Naked(usize),
-    Tuple(usize,Vec<Pat>),
-    Struct(usize,Vec<FieldPat>),
+    Naked(String),
+    Tuple(String,Vec<Pat>),
+    Struct(String,Vec<FieldPat>),
 }
 
-// pattern
 #[derive(Clone)]
 pub enum Pat {
     // macro
@@ -150,47 +125,30 @@ pub enum Pat {
     Array(Vec<Pat>),
     Range(Box<Pat>,Box<Pat>),
     UnknownIdent(String),
-    UnknownTuple(String,Vec<Pat>),
-    UnknownStruct(String,Vec<UnknownFieldPat>),
-    UnknownVariant(String,UnknownVariantPat),
-
-    // run-time
-    Tuple(Rc<RefCell<Tuple>>,Vec<Pat>),
-    Struct(Rc<RefCell<Struct>>,Vec<FieldPat>),
-    Variant(Rc<RefCell<Enum>>,VariantPat),
+    Tuple(String,Vec<Pat>),
+    Struct(String,Vec<FieldPat>),
+    Variant(String,VariantPat),
 }
 
-// variant-expression during run-time
 #[derive(Clone)]
 pub enum VariantExpr {
-    Naked(usize),
-    Tuple(usize,Vec<Expr>),
-    Struct(usize,Vec<Expr>),
-}
-
-// variant-expression during macro
-#[derive(Clone)]
-pub enum UnknownVariantExpr {
     Naked(String),
     Tuple(String,Vec<Expr>),
     Struct(String,Vec<(String,Expr)>),
 }
 
-// block
 #[derive(Clone)]
 pub struct Block {
     pub stats: Vec<Stat>,
     pub expr: Option<Box<Expr>>,
 }
 
-// unary operator
 #[derive(Clone)]
 pub enum UnaryOp {
     Neg,
     Not,
 }
 
-// binary operator
 #[derive(Clone)]
 pub enum BinaryOp {
     Mul,Div,Mod,Add,Sub,
@@ -201,7 +159,6 @@ pub enum BinaryOp {
     AndAssign,OrAssign,XorAssign,ShlAssign,ShrAssign,
 }
 
-// for-range
 #[derive(Clone)]
 pub enum Range {
     Only(Box<Expr>),
@@ -213,7 +170,6 @@ pub enum Range {
     All,
 }
 
-// expression
 #[derive(Clone)]
 pub enum Expr {
     // macro
@@ -239,37 +195,26 @@ pub enum Expr {
     WhileLet(Vec<Pat>,Box<Expr>,Block),
     Match(Box<Expr>,Vec<(Vec<Pat>,Option<Box<Expr>>,Box<Expr>)>),
     UnknownIdent(String),
-    UnknownTupleOrCall(String,Vec<Expr>),
-    UnknownStruct(String,Vec<(String,Expr)>),
-    UnknownVariant(String,UnknownVariantExpr),
-    UnknownMethod(Box<Expr>,String,Vec<Expr>),
-    UnknownField(Box<Expr>,String),
-    UnknownTupleIndex(Box<Expr>,usize),
-
-    // run-time
-    Param(Rc<RefCell<Symbol>>),
-    Local(Rc<RefCell<Symbol>>),
-    Const(Rc<RefCell<Const>>),
-    Tuple(Rc<RefCell<Tuple>>,Vec<Expr>),
-    Call(Rc<RefCell<Function>>,Vec<Expr>),
-    Struct(Rc<RefCell<Struct>>,Vec<Expr>),
-    Variant(Rc<RefCell<Enum>>,VariantExpr),
-    Method(Box<Expr>,Rc<RefCell<Method>>,Vec<Expr>),
-    Field(Rc<RefCell<Struct>>,Box<Expr>,usize),
-    TupleIndex(Rc<RefCell<Tuple>>,Box<Expr>,usize),
+    TupleOrCall(String,Vec<Expr>),
+    Struct(String,Vec<(String,Expr)>),
+    Variant(String,VariantExpr),
+    Method(Box<Expr>,String,Vec<Expr>),
+    Field(Box<Expr>,String),
+    TupleIndex(Box<Expr>,usize),
+    Param(Rc<Symbol>),
+    Local(Rc<Symbol>),
+    Const(Rc<Const>),
+    Tuple(String,Vec<Expr>),
+    Call(String,Vec<Expr>),
     Discriminant(Box<Expr>),
     Destructure(Box<Expr>,usize,usize),
 }
 
-// statement
 #[derive(Clone)]
 pub enum Stat {
-    // macro
     Let(Box<Pat>,Box<Type>,Box<Expr>),
     Expr(Box<Expr>),
-
-    // run-time
-    Local(Rc<RefCell<Symbol>>,Box<Expr>),
+    Local(String,Box<Type>,Box<Expr>),
 }
 
 #[derive(Clone)]
@@ -278,6 +223,7 @@ pub struct Symbol {
     pub type_: Type,
 }
 
+#[derive(Clone)]
 pub struct Method {
     pub from_type: Type,
     pub ident: String,
@@ -285,21 +231,21 @@ pub struct Method {
     pub type_: Type,
 }
 
-// fn ident ( ident: type, ..., ident: type, ) -> type { stat; ... stat; expr }
+#[derive(Clone)]
 pub struct Function {
     pub ident: String,
-    pub params: Vec<Rc<RefCell<Symbol>>>,
+    pub params: Vec<Rc<Symbol>>,
     pub type_: Type,
     pub block: Block,
 }
 
-// struct ident ( type, ..., type, )
+#[derive(Clone)]
 pub struct Tuple {
     pub ident: String,
     pub types: Vec<Type>,
 }
 
-// struct ident { ident: type, ..., ident: type, }
+#[derive(Clone)]
 pub struct Struct {
     pub ident: String,
     pub fields: Vec<Symbol>,
@@ -316,10 +262,11 @@ impl Struct {
     }
 }
 
+#[derive(Clone)]
 pub enum Variant {
-    Naked(String),  // ident
-    Tuple(String,Vec<Type>),  // ident ( type, ..., type, )
-    Struct(String,Vec<Symbol>),  // ident { ident: type, ..., ident: type, }
+    Naked(String),
+    Tuple(String,Vec<Type>),
+    Struct(String,Vec<Symbol>),
 }
 
 impl Variant {
@@ -335,7 +282,7 @@ impl Variant {
     }
 }
 
-// enum { variant, ..., variant, }
+#[derive(Clone)]
 pub struct Enum {
     pub ident: String,
     pub variants: Vec<Variant>,
@@ -376,26 +323,38 @@ impl Enum {
     }
 }
 
-// const ident: type = expr;
+#[derive(Clone)]
 pub struct Const {
     pub ident: String,
     pub type_: Type,
     pub expr: Expr,
 }
 
-// type ident = type;
+#[derive(Clone)]
 pub struct Alias {
     pub ident: String,
     pub type_: Type,
 }
 
-// mod ident { ... }
+#[derive(Clone)]
 pub struct Module {
     pub ident: String,
-    pub tuples: HashMap<String,Rc<RefCell<Tuple>>>,
-    pub structs: HashMap<String,Rc<RefCell<Struct>>>,
-    pub enums: HashMap<String,Rc<RefCell<Enum>>>,
-    pub aliases: HashMap<String,Rc<RefCell<Alias>>>,
-    pub consts: HashMap<String,Rc<RefCell<Const>>>,
-    pub functions: HashMap<String,Rc<RefCell<Function>>>,
+    pub tuples: HashMap<String,Tuple>,
+    pub structs: HashMap<String,Struct>,
+    pub enums: HashMap<String,Enum>,
+    pub aliases: HashMap<String,Alias>,
+    pub consts: HashMap<String,Const>,
+    pub functions: HashMap<String,Function>,
+}
+
+#[derive(Clone)]
+pub struct Source {
+    pub ident: String,
+    pub tuples: Vec<Tuple>,
+    pub structs: Vec<Struct>,
+    pub extern_structs: Vec<Struct>,
+    pub enums: Vec<Enum>,
+    pub aliases: Vec<Alias>,
+    pub consts: Vec<Const>,
+    pub functions: Vec<Function>,
 }

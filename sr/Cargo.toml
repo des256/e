@@ -1,9 +1,0 @@
-[package]
-name = "sr"
-version = "0.1.0"
-authors = ["Desmond Germans <desmond@germansmedia.nl>"]
-edition = "2018"
-
-[lib]
-name = "sr"
-crate-type = ["rlib"]

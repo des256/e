@@ -1,7 +1,4 @@
-use {
-    crate::*,
-    sr::*,
-};
+use super::*;
 
 mod glsl;
 
@@ -14,10 +11,10 @@ pub use optimize::*;
 mod render;
 pub use render::*;
 
-pub fn compile_module(mut module: ast::Module) -> Option<Vec<u8>> {
+pub fn compile_module(mut source: ast::Source) -> Option<Vec<u8>> {
     
     // resolve symbols, detuplify, destructure patterns and disenumify
-    module = translate_module(module);
+    let module = translate_source(source);
 
     /*
     // translate to GLSL-specific AST

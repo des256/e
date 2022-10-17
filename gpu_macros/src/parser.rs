@@ -1,6 +1,5 @@
 use {
-    crate::*,
-    sr::*,
+    super::*,
     std::mem::swap,
 };
 
@@ -244,8 +243,8 @@ impl Parser {
     }
 
     // VARIOUS LISTS
-    pub(crate) fn ident_types(&mut self) -> Vec<(String,ast::Type)> {
-        let mut ident_types: Vec<(String,ast::Type)> = Vec::new();
+    pub(crate) fn ident_types(&mut self) -> Vec<(String,Type)> {
+        let mut ident_types: Vec<(String,Type)> = Vec::new();
         while !self.done() {
             self.keyword("pub");  // just skip it if it occurs here
             let ident = self.ident().expect("identifier expected");
@@ -259,7 +258,7 @@ impl Parser {
         ident_types
     }
 
-    pub(crate) fn paren_ident_types(&mut self) -> Vec<(String,ast::Type)> {
+    pub(crate) fn paren_ident_types(&mut self) -> Vec<(String,Type)> {
         if let Some(mut parser) = self.group('(') {
             parser.ident_types()
         }
@@ -268,7 +267,7 @@ impl Parser {
         }
     }
 
-    pub(crate) fn brace_ident_types(&mut self) -> Vec<(String,ast::Type)> {
+    pub(crate) fn brace_ident_types(&mut self) -> Vec<(String,Type)> {
         if let Some(mut parser) = self.group('{') {
             parser.ident_types()
         }
@@ -277,8 +276,8 @@ impl Parser {
         }
     }
 
-    fn types(&mut self) -> Vec<ast::Type> {
-        let mut types: Vec<ast::Type> = Vec::new();
+    fn types(&mut self) -> Vec<Type> {
+        let mut types: Vec<Type> = Vec::new();
         while !self.done() {
             let r#type = self.type_();
             types.push(r#type);
@@ -287,7 +286,7 @@ impl Parser {
         types
     }
 
-    pub(crate) fn paren_types(&mut self) -> Option<Vec<ast::Type>> {
+    pub(crate) fn paren_types(&mut self) -> Option<Vec<Type>> {
         if let Some(mut parser) = self.group('(') {
             Some(parser.types())
         }
@@ -296,8 +295,8 @@ impl Parser {
         }
     }
 
-    pub(crate) fn exprs(&mut self) -> Vec<ast::Expr> {
-        let mut exprs: Vec<ast::Expr> = Vec::new();
+    pub(crate) fn exprs(&mut self) -> Vec<Expr> {
+        let mut exprs: Vec<Expr> = Vec::new();
         while !self.done() {
             let expr = self.expr();
             exprs.push(expr);
@@ -306,7 +305,7 @@ impl Parser {
         exprs
     }
 
-    pub(crate) fn paren_exprs(&mut self) -> Option<Vec<ast::Expr>> {
+    pub(crate) fn paren_exprs(&mut self) -> Option<Vec<Expr>> {
         if let Some(mut parser) = self.group('(') {
             Some(parser.exprs())
         }
@@ -315,8 +314,8 @@ impl Parser {
         }
     }
 
-    pub(crate) fn brace_ident_exprs(&mut self) -> Option<Vec<(String,ast::Expr)>> {
-        let mut ident_exprs: Vec<(String,ast::Expr)> = Vec::new();
+    pub(crate) fn brace_ident_exprs(&mut self) -> Option<Vec<(String,Expr)>> {
+        let mut ident_exprs: Vec<(String,Expr)> = Vec::new();
         if let Some(mut parser) = self.group('{') {
             while !parser.done() {
                 let ident = parser.ident().expect("identifier expected");
@@ -334,23 +333,23 @@ impl Parser {
         }
     }
 
-    pub(crate) fn brace_ident_pats(&mut self) -> Option<Vec<ast::UnknownFieldPat>> {
-        let mut ident_pats: Vec<ast::UnknownFieldPat> = Vec::new();
+    pub(crate) fn brace_ident_pats(&mut self) -> Option<Vec<UnknownFieldPat>> {
+        let mut ident_pats: Vec<UnknownFieldPat> = Vec::new();
         if let Some(mut parser) = self.group('{') {
             while !parser.done() {
                 let ident_pat = if let Some(ident) = parser.ident() {
                     if parser.punct(':') {
-                        ast::UnknownFieldPat::IdentPat(ident,parser.pat())
+                        UnknownFieldPat::IdentPat(ident,parser.pat())
                     }
                     else {
-                        ast::UnknownFieldPat::Ident(ident)
+                        UnknownFieldPat::Ident(ident)
                     }
                 }
                 else if parser.punct('_') {
-                    ast::UnknownFieldPat::Wildcard
+                    UnknownFieldPat::Wildcard
                 }
                 else if parser.punct2('.','.') {
-                    ast::UnknownFieldPat::Rest
+                    UnknownFieldPat::Rest
                 }
                 else {
                     panic!("identifier, _ or .. expected");
@@ -365,8 +364,8 @@ impl Parser {
         }
     }
 
-    pub(crate) fn pats(&mut self) -> Vec<ast::Pat> {
-        let mut pats: Vec<ast::Pat> = Vec::new();
+    pub(crate) fn pats(&mut self) -> Vec<Pat> {
+        let mut pats: Vec<Pat> = Vec::new();
         while !self.done() {
             pats.push(self.pat());
             self.punct(',');
@@ -374,7 +373,7 @@ impl Parser {
         pats
     }
 
-    pub(crate) fn paren_pats(&mut self) -> Option<Vec<ast::Pat>> {
+    pub(crate) fn paren_pats(&mut self) -> Option<Vec<Pat>> {
         if let Some(mut parser) = self.group('(') {
             Some(parser.pats())
         }
@@ -383,7 +382,7 @@ impl Parser {
         }
     }
 
-    pub(crate) fn bracket_pats(&mut self) -> Option<Vec<ast::Pat>> {
+    pub(crate) fn bracket_pats(&mut self) -> Option<Vec<Pat>> {
         if let Some(mut parser) = self.group('[') {
             Some(parser.pats())
         }

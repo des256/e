@@ -1,21 +1,15 @@
-use {
-    sr::*,
-};
+pub mod ast;
+
+mod astdisplay;
+
+mod stdlib;
+pub use stdlib::*;
 
 mod findtype;
 pub use findtype::*;
 
-mod resolvesymbols;
-pub use resolvesymbols::*;
-
-mod detuplify;
-pub use detuplify::*;
-
-mod destructure;
-pub use destructure::*;
-
-mod disenumify;
-pub use disenumify::*;
+mod resolver;
+pub use resolver::*;
 
 #[cfg(any(gpu="opengl"))]
 mod glsl;
@@ -27,30 +21,14 @@ mod spirv;
 #[cfg(any(gpu="vulkan"))]
 pub use spirv::*;
 
-pub fn translate_module(module: ast::Module) -> ast::Module {
+pub fn translate_source(source: ast::Source) -> ast::Module {
 
-    println!("resolve symbols");
+    println!("resolve into C-like");
 
-    // resolve all symbol references
-    let mut resolver = SymbolResolver::new(&module);
-    let module = resolver.resolve_module(module);
-
-    println!("remove tuples");
-
-    // turn tuples and anonymous tuples into structs
-    let mut detuplifier = Detuplifier::new();
-    let module = detuplifier.detuplify_module(module);
-
-    println!("destructuring patterns");
-    
-    // destructure patterns into local variable declarations
-    let mut destructurer = Destructurer::new();
-    let module = destructurer.destructure_module(module);
-    panic!("after destructuring:\n{}",module);
-
-    // turn enums into structs
-    //let mut disenumifier = Disenumifier::new();
-    //disenumifier.disenumify_module(module)
+    let mut resolver = Resolver::new(&source);
+    let module = resolver.resolve(source);
 
     // now the shader is ready to be translated to the target language
+
+    module
 }

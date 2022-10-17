@@ -22,4 +22,3 @@ crate-type = ["rlib"]
 
 [dependencies]
 gpu_macros = { path = "./gpu_macros" }
-sr = { path = "./sr" }

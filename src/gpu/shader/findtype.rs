@@ -1,11 +1,9 @@
 use {
-    sr::*,
+    super::ast::*,
     std::{
         rc::Rc,
     },
 };
-
-use ast::*;
 
 pub trait FindType {
     fn find_type(&self) -> Type;
@@ -16,10 +14,10 @@ pub fn tightest(type1: &Type,type2: &Type) -> Option<Type> {
     let mut type1 = type1.clone();
     let mut type2 = type2.clone();
     while let Type::Alias(alias) = type1 {
-        type1 = alias.borrow().type_.clone();
+        type1 = alias.type_.clone();
     }
     while let Type::Alias(alias) = type2 {
-        type2 = alias.borrow().type_.clone();
+        type2 = alias.type_.clone();
     }
     
     if type1 == type2 {
@@ -202,20 +200,20 @@ impl FindType for Expr {
             Expr::UnknownMethod(_,_,_) => Type::Inferred,
             Expr::UnknownField(_,_) => Type::Inferred,
             Expr::UnknownTupleIndex(_,_) => Type::Inferred,
-            Expr::Param(param) => param.borrow().type_.clone(),
-            Expr::Local(local) => local.borrow().type_.clone(),
-            Expr::Const(const_) => const_.borrow().type_.clone(),
+            Expr::Param(param) => param.type_.clone(),
+            Expr::Local(local) => local.type_.clone(),
+            Expr::Const(const_) => const_.type_.clone(),
             Expr::Tuple(tuple,_) => Type::Tuple(Rc::clone(&tuple)),
-            Expr::Call(function,_) => function.borrow().type_.clone(),
+            Expr::Call(function,_) => function.type_.clone(),
             Expr::Struct(struct_,_) => Type::Struct(Rc::clone(&struct_)),
             Expr::Variant(enum_,_) => Type::Enum(Rc::clone(&enum_)),
-            Expr::Method(_,method,_) => method.borrow().type_.clone(),
-            Expr::Field(struct_,_,index) => struct_.borrow().fields[*index].type_.clone(),
-            Expr::TupleIndex(tuple,_,index) => tuple.borrow().types[*index].clone(),
+            Expr::Method(_,method,_) => method.type_.clone(),
+            Expr::Field(struct_,_,index) => struct_.fields[*index].type_.clone(),
+            Expr::TupleIndex(tuple,_,index) => tuple.types[*index].clone(),
             Expr::Discriminant(_) => Type::USize,
             Expr::Destructure(expr,variant_index,index) => {
                 if let Type::Enum(enum_) = expr.find_type() {
-                    match &enum_.borrow().variants[*variant_index] {
+                    match &enum_.variants[*variant_index] {
                         Variant::Naked(_) => Type::Void,
                         Variant::Tuple(_,types) => types[*index].clone(),
                         Variant::Struct(_,fields) => fields[*index].type_.clone(),

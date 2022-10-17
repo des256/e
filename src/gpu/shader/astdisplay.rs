@@ -1,5 +1,5 @@
 use {
-    crate::ast::*,
+    super::ast::*,
     std::{
         fmt::{
             Display,
@@ -44,10 +44,10 @@ impl Display for Type {
             },
             Type::Array(type_,expr) => write!(f,"[{}; {}]",type_,expr),
             Type::UnknownIdent(ident) => write!(f,"{}",ident),
-            Type::Tuple(tuple) => write!(f,"{}",tuple.borrow().ident),
-            Type::Struct(struct_) => write!(f,"{}",struct_.borrow().ident),
-            Type::Enum(enum_) => write!(f,"{}",enum_.borrow().ident),
-            Type::Alias(alias) => write!(f,"{}",alias.borrow().ident),
+            Type::Tuple(tuple_ident) => write!(f,"{}",tuple_ident),
+            Type::Struct(struct_ident) => write!(f,"{}",struct_ident),
+            Type::Enum(enum_ident) => write!(f,"{}",enum_ident),
+            Type::Alias(alias_ident) => write!(f,"{}",alias_ident),
         }
     }
 }
@@ -86,8 +86,8 @@ impl Display for Pat {
             },
             Pat::Range(from,to) => write!(f,"{} ..= {}",from,to),
             Pat::UnknownIdent(ident) => write!(f,"{}",ident),
-            Pat::UnknownTuple(ident,pats) => {
-                write!(f,"{}(",ident)?;
+            Pat::Tuple(tuple_ident,pats) => {
+                write!(f,"{}(",tuple_ident)?;
                 let mut first = true;
                 for pat in pats.iter() {
                     if !first {
@@ -98,72 +98,8 @@ impl Display for Pat {
                 }
                 write!(f,")")
             },
-            Pat::UnknownStruct(ident,identpats) => {
-                write!(f,"{} {{ ",ident)?;
-                let mut first = true;
-                for identpat in identpats.iter() {
-                    if !first {
-                        write!(f,", ")?;
-                    }
-                    match identpat {
-                        UnknownFieldPat::Wildcard => write!(f,"_")?,
-                        UnknownFieldPat::Rest => write!(f,"..")?,
-                        UnknownFieldPat::Ident(ident) => write!(f,"{}",ident)?,
-                        UnknownFieldPat::IdentPat(ident,pat) => write!(f,"{}: {}",ident,pat)?,
-                    }
-                    first = false;
-                }
-                write!(f," }}")
-            },
-            Pat::UnknownVariant(ident,identpatvariant) => {
-                write!(f,"{}::",ident)?;
-                match identpatvariant {
-                    UnknownVariantPat::Naked(ident) => write!(f,"{}",ident),
-                    UnknownVariantPat::Tuple(ident,pats) => {
-                        write!(f,"{}(",ident)?;
-                        let mut first = true;
-                        for pat in pats.iter() {
-                            if !first {
-                                write!(f,",")?;
-                            }
-                            write!(f,"{}",pat)?;
-                            first = false;
-                        }
-                        write!(f,")")
-                    },
-                    UnknownVariantPat::Struct(ident,identpats) => {
-                        write!(f,"{} {{ ",ident)?;
-                        let mut first = true;
-                        for identpat in identpats.iter() {
-                            if !first {
-                                write!(f,", ")?;
-                            }
-                            match identpat {
-                                UnknownFieldPat::Wildcard => write!(f,"_")?,
-                                UnknownFieldPat::Rest => write!(f,"..")?,
-                                UnknownFieldPat::Ident(ident) => write!(f,"{}",ident)?,
-                                UnknownFieldPat::IdentPat(ident,pat) => write!(f,"{}: {}",ident,pat)?,
-                            }
-                            first = false;
-                        }
-                        write!(f," }}")
-                    },
-                }
-            },
-            Pat::Tuple(tuple,pats) => {
-                write!(f,"{}(",tuple.borrow().ident)?;
-                let mut first = true;
-                for pat in pats.iter() {
-                    if !first {
-                        write!(f,",")?;
-                    }
-                    write!(f,"{}",pat)?;
-                    first = false;
-                }
-                write!(f,")")
-            },
-            Pat::Struct(struct_,index_pats) => {
-                write!(f,"{} {{ ",struct_.borrow().ident)?;
+            Pat::Struct(struct_ident,index_pats) => {
+                write!(f,"{} {{ ",struct_ident)?;
                 let mut first = true;
                 for indexpat in index_pats.iter() {
                     if !first {
@@ -172,8 +108,8 @@ impl Display for Pat {
                     match indexpat {
                         FieldPat::Wildcard => write!(f,"_")?,
                         FieldPat::Rest => write!(f,"..")?,
-                        FieldPat::Index(index) => write!(f,"{}",struct_.borrow().fields[*index].ident)?,
-                        FieldPat::IndexPat(index,pat) => write!(f,"{}: {}",struct_.borrow().fields[*index].ident,pat)?,
+                        FieldPat::Ident(ident) => write!(f,"{}",ident)?,
+                        FieldPat::IdentPat(ident,pat) => write!(f,"{}: {}",ident,pat)?,
                     }
                     first = false;
                 }
@@ -388,7 +324,7 @@ impl Display for Expr {
                 write!(f," }}")
             },
             Expr::UnknownIdent(ident) => write!(f,"{}",ident),
-            Expr::UnknownTupleOrCall(ident,exprs) => {
+            Expr::TupleOrCall(ident,exprs) => {
                 write!(f,"{}(",ident)?;
                 let mut first = true;
                 for expr in exprs.iter() {
@@ -400,8 +336,35 @@ impl Display for Expr {
                 }
                 write!(f,")")
             },
-            Expr::UnknownStruct(ident,fields) => {
-                write!(f,"{} {{ ",ident)?;
+            Expr::Param(param) => write!(f,"{}",param.ident),
+            Expr::Local(local) => write!(f,"{}",local.ident),
+            Expr::Const(const_) => write!(f,"{}",const_.ident),
+            Expr::Tuple(tuple_ident,exprs) => {
+                write!(f,"{}(",tuple_ident)?;
+                let mut first = true;
+                for expr in exprs.iter() {
+                    if !first {
+                        write!(f,",")?;
+                    }
+                    write!(f,"{}",expr)?;
+                    first = false;
+                }
+                write!(f,")")
+            },
+            Expr::Call(function_ident,exprs) => {
+                write!(f,"{}(",function_ident)?;
+                let mut first = true;
+                for expr in exprs.iter() {
+                    if !first {
+                        write!(f,",")?;
+                    }
+                    write!(f,"{}",expr)?;
+                    first = false;
+                }
+                write!(f,")")
+            },
+            Expr::Struct(struct_ident,fields) => {
+                write!(f,"{} {{ ",struct_ident)?;
                 let mut first = true;
                 for (ident,expr) in fields.iter() {
                     if !first {
@@ -412,11 +375,11 @@ impl Display for Expr {
                 }
                 write!(f," }}")
             },
-            Expr::UnknownVariant(ident,variant) => {
-                write!(f,"{}::",ident)?;
+            Expr::Variant(enum_ident,variant) => {
+                write!(f,"{}::",enum_ident)?;
                 match variant {
-                    UnknownVariantExpr::Naked(ident) => write!(f,"{}",ident),
-                    UnknownVariantExpr::Tuple(ident,exprs) => {
+                    VariantExpr::Naked(ident) => write!(f,"{}",ident),
+                    VariantExpr::Tuple(ident,exprs) => {
                         write!(f,"{}(",ident)?;
                         let mut first = true;
                         for expr in exprs.iter() {
@@ -428,12 +391,12 @@ impl Display for Expr {
                         }
                         write!(f,")")
                     },
-                    UnknownVariantExpr::Struct(ident,fields) => {
-                        write!(f,"{} {{",ident)?;
+                    VariantExpr::Struct(ident,fields) => {
+                        write!(f,"{} {{ ",ident)?;
                         let mut first = true;
-                        for (ident,expr) in fields.iter() {
+                        for (ident,expr) in fields {
                             if !first {
-                                write!(f,", ")?;
+                                write!(f,",")?;
                             }
                             write!(f,"{}: {}",ident,expr)?;
                             first = false;
@@ -442,8 +405,8 @@ impl Display for Expr {
                     },
                 }
             },
-            Expr::UnknownMethod(expr,ident,exprs) => {
-                write!(f,"{}.{}(",expr,ident)?;
+            Expr::Method(expr,method_ident,exprs) => {
+                write!(f,"{}.{}(",expr,method_ident)?;
                 let mut first = true;
                 for expr in exprs.iter() {
                     if !first {
@@ -454,102 +417,8 @@ impl Display for Expr {
                 }
                 write!(f,")")
             },
-            Expr::UnknownField(expr,ident) => write!(f,"{}.{}",expr,ident),
-            Expr::UnknownTupleIndex(expr,index) => write!(f,"{}.{}",expr,index),
-            Expr::Param(param) => write!(f,"{}",param.borrow().ident),
-            Expr::Local(local) => write!(f,"{}",local.borrow().ident),
-            Expr::Const(const_) => write!(f,"{}",const_.borrow().ident),
-            Expr::Tuple(tuple,exprs) => {
-                write!(f,"{}(",tuple.borrow().ident)?;
-                let mut first = true;
-                for expr in exprs.iter() {
-                    if !first {
-                        write!(f,",")?;
-                    }
-                    write!(f,"{}",expr)?;
-                    first = false;
-                }
-                write!(f,")")
-            },
-            Expr::Call(function,exprs) => {
-                write!(f,"{}(",function.borrow().ident)?;
-                let mut first = true;
-                for expr in exprs.iter() {
-                    if !first {
-                        write!(f,",")?;
-                    }
-                    write!(f,"{}",expr)?;
-                    first = false;
-                }
-                write!(f,")")
-            },
-            Expr::Struct(struct_,exprs) => {
-                write!(f,"{} {{ ",struct_.borrow().ident)?;
-                let mut first = true;
-                for i in 0..struct_.borrow().fields.len() {
-                    if !first {
-                        write!(f,", ")?;
-                    }
-                    write!(f,"{}: {}",struct_.borrow().fields[i].ident,exprs[i])?;
-                    first = false;
-                }
-                write!(f," }}")
-            },
-            Expr::Variant(enum_,variant) => {
-                write!(f,"{}::",enum_.borrow().ident)?;
-                match variant {
-                    VariantExpr::Naked(index) => if let Variant::Naked(ident) = &enum_.borrow().variants[*index] {
-                        write!(f,"{}",ident)
-                    }
-                    else {
-                        panic!("enum variant mismatch");
-                    },
-                    VariantExpr::Tuple(index,exprs) => if let Variant::Tuple(ident,_) = &enum_.borrow().variants[*index] {
-                        write!(f,"{}(",ident)?;
-                        let mut first = true;
-                        for expr in exprs.iter() {
-                            if !first {
-                                write!(f,",")?;
-                            }
-                            write!(f,"{}",expr)?;
-                            first = false;
-                        }
-                        write!(f,")")
-                    }
-                    else {
-                        panic!("enum variant mismatch");
-                    },
-                    VariantExpr::Struct(index,elements) => if let Variant::Struct(ident,fields) = &enum_.borrow().variants[*index] {
-                        write!(f,"{} {{ ",ident)?;
-                        let mut first = true;
-                        for i in 0..fields.len() {
-                            if !first {
-                                write!(f,",")?;
-                            }
-                            write!(f,"{}: {}",fields[i].ident,elements[i])?;
-                            first = false;
-                        }
-                        write!(f," }}")
-                    }
-                    else {
-                        panic!("enum variant mismatch");
-                    },
-                }
-            },
-            Expr::Method(expr,method,exprs) => {
-                write!(f,"{}.{}(",expr,method.borrow().ident)?;
-                let mut first = true;
-                for expr in exprs.iter() {
-                    if !first {
-                        write!(f,",")?;
-                    }
-                    write!(f,"{}",expr)?;
-                    first = false;
-                }
-                write!(f,")")
-            },
-            Expr::Field(struct_,expr,index) => write!(f,"{}.{}",expr,struct_.borrow().fields[*index].ident),
-            Expr::TupleIndex(_,expr,index) => write!(f,"{}.{}",expr,index),
+            Expr::Field(expr,ident) => write!(f,"{}.{}",expr,ident),
+            Expr::TupleIndex(expr,index) => write!(f,"{}.{}",expr,index),
             Expr::Discriminant(expr) => write!(f,"discriminant({})",expr),
             Expr::Destructure(expr,variant_index,index) => write!(f,"{}::{}.{}",expr,variant_index,index),
         }
@@ -561,7 +430,7 @@ impl Display for Stat {
         match self {
             Stat::Expr(expr) => write!(f,"{};",expr),
             Stat::Let(pat,type_,expr) => write!(f,"let {}: {} = {};",pat,type_,expr),
-            Stat::Local(local,expr) => write!(f,"let {} = {};",local.borrow().ident,expr),
+            Stat::Local(ident,type_,expr) => write!(f,"let {}: {} = {};",ident,type_,expr),
         }
     }
 }
@@ -594,7 +463,7 @@ impl Display for Function {
             if !first {
                 write!(f,",")?;
             }
-            write!(f,"{}: {}",param.borrow().ident,param.borrow().type_)?;
+            write!(f,"{}: {}",param.ident,param.type_)?;
             first = false;
         }
         write!(f,")")?;
@@ -698,22 +567,22 @@ impl Display for Module {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"mod {} {{\n",self.ident)?;
         for ident in self.aliases.keys() {
-            write!(f,"{}\n",self.aliases[ident].borrow())?;
+            write!(f,"{}\n",self.aliases[ident])?;
         }
         for ident in self.tuples.keys() {
-            write!(f,"{}\n",self.tuples[ident].borrow())?;
+            write!(f,"{}\n",self.tuples[ident])?;
         }
         for ident in self.structs.keys() {
-            write!(f,"{}\n",self.structs[ident].borrow())?;
+            write!(f,"{}\n",self.structs[ident])?;
         }
         for ident in self.enums.keys() {
-            write!(f,"{}\n",self.enums[ident].borrow())?;
+            write!(f,"{}\n",self.enums[ident])?;
         }
         for ident in self.consts.keys() {
-            write!(f,"{}\n",self.consts[ident].borrow())?;
+            write!(f,"{}\n",self.consts[ident])?;
         }
         for ident in self.functions.keys() {
-            write!(f,"{}\n",self.functions[ident].borrow())?;
+            write!(f,"{}\n",self.functions[ident])?;
         }
         write!(f,"}}")
     }

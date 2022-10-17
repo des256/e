@@ -1,9 +1,5 @@
-use {
-    sr::*,
-};
-
 pub trait Vertex where Self: Sized {
-    fn ast() -> ast::Struct;
+    fn ast() -> shader::ast::Struct;
 }
 
 pub trait Uniform where Self: Sized {
