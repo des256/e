@@ -86,6 +86,7 @@ impl Display for Pat {
             },
             Pat::Range(from,to) => write!(f,"{} ..= {}",from,to),
             Pat::UnknownIdent(ident) => write!(f,"{}",ident),
+            Pat::Const(ident) => write!(f,"{}",ident),
             Pat::Tuple(tuple_ident,pats) => {
                 write!(f,"{}(",tuple_ident)?;
                 let mut first = true;
@@ -419,8 +420,9 @@ impl Display for Expr {
             },
             Expr::Field(expr,ident) => write!(f,"{}.{}",expr,ident),
             Expr::TupleIndex(expr,index) => write!(f,"{}.{}",expr,index),
-            Expr::Discriminant(expr) => write!(f,"discriminant({})",expr),
-            Expr::Destructure(expr,variant_index,index) => write!(f,"{}::{}.{}",expr,variant_index,index),
+            Expr::Discriminant(expr,variant_ident) => write!(f,"discriminant({} == {})",expr,variant_ident),
+            Expr::DestructTuple(expr,variant_ident,index) => write!(f,"{}::{}.{}",expr,variant_ident,index),
+            Expr::DestructStruct(expr,variant_ident,ident) => write!(f,"{}::{}.{}",expr,variant_ident,ident),
         }
     }
 }

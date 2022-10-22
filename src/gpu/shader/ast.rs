@@ -124,6 +124,7 @@ pub enum Pat {
     Array(Vec<Pat>),
     Range(Box<Pat>,Box<Pat>),
     UnknownIdent(String),
+    Const(String),
     Tuple(String,Vec<Pat>),
     Struct(String,Vec<FieldPat>),
     Variant(String,VariantPat),
@@ -205,8 +206,9 @@ pub enum Expr {
     Const(String),
     Tuple(String,Vec<Expr>),
     Call(String,Vec<Expr>),
-    Discriminant(Box<Expr>),
-    Destructure(Box<Expr>,usize,usize),
+    Discriminant(Box<Expr>,String),
+    DestructTuple(Box<Expr>,String,usize),
+    DestructStruct(Box<Expr>,String,String),
 }
 
 #[derive(Clone)]

@@ -4,240 +4,130 @@
 - add Const to Pat
 - new stage: remove aliases
 
-## DESTRUCTURE
+# WHAT NEEDS TO HAPPEN?
 
-Transform pattern matching expressions into normal ones, only leaving creation of local variables.
+## Destructure Patterns
 
-- destructuring: patterns are recursively destructured towards a scrutinee expression for each of the expressions and statements where the patterns are used
-- testing: patterns are also translated to boolean expressions to test the match
-- Expr::IfLet becomes Expr::If
-- Expr::WhileLet becomes Expr::While
-- Expr::For becomes Expr::While
-- Expr::Match becomes a chain of Expr::Ifs with else expressions
-- Stat::Let become local variable declaration
+this generates Stat::Local declarations and removes all patterns, if let, while let and match expressions
 
-## ANONTUPLELESS DETUPLIFY
+there are two essential operations: building a boolean expression and destructuring a pattern
 
-Convert all tuples to named structs.
+make_pat_bool(pat,scrut) -> Option<Expr>
+    Pat::Wildcard, Pat::Rest, Pat::UnknownIdent not const => None
+    Pat::Boolean(value) => if *value { scrut } else { !scrut }
+    Pat::Integer(value) => scrut == value
+    Pat::Float(value) => scrut == value
+    Pat::Const(ident) => scrut == ident
+    Pat::Struct(ident,fields) => for each field containing a pat, && together make_pat_bool(the field's pat,scrut.field name)
+    Pat::Tuple(ident,pats) => for each pat, && together make_pat_bool(pat,scrut.index)
+    Pat::Array(pats) => for each pat, && together make_pat_bool(pat,scrut[index])
+    Pat::AnonTuple(pats) => for each pat, && together make_pat_bool(pat,scrut.index)
+    Pat::Variant(enum_ident,Naked(ident)) => discr == ident
+    Pat::Variant(enum_ident,Tuple(ident,pats)) => discr == ident && for each pat, && together make_pat_bool(pat,scrut.index)
+    Pat::Variant(enum_ident,Struct(ident,pats)) => discr == ident && for each field, && together fields with pats as make_pat_bool(pat,scrut.index)
+    Pat::Range(lo,hi) => (scrut >= lo) && (scrut < hi)
 
-- all tuples in the module are converted to structs
-- Type::Tuple becomes Type::Struct with a directly converted tuple
-- Pat::Tuple becomes Pat::Struct with a directly converted tuple
-- Expr::Tuple becomes Expr::Struct
-- Expr::TupleIndex becomes Expr::Field
+make_pats_bool(pats,scrut) => each pat individually || together
 
-## ANONTUPLEFULL DETUPLIFY
+destructure_pat(pat,scrut) => Vec<Stat>
+    Pat::Wildcard, Pat::Rest, Pat::Boolean, Pat::Integer, Pat::Float, Pat::Const, Pat::Range => no contribution
+    Pat::Ident(ident) => Stat::Local(ident,scrut)
+    Pat::Struct(_,fields) => for each field:
+        Ident(ident) => Stat::Local(ident,scrut.ident)
+        IdentPat(ident,pat) => destructure_pat(pat,scrut.ident)
+    Pat::Tuple(_,pats) => for each pat: destructure_pat(pat,scrut.index)
+    Pat::Array(pats) => for each pat: destructure_pat(pat,scrut[index])
+    Pat::AnonTuple(pats) => for each pat: destructure_pat(pat,scrut.index)
+    Pat::Variant(_,Naked(ident)) => no contribution
+    Pat::Variant(_,Tuple(ident,pats)) => for each pat: destructure_pat(pat,scrut.index)
+    Pat::Variant(_,Struct(ident,fields)) => for each field with pat: destructure_pat(pat,scrut.ident)
 
-Convert all anonymous tuples to named structs.
+destructure_pats(pats,scrut) => Vec<Stat>
+    destructure each pattern separately
 
-Needs symbols to be resolved in order to match Expr::AnonTuple with expected struct.
+Expr::IfLet(pats,scrut,block,else_expr):
+    prepend block with destructuring locals for all pats
+    output Expr::Block:
+        Stat::Local to capture original scrut
+        Expr::If(boolean expression from pats and scrut,block,else_expr)
 
-- Type::AnonTuple becomes Type::Struct with a matching struct from an anonymous tuple struct list
-- Pat::AnonTuple does not need to be transformed
-- Expr::AnonTuple becomes Expr::Struct with a matching struct from an anonymous tuple struct list
+Expr::WhileLet(pats,scrut,block):
+    prepend block with destructuring locals for all pats
+    output Expr::Block:
+        Stat::Local to capture original scrut
+        Expr::While(boolean expression from pats and scrut,block)
 
-## DISENUMIFY
-
-Convert all enums to named structs.
-
-This might be doable before symbol resolution?
-
-- all enums in the module are converted to structs, and an index is created to map each enum to a struct; the first field of the struct is the discriminant ID
-- TODO
-
-## RESOLVE SYMBOLS
-
-Convert all unknown symbols to reference params, locals, structs, tuples, enums, functions, consts and aliases.
-
-- Type::UnknownIdent becomes Type::Tuple, Type::Struct, Type::Enum or Type::Alias
-- Pat::UnknownTuple becomes Pat::Tuple
-- Pat::UnknownStruct becomes Pat::Struct
-- Pat::UnknownVariant becomes Pat::Variant
-- Expr::UnknownIdent becomes Expr::Const, Expr::Local or Expr::Param
-- Expr::UnknownTupleOrCall becomes Expr::Tuple or Expr::Call
-- Expr::UnknownStruct becomes Expr::Struct
-- Expr::UnknownVariant becomes Expr::Variant
-- Expr::UnknownMethod becomes Expr::Method
-- Expr::UnknownField becomes Expr::Field
-- Expr::UnknownTupleIndex becomes Expr::TupleIndex
-
-## RESOLVE ALIASES
-
-Convert all aliases to their actual types.
-
-- Type::Alias becomes whatever type is at the end of the alias chain
-
-# SO?
-
-1. resolve aliases, disenumify, anontupleless detuplify, destructure
-2. resolve symbols
-3. anontuplefull detuplify
-4. translate to local language AST
-5. optimize
-6. render
-
-# STEP1
-
-Convert all aliases to their actual types.
-Convert all enums to named structs.
-Convert all tuples to named structs.
-Transform pattern matching expressions into normal ones, only leaving creation of local variables.
-
-Transformations that don't need anything else:
-
-- TODO disenumify
-- Pat::Tuple becomes Pat::Struct with a directly converted tuple
-- all enums in the module are converted to structs, and an index is created to map each enum to a struct; the first field of the struct is the discriminant ID
-- all tuples in the module are converted to structs
-- Type::Alias becomes whatever type is at the end of the alias chain
-- Type::Tuple becomes Type::Struct with a directly converted tuple
-- Expr::Tuple becomes Expr::Struct
-- Expr::TupleIndex becomes Expr::Field
-
-Transformations that need to access more elaborate type info:
-
-- destructuring: patterns are recursively destructured towards a scrutinee expression for each of the expressions and statements where the patterns are used
-- testing: patterns are also translated to boolean expressions to test the match
-- Expr::IfLet becomes Expr::If
-- Expr::WhileLet becomes Expr::While
-- Expr::For becomes Expr::While
-- Expr::Match becomes a chain of Expr::Ifs with else expressions
-- Stat::Let become local variable declaration
-
-# STEP2
-
-Convert all unknown symbols to reference params, locals, structs, tuples, enums, functions, consts and aliases.
-
-- Type::UnknownIdent becomes Type::Tuple, Type::Struct, Type::Enum or Type::Alias
-- Pat::UnknownTuple becomes Pat::Tuple
-- Pat::UnknownStruct becomes Pat::Struct
-- Pat::UnknownVariant becomes Pat::Variant
-- Expr::UnknownIdent becomes Expr::Const, Expr::Local or Expr::Param
-- Expr::UnknownTupleOrCall becomes Expr::Tuple or Expr::Call
-- Expr::UnknownStruct becomes Expr::Struct
-- Expr::UnknownVariant becomes Expr::Variant
-- Expr::UnknownMethod becomes Expr::Method
-- Expr::UnknownField becomes Expr::Field
-- Expr::UnknownTupleIndex becomes Expr::TupleIndex
-
-# STEP3
-
-Convert all anonymous tuples to named structs.
-
-- Type::AnonTuple becomes Type::Struct with a matching struct from an anonymous tuple struct list
-- Pat::AnonTuple does not need to be transformed
-- Expr::AnonTuple becomes Expr::Struct with a matching struct from an anonymous tuple struct list
-
-=====
-
-# AGAIN: ALL TRANSFORMATIONS
-
-## Decode UnknownTupleOrCall
-
-- Expr::UnknownTupleOrCall => Expr::Tuple or Expr::Call, depending on whether or not the function ident exists
-
-## Build Matcher
-
-Build boolean expression from pat and scrut.
-
-- Pat::Boolean(value) => if value { scrut } else { !scrut }
-- Pat::Integer(value) => scrut == value
-- Pat::Float(value) => scrut == value
-- Pat::AnonTuple([pat]) => assuming scrut is of type Type::AnonTuple, && matchers for each pat
-- Pat::Array([pat]) => assuming scrut is of type Type::Array, && matches for each pat
-- Pat::Range(lo,hi) => (scrut >= lo) && (scrut < hi), where lo and hi are Pat::Integer or Pat::Float
-- Pat::UnknownTuple(_,[pat]) => && matches for each pat
-- Pat::UnknownStruct(_,[identpat]) => && matches for each pat that isn't _ or ..
-- Pat::UnknownVariant(_,variant) => (scrut.discriminant() == id) && matches for each pat that isn't _ or ..
-- Pat::Tuple(_,[pat]) => assuming scrut is of type Type::Tuple, && matches for each pat that isn't _ or ..
-- Pat::Struct(_,[indexpat]) => assuming scrut is of type Type::Struct, && matches for each pat that isn't _ or ..
-- Pat::Variant(_,variant) => (scrut.discriminant() == id) && matches for each pat that isn't _ or ..
-
-## Destructure
-
-Add to Vec<Stat> from pat and scrut.
-
-- Pat::UnknownIdent => let ident: found type = scrut;
-- Pat::Array([pat]) => destructure recursively from pat and scrut[i]
-- Pat::AnonTuple([pat]) => destrcture recursively from pat and scrut.i
-- Pat::Struct(_,[field]) => destructure recursively from field.pat and scrut.ident or let ident: field type = scrut.ident;
-- Pat::Tuple(_,[pat]) => destructure recursively from pat and scrut.index or let ident: type = scrut.index;
-- Pat::Variant(_,variant) => destructure recursively
-- Pat::UnknownStruct(_,[field]) => destructure recursively from field.pat and scrut.ident or let ident: field type = scrut.ident;
-- Pat::UnknownTuple(_,[pat]) => destructure recursively from pat and scrut.index or let ident: type = scrut.index;
-- Pat::UnknownVariant(_,variant) => destructure recursively
-- Expr::IfLet => { let scrut = ...; if matcher { destructured pats; block.stats; block.expr } else { ... } }
-- Expr::WhileLet => { let scrut = ...; while matcher { destructured pats; block.stats; block.expr } }
-- Expr::For => ...
-- Expr::Match => { let scrut = ...; if matcher { destructured pats; block.stats; block.expr } else ... }
-- Stat::Let => destructure recursively, this will generate a Stat::Local
-
-## Detuplify
-
-- Type::UnknownTuple => Type::UnknownStruct
-- Type::Tuple => Type::Struct
-- Pat::UnknownTuple => Pat::UnknownStruct
-- Pat::Tuple => Pat::Struct
-- Expr::UnknownTuple => Expr::UnknownStruct
-- Expr::UnknownTupleIndex => Expr::UnknownField
-
-## Detuplify AnonTuple
-
-- Type::AnonTuple => Type::Struct
-- Pat::AnonTuple => Pat::Struct
-- Expr::AnonTuple => Expr::Struct
-
-## Disenumify
-
-- Type::Enum => Type::Struct
-- Pat::UnknownVariant => Pat::UnknownStruct
-- Pat::Variant => Pat::Struct
-- Expr::UnknownVariant => Expr::UnknownStruct
-- Expr::Variant => Expr::Struct
+Expr::Match(scrut,arms):
+    create new block with Stat::local to capture original scrut
+    for each arm, build Expr::If(boolean expression from arm.pats and scrut,block prepended with destructuring locals for all arm.pats), one arm has _ with the final else_expr
+    concatenate all arms into if-else chain
 
 ## Resolve Symbols
 
-- Type::UnknownIdent => Type::Tuple, Type::Struct, Type::Enum or Type::Alias
-- Pat::UnknownTuple => Pat::Tuple
-- Pat::UnknownStruct => Pat::Struct
-- Pat::UnknownVariant => Pat::Variant
-- Expr::UnknownIdent => Expr::Param, Expr::Local or Expr::Const
-- Expr::UnknownTuple => Expr::Tuple
-- Expr::UnknownCall => Expr::Call
-- Expr::UnknownStruct => Expr::Struct
-- Expr::UnknownVariant => Expr::Variant
-- Expr::UnknownMethod => Expr::Method
-- Expr::UnknownField => Expr::Field
-- Expr::UnknownTupleIndex => Expr::TupleIndex
+resolve all symbols, so they can be referenced later:
 
-# QUESTION
+Type::UnknownIdent(ident):
+    if ident in tuple maps: Type::Tuple(ident)
+    else if ident in struct maps: Type::Struct(ident)
+    else if ident in enum maps: Type::Enum(ident)
+    else if ident in alias maps: Type::Alias(ident)
+    else panic: unknown identifier
 
-Can we do everything at the same time, except maybe remove anonymous tuples?
+Expr::UnknownIdent(ident):
+    if ident in param map: Expr::Param(ident)
+    else if ident in local map: Expr::Local(ident)
+    else if ident in const maps: Expr::Const(ident)
+    else panic: unknown identifier
 
-So that means:
+Expr::TupleOrCall(ident,exprs):
+    if ident in tuple maps: Expr::Tuple(ident,exprs)
+    else if ident in function maps: Expr::Call(ident,exprs)
+    else panic: unknown identifier
 
-- Type::UnknownIdent => Type::Tuple, Type::Struct, Type::Enum or Type::Alias
-- Type::Tuple => Type::Struct
-- Type::Enum => Type::Struct
-- Type::Alias => innermost type
+## Convert Named Tuples
 
-- Pat::UnknownTuple => Pat::Struct
-- Pat::UnknownStruct => Pat::Struct
-- Pat::UnknownVariant => Pat::Struct
-- Pat::Tuple => Pat::Struct
-- Pat::Variant => Pat::Struct
+named tuples should become structs:
 
-- Expr::IfLet => { let scrut = ...; if matcher { destructured pats; block.stats; block.expr } else { ... } }
-- Expr::WhileLet => { let scrut = ...; while matcher { destructured pats; block.stats; block.expr } }
-- Expr::For => ...
-- Expr::Match => { let scrut = ...; if matcher { destructured pats; block.stats; block.expr } else ... }
-- Expr::UnknownIdent => Expr::Param, Expr::Local, Expr::Const
-- Expr::UnknownTupleOrCall => Expr::Tuple, Expr::Call
-- Expr::UnknownStruct => Expr::Struct
-- Expr::UnknownVariant => Expr::Field
-- Expr::UnknownMethod => Expr::Method
-- Expr::UnknownField => Expr::Field
-- Expr::UnknownTupleIndex => Expr::Field
-- Expr::Variant => Expr::Field
+add new structs for each tuple in the context
 
-- Stat::Let => destructure recursively, this will generate a Stat::Local
+Type::Tuple(ident): Type::Struct(ident)
+
+Expr::Tuple(ident,exprs): Expr::Struct(ident,fields)
+
+Expr::TupleIndex(expr,index): Expr::Field(expr,field)
+
+## Convert Anonymous Tuples
+
+anonymous tuples should become structs:
+
+in order to properly determine the types, expr.find_type needs to work, and/or use a form of passing an expected type through the tree
+
+Type::AnonTuple(types): add struct if not already exists, Type::Struct(ident)
+
+Expr::AnonTuple(exprs): add struct if not already exists, Type::Struct(ident,exprs)
+
+## Eliminate Named Aliases
+
+named aliases should map to their types:
+
+Type::Alias(ident): follow chain and replace with ultimate type
+
+## Convert Enums
+
+enums should become structs:
+
+for each enum, calculate how many fields are needed and how each variant maps its components
+
+Type::Enum(ident) => Type::Struct
+
+Expr::Variant(enum_ident,variant) => map to struct with indices
+
+Expr::Discriminant(enum_ident) => Expr::Field
+
+Expr::Destructure(enum_ident,variant_index,index) => Expr::Field
+
+# COMBINING PASSES
+
+Destructure Patterns needs to go first and separately
+
+Resolve Symbols, Convert Named and Anonymous Tuples, Eliminate Named Aliases and Convert Enums can go together in a pass where requested types and context are passed down into the tree

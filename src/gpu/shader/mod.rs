@@ -5,6 +5,9 @@ mod astdisplay;
 mod stdlib;
 pub use stdlib::*;
 
+mod destructure;
+pub use destructure::*;
+
 mod context;
 pub use context::*;
 
@@ -29,12 +32,8 @@ pub use spirv::*;
 
 pub fn translate_source(source: ast::Source) -> ast::Module {
 
-    println!("resolve into C-like");
-
-    let mut resolver = Resolver::new(&source);
-    let module = resolver.resolve(source);
-
-    // now the shader is ready to be translated to the target language
+    // TODO: destructure
+    // TODO: convert named tuples, convert anonymous tuples, eliminate aliases, convert enums
 
     module
 }
