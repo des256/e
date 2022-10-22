@@ -5,11 +5,17 @@ mod astdisplay;
 mod stdlib;
 pub use stdlib::*;
 
+mod context;
+pub use context::*;
+
 mod findtype;
 pub use findtype::*;
 
-mod resolver;
-pub use resolver::*;
+mod evaluate;
+pub use evaluate::*;
+
+mod resolvesymbols;
+pub use resolvesymbols::*;
 
 #[cfg(any(gpu="opengl"))]
 mod glsl;

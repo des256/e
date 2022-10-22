@@ -336,9 +336,9 @@ impl Display for Expr {
                 }
                 write!(f,")")
             },
-            Expr::Param(param) => write!(f,"{}",param.ident),
-            Expr::Local(local) => write!(f,"{}",local.ident),
-            Expr::Const(const_) => write!(f,"{}",const_.ident),
+            Expr::Param(param) => write!(f,"{}",param),
+            Expr::Local(local) => write!(f,"{}",local),
+            Expr::Const(const_) => write!(f,"{}",const_),
             Expr::Tuple(tuple_ident,exprs) => {
                 write!(f,"{}(",tuple_ident)?;
                 let mut first = true;

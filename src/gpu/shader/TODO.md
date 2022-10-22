@@ -219,6 +219,7 @@ So that means:
 - Type::UnknownIdent => Type::Tuple, Type::Struct, Type::Enum or Type::Alias
 - Type::Tuple => Type::Struct
 - Type::Enum => Type::Struct
+- Type::Alias => innermost type
 
 - Pat::UnknownTuple => Pat::Struct
 - Pat::UnknownStruct => Pat::Struct

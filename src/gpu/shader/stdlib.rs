@@ -2,7 +2,6 @@ use {
     super::ast::*,
     std::{
         collections::HashMap,
-        rc::Rc,
         fmt::{
             Display,
             Formatter,
@@ -12,13 +11,13 @@ use {
 };
 
 pub struct StandardLib {
-    pub tuples: HashMap<String,Rc<Tuple>>,
-    pub structs: HashMap<String,Rc<Struct>>,
-    pub enums: HashMap<String,Rc<Enum>>,
-    pub aliases: HashMap<String,Rc<Alias>>,
-    pub consts: HashMap<String,Rc<Const>>,
-    pub functions: HashMap<String,Vec<Rc<Function>>>,
-    pub methods: HashMap<String,Vec<Rc<Method>>>,
+    pub tuples: HashMap<String,Tuple>,
+    pub structs: HashMap<String,Struct>,
+    pub enums: HashMap<String,Enum>,
+    pub aliases: HashMap<String,Alias>,
+    pub consts: HashMap<String,Const>,
+    pub functions: HashMap<String,Vec<Function>>,
+    pub methods: HashMap<String,Vec<Method>>,
 }
 
 impl StandardLib {
@@ -41,10 +40,10 @@ impl StandardLib {
         if r > 3 {
             fields.push(Symbol { ident: "w".to_string(),type_: comp_type.clone(), });
         }
-        let struct_ = Rc::new(Struct {
+        let struct_ = Struct {
             ident: ident.clone(),
             fields,
-        });
+        };
         self.structs.insert(ident,struct_);
     }
 
@@ -60,20 +59,20 @@ impl StandardLib {
         if c > 3 {
             fields.push(Symbol { ident: "w".to_string(),type_: Type::Struct(component.ident), });
         }
-        let struct_ = Rc::new(Struct {
+        let struct_ = Struct {
             ident: ident.clone(),
             fields: fields,
-        });
+        };
         self.structs.insert(ident,struct_);
     }
 
     fn insert_method(&mut self,from_type: &Type,ident: &str,params: Vec<Symbol>,type_: &Type) {
-        let method = Rc::new(Method {
+        let method = Method {
             from_type: from_type.clone(),
             ident: ident.to_string(),
             params,
             type_: type_.clone(),
-        });
+        };
         if self.methods.contains_key(ident) {
             self.methods.get_mut(ident).unwrap().push(method);
         }
@@ -193,7 +192,7 @@ impl StandardLib {
         for r in 2..5 {
 
             // boolean vector methods
-            let from_type = Rc::clone(&stdlib.structs[&format!("Vec{}<bool>",r)]);
+            let from_type = stdlib.structs[&format!("Vec{}<bool>",r)];
             stdlib.insert_method(&Type::Struct(from_type.ident.clone()),"all",vec![],&Type::Bool);
             stdlib.insert_method(&Type::Struct(from_type.ident.clone()),"any",vec![],&Type::Bool);
             stdlib.insert_method(&Type::Struct(from_type.ident.clone()),"not",vec![],&Type::Struct(from_type.ident.clone()));

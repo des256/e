@@ -1,23 +1,31 @@
 use {
+    super::*,
     super::ast::*,
-    std::{
-        rc::Rc,
-    },
 };
 
 pub trait FindType {
-    fn find_type(&self) -> Type;
+    fn find_type(&self,context: &Context) -> Type;
 }
 
-pub fn tightest(type1: &Type,type2: &Type) -> Option<Type> {
+pub fn tightest(type1: &Type,type2: &Type,context: &Context) -> Option<Type> {
 
     let mut type1 = type1.clone();
     let mut type2 = type2.clone();
-    while let Type::Alias(alias) = type1 {
-        type1 = alias.type_.clone();
+    while let Type::Alias(ident) = type1 {
+        if context.stdlib.aliases.contains_key(&ident) {
+            type1 = context.stdlib.aliases[&ident].type_;
+        }
+        else if context.aliases.contains_key(&ident) {
+            type1 = context.aliases[&ident].type_;
+        }
     }
-    while let Type::Alias(alias) = type2 {
-        type2 = alias.type_.clone();
+    while let Type::Alias(ident) = type2 {
+        if context.stdlib.aliases.contains_key(&ident) {
+            type2 = context.stdlib.aliases[&ident].type_;
+        }
+        else if context.aliases.contains_key(&ident) {
+            type2 = context.aliases[&ident].type_;
+        }
     }
     
     if type1 == type2 {
@@ -93,9 +101,9 @@ pub fn tightest(type1: &Type,type2: &Type) -> Option<Type> {
 }
 
 impl FindType for Block {
-    fn find_type(&self) -> Type {
+    fn find_type(&self,context: &Context) -> Type {
         if let Some(expr) = &self.expr {
-            expr.find_type()
+            expr.find_type(context)
         }
         else {
             Type::Void
@@ -104,7 +112,7 @@ impl FindType for Block {
 }
 
 impl FindType for Expr {
-    fn find_type(&self) -> Type {
+    fn find_type(&self,context: &Context) -> Type {
         match self {
             Expr::Boolean(_) => Type::Bool,
             Expr::Integer(_) => Type::Integer,
@@ -112,21 +120,21 @@ impl FindType for Expr {
             Expr::Array(exprs) => {
                 let mut type_ = Type::Inferred;
                 for expr in exprs.iter() {
-                    type_ = tightest(&type_,&expr.find_type()).expect(&format!("cannot infer type of array {}",self));
+                    type_ = tightest(&type_,&expr.find_type(context),context).expect(&format!("cannot infer type of array {}",self));
                 }
                 Type::Array(Box::new(type_),Box::new(Expr::Integer(exprs.len() as i64)))
             },
-            Expr::Cloned(expr,expr2) => Type::Array(Box::new(expr.find_type()),expr2.clone()),
-            Expr::Index(expr,_) => if let Type::Array(type_,_) = expr.find_type() { *type_.clone() } else { Type::Inferred },
+            Expr::Cloned(expr,expr2) => Type::Array(Box::new(expr.find_type(context)),expr2.clone()),
+            Expr::Index(expr,_) => if let Type::Array(type_,_) = expr.find_type(context) { *type_.clone() } else { Type::Inferred },
             Expr::Cast(_,type_) => *type_.clone(),
             Expr::AnonTuple(exprs) => {
                 let mut types: Vec<Type> = Vec::new();
                 for expr in exprs {
-                    types.push(expr.find_type());
+                    types.push(expr.find_type(context));
                 }
                 Type::AnonTuple(types)
             },
-            Expr::Unary(_,expr) => expr.find_type(),
+            Expr::Unary(_,expr) => expr.find_type(context),
             Expr::Binary(lhs,op,rhs) => {
                 match op {
                     BinaryOp::Mul |
@@ -140,7 +148,7 @@ impl FindType for Expr {
                     BinaryOp::Or |
                     BinaryOp::Xor |
                     BinaryOp::LogAnd |
-                    BinaryOp::LogOr => tightest(&lhs.find_type(),&rhs.find_type()).expect(&format!("operands of {} not compatible",op)),
+                    BinaryOp::LogOr => tightest(&lhs.find_type(context),&rhs.find_type(context),context).expect(&format!("operands of {} not compatible",op)),
                     BinaryOp::Eq |
                     BinaryOp::NotEq |
                     BinaryOp::Greater |
@@ -157,17 +165,17 @@ impl FindType for Expr {
                     BinaryOp::OrAssign |
                     BinaryOp::XorAssign |
                     BinaryOp::ShlAssign |
-                    BinaryOp::ShrAssign => lhs.find_type(),
+                    BinaryOp::ShrAssign => lhs.find_type(context),
                 }
             },
             Expr::Continue => Type::Void,
             Expr::Break(_) => Type::Void,
             Expr::Return(_) => Type::Void,
-            Expr::Block(block) => block.find_type(),
+            Expr::Block(block) => block.find_type(context),
             Expr::If(_,block,else_expr) => {
-                let type_ = block.find_type();
+                let type_ = block.find_type(context);
                 if let Some(else_expr) = else_expr {
-                    tightest(&type_,&else_expr.find_type()).expect("if block and else-expression not compatible")
+                    tightest(&type_,&else_expr.find_type(context),context).expect("if block and else-expression not compatible")
                 }
                 else {
                     type_
@@ -176,9 +184,9 @@ impl FindType for Expr {
             Expr::While(_,_) => Type::Void,
             Expr::Loop(_) => Type::Void,
             Expr::IfLet(_,_,block,else_expr) => {
-                let type_ = block.find_type();
+                let type_ = block.find_type(context);
                 if let Some(else_expr) = else_expr {
-                    tightest(&type_,&else_expr.find_type()).expect("if let block and else-expression not compatible")
+                    tightest(&type_,&else_expr.find_type(context),context).expect("if let block and else-expression not compatible")
                 }
                 else {
                     type_
@@ -189,39 +197,200 @@ impl FindType for Expr {
             Expr::Match(_,arms) => {
                 let mut type_ = Type::Inferred;
                 for (_,_,expr) in arms {
-                    type_ = tightest(&type_,&expr.find_type()).expect("match arms not compatible");
+                    type_ = tightest(&type_,&expr.find_type(context),context).expect("match arms not compatible");
                 }
                 type_
             },
             Expr::UnknownIdent(_) => Type::Inferred,
-            Expr::UnknownTupleOrCall(_,_) => Type::Inferred,
-            Expr::UnknownStruct(_,_) => Type::Inferred,
-            Expr::UnknownVariant(_,_) => Type::Inferred,
-            Expr::UnknownMethod(_,_,_) => Type::Inferred,
-            Expr::UnknownField(_,_) => Type::Inferred,
-            Expr::UnknownTupleIndex(_,_) => Type::Inferred,
-            Expr::Param(param) => param.type_.clone(),
-            Expr::Local(local) => local.type_.clone(),
-            Expr::Const(const_) => const_.type_.clone(),
-            Expr::Tuple(tuple,_) => Type::Tuple(Rc::clone(&tuple)),
-            Expr::Call(function,_) => function.type_.clone(),
-            Expr::Struct(struct_,_) => Type::Struct(Rc::clone(&struct_)),
-            Expr::Variant(enum_,_) => Type::Enum(Rc::clone(&enum_)),
-            Expr::Method(_,method,_) => method.type_.clone(),
-            Expr::Field(struct_,_,index) => struct_.fields[*index].type_.clone(),
-            Expr::TupleIndex(tuple,_,index) => tuple.types[*index].clone(),
+            Expr::TupleOrCall(_,_) => Type::Inferred,
+            Expr::Struct(ident,_) => Type::Struct(ident.clone()),
+            Expr::Variant(ident,_) => Type::Enum(ident.clone()),
+            Expr::Method(from_expr,ident,_) => {
+                let type_ = from_expr.find_type(context);
+                if context.stdlib.methods.contains_key(ident) {
+                    let mut found: Option<Type> = None;
+                    let methods = context.stdlib.methods[ident];
+                    for method in methods.iter() {
+                        if method.from_type == type_ {
+                            found = Some(method.type_);
+                            break;
+                        }
+                    }
+                    if let Some(type_) = found {
+                        type_
+                    }
+                    else {
+                        panic!("method {} invalid for {}",ident,from_expr);
+                    }
+                }
+                else {
+                    panic!("unknown method {}",ident);
+                }
+            },
+            Expr::Field(expr,ident) => if let Type::Struct(struct_ident) = expr.find_type(context) {
+                if context.stdlib.structs.contains_key(&struct_ident) {
+                    let mut found: Option<Type> = None;
+                    let fields = context.stdlib.structs[&struct_ident].fields;
+                    for field in fields.iter() {
+                        if field.ident == *ident {
+                            found = Some(field.type_);
+                            break;
+                        }
+                    }
+                    if let Some(type_) = found {
+                        type_
+                    }
+                    else {
+                        panic!("field {} does not exist on {}",ident,expr);
+                    }
+                }
+                else if context.structs.contains_key(&struct_ident) {
+                    let mut found: Option<Type> = None;
+                    let fields = context.stdlib.structs[&struct_ident].fields;
+                    for field in fields.iter() {
+                        if field.ident == *ident {
+                            found = Some(field.type_);
+                            break;
+                        }
+                    }
+                    if let Some(type_) = found {
+                        type_
+                    }
+                    else {
+                        panic!("field {} does not exist on {}",ident,expr);
+                    }
+                }
+                else {
+                    panic!("unknown struct in {} ({})",expr,struct_ident);
+                }
+            }
+            else {
+                panic!("{} not a struct",expr);
+            },
+            Expr::TupleIndex(expr,index) => if let Type::Tuple(tuple_ident) = expr.find_type(context) {
+                if context.stdlib.tuples.contains_key(&tuple_ident) {
+                    let tuple = context.stdlib.tuples[&tuple_ident];
+                    if *index < tuple.types.len() {
+                        tuple.types[*index]
+                    }
+                    else {
+                        panic!("tuple index {} out of range on {}",index,expr);
+                    }
+                }
+                else if context.tuples.contains_key(&tuple_ident) {
+                    let tuple = context.stdlib.tuples[&tuple_ident];
+                    if *index < tuple.types.len() {
+                        tuple.types[*index]
+                    }
+                    else {
+                        panic!("tuple index {} out of range on {}",index,expr);
+                    }
+                }
+                else {
+                    panic!("unknown tuple in {} ({})",expr,tuple_ident);
+                }
+            }
+            else {
+                panic!("{} not a tuple",expr);
+            },
+            Expr::Param(ident) => if context.params.contains_key(ident) {
+                context.params[ident].type_
+            }
+            else {
+                panic!("unknown parameter {}",ident);
+            },
+            Expr::Local(ident) => if context.locals.contains_key(ident) {
+                context.locals[ident].type_
+            }
+            else {
+                panic!("unknown local variable {}",ident);
+            },
+            Expr::Const(ident) => if context.stdlib.consts.contains_key(ident) {
+                context.stdlib.consts[ident].type_
+            }
+            else if context.consts.contains_key(ident) {
+                context.consts[ident].type_
+            }
+            else {
+                panic!("unknown constant {}",ident);
+            },
+            Expr::Tuple(ident,_) => Type::Tuple(ident.clone()),
+            Expr::Call(ident,exprs) => if context.stdlib.functions.contains_key(ident) {
+                let functions = context.stdlib.functions[ident];
+                let mut found: Option<Type> = None;
+                for function in functions.iter() {
+                    let mut params_same = true;
+                    if exprs.len() != function.params.len() {
+                        params_same = false;
+                    }
+                    else {
+                        for i in 0..exprs.len() {
+                            if let None = tightest(&exprs[i].find_type(context),&function.params[i].type_,context) {
+                                params_same = false;
+                                break;
+                            }
+                        }
+                        if params_same {
+                            found = Some(function.type_.clone());
+                            break;
+                        }
+                    }
+                }
+                if let Some(type_) = found {
+                    type_
+                }
+                else {
+                    panic!("function {} not found for given parameters",ident);
+                }
+            }
+            else if context.functions.contains_key(ident) {
+                let function = context.functions[ident];
+                let mut params_same = true;
+                if exprs.len() == function.params.len() {
+                    for i in 0..exprs.len() {
+                        if let None = tightest(&exprs[i].find_type(context),&function.params[i].type_,context) {
+                            params_same = false;
+                            break;
+                        }
+                    }
+                    if params_same {
+                        function.type_.clone()
+                    }
+                    else {
+                        panic!("function {} parameters invalid",ident);
+                    }
+                }
+                else {
+                    panic!("function {} number of parameters wrong",ident);
+                }
+            }
+            else {
+                panic!("unknown function {}",ident);
+            },
             Expr::Discriminant(_) => Type::USize,
-            Expr::Destructure(expr,variant_index,index) => {
-                if let Type::Enum(enum_) = expr.find_type() {
-                    match &enum_.variants[*variant_index] {
+            Expr::Destructure(expr,variant_index,index) => if let Type::Enum(ident) = expr.find_type(context) {
+                if context.stdlib.enums.contains_key(&ident) {
+                    let enum_ = context.stdlib.enums[&ident];
+                    match enum_.variants[*variant_index] {
+                        Variant::Naked(_) => Type::Void,
+                        Variant::Tuple(_,types) => types[*index].clone(),
+                        Variant::Struct(_,fields) => fields[*index].type_.clone(),
+                    }
+                }
+                else if context.enums.contains_key(&ident) {
+                    let enum_ = context.enums[&ident];
+                    match enum_.variants[*variant_index] {
                         Variant::Naked(_) => Type::Void,
                         Variant::Tuple(_,types) => types[*index].clone(),
                         Variant::Struct(_,fields) => fields[*index].type_.clone(),
                     }
                 }
                 else {
-                    panic!("expression {} not an enum",expr);
+                    panic!("unknown enum {}",ident);
                 }
+            }
+            else {
+                panic!("expression {} not an enum",expr);
             },
         }
     }

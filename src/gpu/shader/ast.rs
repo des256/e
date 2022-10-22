@@ -1,7 +1,6 @@
 use {
     std::{
         collections::HashMap,
-        rc::Rc,
         cmp::PartialEq,
     },
 };
@@ -201,9 +200,9 @@ pub enum Expr {
     Method(Box<Expr>,String,Vec<Expr>),
     Field(Box<Expr>,String),
     TupleIndex(Box<Expr>,usize),
-    Param(Rc<Symbol>),
-    Local(Rc<Symbol>),
-    Const(Rc<Const>),
+    Param(String),
+    Local(String),
+    Const(String),
     Tuple(String,Vec<Expr>),
     Call(String,Vec<Expr>),
     Discriminant(Box<Expr>),
@@ -234,7 +233,7 @@ pub struct Method {
 #[derive(Clone)]
 pub struct Function {
     pub ident: String,
-    pub params: Vec<Rc<Symbol>>,
+    pub params: Vec<Symbol>,
     pub type_: Type,
     pub block: Block,
 }
