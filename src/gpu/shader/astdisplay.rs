@@ -564,28 +564,3 @@ impl Display for Alias {
         write!(f,"type {} = {}",self.ident,self.type_)
     }
 }
-
-impl Display for Module {
-    fn fmt(&self,f: &mut Formatter) -> Result {
-        write!(f,"mod {} {{\n",self.ident)?;
-        for ident in self.aliases.keys() {
-            write!(f,"{}\n",self.aliases[ident])?;
-        }
-        for ident in self.tuples.keys() {
-            write!(f,"{}\n",self.tuples[ident])?;
-        }
-        for ident in self.structs.keys() {
-            write!(f,"{}\n",self.structs[ident])?;
-        }
-        for ident in self.enums.keys() {
-            write!(f,"{}\n",self.enums[ident])?;
-        }
-        for ident in self.consts.keys() {
-            write!(f,"{}\n",self.consts[ident])?;
-        }
-        for ident in self.functions.keys() {
-            write!(f,"{}\n",self.functions[ident])?;
-        }
-        write!(f,"}}")
-    }
-}

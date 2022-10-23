@@ -8,9 +8,6 @@ pub use stdlib::*;
 mod destructure;
 pub use destructure::*;
 
-mod context;
-pub use context::*;
-
 mod findtype;
 pub use findtype::*;
 
@@ -30,10 +27,10 @@ mod spirv;
 #[cfg(any(gpu="vulkan"))]
 pub use spirv::*;
 
-pub fn translate_source(source: ast::Source) -> ast::Module {
+pub fn translate_source(source: ast::Source) -> ast::Source {
 
     // TODO: destructure
     // TODO: convert named tuples, convert anonymous tuples, eliminate aliases, convert enums
 
-    module
+    source
 }

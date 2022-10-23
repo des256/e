@@ -342,20 +342,16 @@ pub struct Module {
     pub ident: String,
     pub tuples: HashMap<String,Tuple>,
     pub structs: HashMap<String,Struct>,
+    pub extern_structs: HashMap<String,Struct>,
     pub enums: HashMap<String,Enum>,
     pub aliases: HashMap<String,Alias>,
     pub consts: HashMap<String,Const>,
     pub functions: HashMap<String,Function>,
-}
-
-#[derive(Clone)]
-pub struct Source {
-    pub ident: String,
-    pub tuples: Vec<Tuple>,
-    pub structs: Vec<Struct>,
-    pub extern_structs: Vec<Struct>,
-    pub enums: Vec<Enum>,
-    pub aliases: Vec<Alias>,
-    pub consts: Vec<Const>,
-    pub functions: Vec<Function>,
+    pub stdlib_tuples: HashMap<String,Tuple>,
+    pub stdlib_structs: HashMap<String,Struct>,
+    pub stdlib_enums: HashMap<String,Enum>,
+    pub stdlib_aliases: HashMap<String,Alias>,
+    pub stdlib_consts: HashMap<String,Const>,
+    pub stdlib_functions: HashMap<String,Vec<Function>>,
+    pub stdlib_methods: HashMap<String,Vec<Method>>,
 }
