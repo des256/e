@@ -332,7 +332,6 @@ impl Render for Module {
             for extern_struct_ident in extern_struct_idents.iter() {
                 r += &format!("extern_structs.insert(\"{}\".to_string(),super::{}::ast());",extern_struct_ident,extern_struct_ident);
             }
-            r += "]; ";
         }
         else {
             r += "let extern_structs: HashMap<String,Struct> = HashMap::new(); ";

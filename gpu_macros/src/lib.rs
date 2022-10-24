@@ -28,9 +28,9 @@ use render::*;
 #[proc_macro_derive(Vertex)]
 pub fn derive_vertex(stream: TokenStream) -> TokenStream {
     let struct_ = Parser::new(stream).struct_();
-    let compiled = format!("impl Vertex for {} {{ fn ast() -> ast::Struct {{ {} }} }}",struct_.ident,struct_.render());
-    panic!("DONE:\n{}",compiled);
-    //compiled.parse().unwrap()
+    let compiled = format!("impl Vertex for {} {{ fn ast() -> e::gpu::ast::Struct {{ {} }} }}",struct_.ident,struct_.render());
+    //panic!("DONE:\n{}",compiled);
+    compiled.parse().unwrap()
 }
 
 #[proc_macro_attribute]

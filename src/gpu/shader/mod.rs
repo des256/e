@@ -8,6 +8,7 @@ pub use stdlib::*;
 mod destructure;
 pub use destructure::*;
 
+/*
 mod findtype;
 pub use findtype::*;
 
@@ -16,6 +17,7 @@ pub use evaluate::*;
 
 mod resolvesymbols;
 pub use resolvesymbols::*;
+*/
 
 #[cfg(any(gpu="opengl"))]
 mod glsl;
@@ -27,10 +29,11 @@ mod spirv;
 #[cfg(any(gpu="vulkan"))]
 pub use spirv::*;
 
-pub fn translate_source(source: ast::Source) -> ast::Source {
+pub fn translate_module(module: ast::Module) -> ast::Module {
 
-    // TODO: destructure
+    let module = destructure_module(module);
+
     // TODO: convert named tuples, convert anonymous tuples, eliminate aliases, convert enums
 
-    source
+    module
 }

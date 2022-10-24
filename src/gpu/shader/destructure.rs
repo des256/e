@@ -433,8 +433,8 @@ impl Context {
 
             Type::AnonTuple(types) => {
                 let mut new_types: Vec<Type> = Vec::new();
-                for type_ in types.iter() {
-                    new_types.push(self.process_type(*type_));
+                for type_ in types {
+                    new_types.push(self.process_type(type_));
                 }
                 Type::AnonTuple(new_types)
             },
@@ -475,7 +475,7 @@ impl Context {
                 },
             }
         }
-        let mut new_expr = if let Some(expr) = block.expr {
+        let new_expr = if let Some(expr) = block.expr {
             Some(Box::new(self.process_expr(*expr)))
         }
         else {
@@ -498,8 +498,8 @@ impl Context {
 
             Expr::Array(exprs) => {
                 let mut new_exprs: Vec<Expr> = Vec::new();
-                for expr in exprs.iter() {
-                    new_exprs.push(self.process_expr(*expr));
+                for expr in exprs {
+                    new_exprs.push(self.process_expr(expr));
                 }
                 Expr::Array(new_exprs)
             },
@@ -532,8 +532,8 @@ impl Context {
 
             Expr::AnonTuple(exprs) => {
                 let mut new_exprs: Vec<Expr> = Vec::new();
-                for expr in exprs.iter() {
-                    new_exprs.push(self.process_expr(*expr));
+                for expr in exprs {
+                    new_exprs.push(self.process_expr(expr));
                 }
                 Expr::AnonTuple(new_exprs)
             },
@@ -638,7 +638,7 @@ impl Context {
 
             Expr::For(pats,range,block) => {
                 if pats.len() == 1 {
-                    if let Pat::UnknownIdent(ident) = pats[0] {
+                    if let Pat::UnknownIdent(ident) = &pats[0] {
                         let (expr,op,expr2) = match range {
                             Range::FromTo(expr,expr2) => (
                                 self.process_expr(*expr),
@@ -660,7 +660,7 @@ impl Context {
                             stats,
                             expr: Some(Box::new(
                                 Expr::Binary(
-                                    Box::new(Expr::UnknownIdent(ident)),
+                                    Box::new(Expr::UnknownIdent(ident.clone())),
                                     BinaryOp::AddAssign,
                                     Box::new(Expr::Integer(1)),
                                 )
@@ -669,7 +669,7 @@ impl Context {
                         let for_block = Block {
                             stats: vec![
                                 Stat::Local(
-                                    ident,
+                                    ident.clone(),
                                     Box::new(Type::Inferred),
                                     Box::new(expr),
                                 ),
@@ -678,7 +678,7 @@ impl Context {
                                 Expr::While(
                                     Box::new(
                                         Expr::Binary(
-                                            Box::new(Expr::UnknownIdent(ident)),
+                                            Box::new(Expr::UnknownIdent(ident.clone())),
                                             op,
                                             Box::new(expr2),
                                         )
@@ -728,7 +728,7 @@ impl Context {
 
             Expr::Match(expr,arms) => {
                 let new_expr = self.process_expr(*expr);
-                let mut match_block = Block {
+                let match_block = Block {
                     stats: vec![
                         Stat::Local(
                             "scrut".to_string(),
@@ -740,12 +740,12 @@ impl Context {
                 };
                 let mut exprs: Vec<Expr> = Vec::new();
                 let mut else_expr: Option<Box<Expr>> = None;
-                for (pats,if_expr,expr) in arms.iter() {
+                for (pats,if_expr,expr) in arms {
                     // TODO: if_expr does what exactly?
-                    let new_expr = self.process_expr(**expr);
-                    if let Some(condition) = self.make_pats_bool(pats,"scrut") {
+                    let new_expr = self.process_expr(*expr);
+                    if let Some(condition) = self.make_pats_bool(&pats,"scrut") {
                         let arm_block = Block {
-                            stats: self.destructure_pats(pats,"scrut"),
+                            stats: self.destructure_pats(&pats,"scrut"),
                             expr: Some(Box::new(new_expr)),
                         };
                         exprs.push(Expr::If(Box::new(condition),arm_block,None));
@@ -753,7 +753,7 @@ impl Context {
                     else if let None = else_expr {
                         let arm_block = Block {
                             stats: Vec::new(),
-                            expr: Some(Box::new(*expr.clone())),
+                            expr: Some(Box::new(new_expr)),
                         };
                         else_expr = Some(Box::new(Expr::Block(arm_block)));
                     }
@@ -764,7 +764,7 @@ impl Context {
                 let mut result_expr: Option<Box<Expr>> = else_expr;
                 for i in 0..exprs.len() {
                     if let Expr::If(condition,block,_) = &exprs[exprs.len() - i - 1] {
-                        result_expr = Some(Box::new(Expr::If(*condition,*block,result_expr)));
+                        result_expr = Some(Box::new(Expr::If(condition.clone(),block.clone(),result_expr)));
                     }
                 }
                 *result_expr.unwrap()
@@ -774,34 +774,34 @@ impl Context {
 
             Expr::TupleOrCall(ident,exprs) => {
                 let mut new_exprs: Vec<Expr> = Vec::new();
-                for expr in exprs.iter() {
-                    new_exprs.push(self.process_expr(*expr));
+                for expr in exprs {
+                    new_exprs.push(self.process_expr(expr));
                 }
                 Expr::TupleOrCall(ident,new_exprs)
             },
 
             Expr::Struct(ident,fields) => {
                 let mut new_fields: Vec<(String,Expr)> = Vec::new();
-                for (ident,expr) in fields.iter() {
-                    new_fields.push((ident.clone(),self.process_expr(*expr)));
+                for (ident,expr) in fields {
+                    new_fields.push((ident.clone(),self.process_expr(expr)));
                 }
                 Expr::Struct(ident,new_fields)
             },
 
             Expr::Variant(enum_ident,variant) => {
-                let mut new_variant = match variant {
+                let new_variant = match variant {
                     VariantExpr::Naked(ident) => VariantExpr::Naked(ident),
                     VariantExpr::Tuple(ident,exprs) => {
                         let mut new_exprs: Vec<Expr> = Vec::new();
-                        for expr in exprs.iter() {
-                            new_exprs.push(self.process_expr(*expr));
+                        for expr in exprs {
+                            new_exprs.push(self.process_expr(expr));
                         }
                         VariantExpr::Tuple(ident,new_exprs)
                     },
                     VariantExpr::Struct(ident,fields) => {
                         let mut new_fields: Vec<(String,Expr)> = Vec::new();
-                        for (ident,expr) in fields.iter() {
-                            new_fields.push((ident.clone(),self.process_expr(*expr)));
+                        for (ident,expr) in fields {
+                            new_fields.push((ident.clone(),self.process_expr(expr)));
                         }
                         VariantExpr::Struct(ident,new_fields)
                     },
@@ -812,8 +812,8 @@ impl Context {
             Expr::Method(expr,ident,exprs) => {
                 let new_expr = self.process_expr(*expr);
                 let mut new_exprs: Vec<Expr> = Vec::new();
-                for expr in exprs.iter() {
-                    new_exprs.push(self.process_expr(*expr));
+                for expr in exprs {
+                    new_exprs.push(self.process_expr(expr));
                 }
                 Expr::Method(Box::new(new_expr),ident,new_exprs)
             },
@@ -836,16 +836,16 @@ impl Context {
 
             Expr::Tuple(ident,exprs) => {
                 let mut new_exprs: Vec<Expr> = Vec::new();
-                for expr in exprs.iter() {
-                    new_exprs.push(self.process_expr(*expr));
+                for expr in exprs {
+                    new_exprs.push(self.process_expr(expr));
                 }
                 Expr::Tuple(ident,new_exprs)
             },
 
             Expr::Call(ident,exprs) => {
                 let mut new_exprs: Vec<Expr> = Vec::new();
-                for expr in exprs.iter() {
-                    new_exprs.push(self.process_expr(*expr));
+                for expr in exprs {
+                    new_exprs.push(self.process_expr(expr));
                 }
                 Expr::Call(ident,new_exprs)
             },
@@ -862,7 +862,7 @@ impl Context {
 
             Expr::DestructStruct(expr,variant_ident,ident) => {
                 let new_expr = self.process_expr(*expr);
-                Expr::DestructStruct(expr,variant_ident,ident)
+                Expr::DestructStruct(Box::new(new_expr),variant_ident,ident)
             },
         }
     }
@@ -870,7 +870,7 @@ impl Context {
     pub fn process_module(module: Module) -> Module {
 
         // create context with clones of original constant lists, this is only used to identify the constants, not do anything else with them
-        let mut context = Context {
+        let context = Context {
             consts: module.consts.clone(),
             stdlib_consts: module.stdlib_consts.clone(),
         };
@@ -879,8 +879,8 @@ impl Context {
         let mut new_tuples: HashMap<String,Tuple> = HashMap::new();
         for tuple in module.tuples.values() {
             let mut new_types: Vec<Type> = Vec::new();
-            for type_ in tuple.types {
-                new_types.push(context.process_type(type_));
+            for type_ in tuple.types.iter() {
+                new_types.push(context.process_type(type_.clone()));
             }
             new_tuples.insert(
                 tuple.ident.clone(),
@@ -895,10 +895,10 @@ impl Context {
         let mut new_structs: HashMap<String,Struct> = HashMap::new();
         for struct_ in module.structs.values() {
             let mut new_fields: Vec<Symbol> = Vec::new();
-            for field in struct_.fields {
+            for field in struct_.fields.iter() {
                 new_fields.push(Symbol {
                     ident: field.ident.clone(),
-                    type_: context.process_type(field.type_),
+                    type_: context.process_type(field.type_.clone()),
                 });
             }
             new_structs.insert(
@@ -914,10 +914,10 @@ impl Context {
         let mut new_extern_structs: HashMap<String,Struct> = HashMap::new();
         for struct_ in module.extern_structs.values() {
             let mut new_fields: Vec<Symbol> = Vec::new();
-            for field in struct_.fields {
+            for field in struct_.fields.iter() {
                 new_fields.push(Symbol {
                     ident: field.ident.clone(),
-                    type_: context.process_type(field.type_),
+                    type_: context.process_type(field.type_.clone()),
                 });
             }
             new_extern_structs.insert(
@@ -933,17 +933,17 @@ impl Context {
         let mut new_enums: HashMap<String,Enum> = HashMap::new();
         for enum_ in module.enums.values() {
             let mut new_variants: Vec<Variant> = Vec::new();
-            for variant in enum_.variants {
+            for variant in enum_.variants.iter() {
                 match variant {
 
-                    Variant::Naked(ident) => new_variants.push(Variant::Naked(ident)),
+                    Variant::Naked(ident) => new_variants.push(Variant::Naked(ident.clone())),
 
                     Variant::Tuple(ident,types) => {
                         let mut new_types: Vec<Type> = Vec::new();
                         for type_ in types {
-                            new_types.push(context.process_type(type_));
+                            new_types.push(context.process_type(type_.clone()));
                         }
-                        new_variants.push(Variant::Tuple(ident,new_types));
+                        new_variants.push(Variant::Tuple(ident.clone(),new_types));
                     },
 
                     Variant::Struct(ident,fields) => {
@@ -951,12 +951,12 @@ impl Context {
                         for field in fields {
                             new_fields.push(
                                 Symbol {
-                                    ident: field.ident,
-                                    type_: context.process_type(field.type_),
+                                    ident: field.ident.clone(),
+                                    type_: context.process_type(field.type_.clone()),
                                 }
                             );
                         }
-                        new_variants.push(Variant::Struct(ident,new_fields));
+                        new_variants.push(Variant::Struct(ident.clone(),new_fields));
                     },
                 }
             }
@@ -972,7 +972,7 @@ impl Context {
         // user aliases
         let mut new_aliases: HashMap<String,Alias> = HashMap::new();
         for alias in module.aliases.values() {
-            let new_type = context.process_type(alias.type_);
+            let new_type = context.process_type(alias.type_.clone());
             new_aliases.insert(
                 alias.ident.clone(),
                 Alias {
@@ -985,7 +985,7 @@ impl Context {
         // user constants
         let mut new_consts: HashMap<String,Const> = HashMap::new();
         for const_ in module.consts.values() {
-            let new_expr = context.process_expr(const_.expr);
+            let new_expr = context.process_expr(const_.expr.clone());
             new_consts.insert(
                 const_.ident.clone(),
                 Const {
@@ -999,12 +999,15 @@ impl Context {
         // user functions
         let mut new_functions: HashMap<String,Function> = HashMap::new();
         for function in module.functions.values() {
-            let new_params: Vec<Symbol> = Vec::new();
-            for param in function.params {
-                new_params.push(Symbol { ident: param.ident,type_: context.process_type(param.type_), });
+            let mut new_params: Vec<Symbol> = Vec::new();
+            for param in function.params.iter() {
+                new_params.push(Symbol {
+                    ident: param.ident.clone(),
+                    type_: context.process_type(param.type_.clone()),
+                });
             }
-            let new_type = context.process_type(function.type_);
-            let new_block = context.process_block(function.block);
+            let new_type = context.process_type(function.type_.clone());
+            let new_block = context.process_block(function.block.clone());
             new_functions.insert(function.ident.clone(),Function {
                 ident: function.ident.clone(),
                 params: new_params,
@@ -1017,8 +1020,8 @@ impl Context {
         let mut new_stdlib_tuples: HashMap<String,Tuple> = HashMap::new();
         for tuple in module.stdlib_tuples.values() {
             let mut new_types: Vec<Type> = Vec::new();
-            for type_ in tuple.types {
-                new_types.push(context.process_type(type_));
+            for type_ in tuple.types.iter() {
+                new_types.push(context.process_type(type_.clone()));
             }
             new_stdlib_tuples.insert(
                 tuple.ident.clone(),
@@ -1033,10 +1036,10 @@ impl Context {
         let mut new_stdlib_structs: HashMap<String,Struct> = HashMap::new();
         for struct_ in module.stdlib_structs.values() {
             let mut new_fields: Vec<Symbol> = Vec::new();
-            for field in struct_.fields {
+            for field in struct_.fields.iter() {
                 new_fields.push(Symbol {
                     ident: field.ident.clone(),
-                    type_: context.process_type(field.type_),
+                    type_: context.process_type(field.type_.clone()),
                 });
             }
             new_stdlib_structs.insert(
@@ -1052,17 +1055,17 @@ impl Context {
         let mut new_stdlib_enums: HashMap<String,Enum> = HashMap::new();
         for enum_ in module.stdlib_enums.values() {
             let mut new_variants: Vec<Variant> = Vec::new();
-            for variant in enum_.variants {
+            for variant in enum_.variants.iter() {
                 match variant {
 
-                    Variant::Naked(ident) => new_variants.push(Variant::Naked(ident)),
+                    Variant::Naked(ident) => new_variants.push(Variant::Naked(ident.clone())),
 
                     Variant::Tuple(ident,types) => {
                         let mut new_types: Vec<Type> = Vec::new();
                         for type_ in types {
-                            new_types.push(context.process_type(type_));
+                            new_types.push(context.process_type(type_.clone()));
                         }
-                        new_variants.push(Variant::Tuple(ident,new_types));
+                        new_variants.push(Variant::Tuple(ident.clone(),new_types));
                     },
 
                     Variant::Struct(ident,fields) => {
@@ -1070,12 +1073,12 @@ impl Context {
                         for field in fields {
                             new_fields.push(
                                 Symbol {
-                                    ident: field.ident,
-                                    type_: context.process_type(field.type_),
+                                    ident: field.ident.clone(),
+                                    type_: context.process_type(field.type_.clone()),
                                 }
                             );
                         }
-                        new_variants.push(Variant::Struct(ident,new_fields));
+                        new_variants.push(Variant::Struct(ident.clone(),new_fields));
                     },
                 }
             }
@@ -1091,7 +1094,7 @@ impl Context {
         // standard library aliases
         let mut new_stdlib_aliases: HashMap<String,Alias> = HashMap::new();
         for alias in module.stdlib_aliases.values() {
-            let new_type = context.process_type(alias.type_);
+            let new_type = context.process_type(alias.type_.clone());
             new_stdlib_aliases.insert(
                 alias.ident.clone(),
                 Alias {
@@ -1104,7 +1107,7 @@ impl Context {
         // standard library constants
         let mut new_stdlib_consts: HashMap<String,Const> = HashMap::new();
         for const_ in module.stdlib_consts.values() {
-            let new_expr = context.process_expr(const_.expr);
+            let new_expr = context.process_expr(const_.expr.clone());
             new_stdlib_consts.insert(
                 const_.ident.clone(),
                 Const {
@@ -1120,12 +1123,15 @@ impl Context {
         for functions in module.stdlib_functions.values() {
             let mut new_functions: Vec<Function> = Vec::new();
             for function in functions {
-                let new_params: Vec<Symbol> = Vec::new();
-                for param in function.params {
-                    new_params.push(Symbol { ident: param.ident,type_: context.process_type(param.type_), });
+                let mut new_params: Vec<Symbol> = Vec::new();
+                for param in function.params.iter() {
+                    new_params.push(Symbol {
+                        ident: param.ident.clone(),
+                        type_: context.process_type(param.type_.clone()),
+                    });
                 }
-                let new_type = context.process_type(function.type_);
-                let new_block = context.process_block(function.block);
+                let new_type = context.process_type(function.type_.clone());
+                let new_block = context.process_block(function.block.clone());
                 new_functions.push(Function {
                     ident: function.ident.clone(),
                     params: new_params,
@@ -1138,6 +1144,27 @@ impl Context {
 
         // standard library methods
         let mut new_stdlib_methods: HashMap<String,Vec<Method>> = HashMap::new();
+        for methods in module.stdlib_methods.values() {
+            let mut new_methods: Vec<Method> = Vec::new();
+            for method in methods {
+                let new_from_type = context.process_type(method.from_type.clone());
+                let mut new_params: Vec<Symbol> = Vec::new();
+                for param in method.params.iter() {
+                    new_params.push(Symbol {
+                        ident: param.ident.clone(),
+                        type_: context.process_type(param.type_.clone()),
+                    });
+                }
+                let new_type = context.process_type(method.type_.clone());
+                new_methods.push(Method {
+                    from_type: new_from_type,
+                    ident: method.ident.clone(),
+                    params: new_params,
+                    type_: new_type,
+                });
+            }
+            new_stdlib_methods.insert(new_methods[0].ident.clone(),new_methods);
+        }
 
         Module {
             ident: module.ident.clone(),
@@ -1157,4 +1184,8 @@ impl Context {
             stdlib_methods: new_stdlib_methods,        
         }
     }
+}
+
+pub fn destructure_module(module: Module) -> Module {
+    Context::process_module(module)
 }

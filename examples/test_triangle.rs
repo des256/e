@@ -5,7 +5,6 @@ use {
         time::Instant,
     },
     gpu_macros::*,
-    sr::*,
 };
 
 #[derive(Vertex)]
@@ -17,7 +16,7 @@ struct MyVertex {
 #[vertex_shader]
 mod my_vertex_shader {
     // TEST SHADER ATTEMPTING TO USE ALL FEATURES
-    struct SomeTuple(u8,i8,f16);
+    /*struct SomeTuple(u8,i8,f16);
 
     type SomeAlias = SomeOtherAlias;
 
@@ -69,7 +68,7 @@ mod my_vertex_shader {
             _ => { },
         }
         let y = ORIGIN.cos();
-    }
+    }*/
 
     fn main(vertex: MyVertex) -> (Vec4<f32>,Vec4<f32>) {
         (
@@ -83,6 +82,9 @@ mod my_vertex_shader {
         )
     }
 }
+
+/*
+*/
 
 #[fragment_shader]
 mod my_fragment_shader {

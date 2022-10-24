@@ -564,3 +564,56 @@ impl Display for Alias {
         write!(f,"type {} = {}",self.ident,self.type_)
     }
 }
+
+impl Display for Module {
+    fn fmt(&self,f: &mut Formatter) -> Result {
+        write!(f,"mod {} {{\n",self.ident)?;
+        for tuple in self.tuples.values() {
+            write!(f,"{};\n",tuple)?;
+        }
+        for struct_ in self.structs.values() {
+            write!(f,"{};\n",struct_)?;
+        }
+        for struct_ in self.extern_structs.values() {
+            write!(f,"{};\n",struct_)?;
+        }
+        for enum_ in self.enums.values() {
+            write!(f,"{};\n",enum_)?;
+        }
+        for alias in self.aliases.values() {
+            write!(f,"{};\n",alias)?;
+        }
+        for const_ in self.consts.values() {
+            write!(f,"{};\n",const_)?;
+        }
+        for function in self.functions.values() {
+            write!(f,"{};\n",function)?;
+        }
+        for tuple in self.stdlib_tuples.values() {
+            write!(f,"{};\n",tuple)?;
+        }
+        for struct_ in self.stdlib_structs.values() {
+            write!(f,"{};\n",struct_)?;
+        }
+        for enum_ in self.stdlib_enums.values() {
+            write!(f,"{};\n",enum_)?;
+        }
+        for alias in self.stdlib_aliases.values() {
+            write!(f,"{};\n",alias)?;
+        }
+        for const_ in self.stdlib_consts.values() {
+            write!(f,"{};\n",const_)?;
+        }
+        for functions in self.stdlib_functions.values() {
+            for function in functions.iter() {
+                write!(f,"{};\n",function)?;
+            }
+        }
+        for methods in self.stdlib_methods.values() {
+            for method in methods.iter() {
+                write!(f,"{};\n",method)?;
+            }
+        }
+        write!(f,"}}")
+    }
+}

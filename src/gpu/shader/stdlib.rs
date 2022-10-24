@@ -51,13 +51,13 @@ impl StandardLib {
         let ident = format!("Mat{}x{}<{}>",c,r,comp_type);
         let component = &self.structs[&format!("Vec{}<{}>",r,comp_type)];
         let mut fields: Vec<Symbol> = Vec::new();
-        fields.push(Symbol { ident: "x".to_string(),type_: Type::Struct(component.ident), });
-        fields.push(Symbol { ident: "y".to_string(),type_: Type::Struct(component.ident), });
+        fields.push(Symbol { ident: "x".to_string(),type_: Type::Struct(component.ident.clone()), });
+        fields.push(Symbol { ident: "y".to_string(),type_: Type::Struct(component.ident.clone()), });
         if c > 2 {
-            fields.push(Symbol { ident: "z".to_string(),type_: Type::Struct(component.ident), });
+            fields.push(Symbol { ident: "z".to_string(),type_: Type::Struct(component.ident.clone()), });
         }
         if c > 3 {
-            fields.push(Symbol { ident: "w".to_string(),type_: Type::Struct(component.ident), });
+            fields.push(Symbol { ident: "w".to_string(),type_: Type::Struct(component.ident.clone()), });
         }
         let struct_ = Struct {
             ident: ident.clone(),
@@ -192,7 +192,7 @@ impl StandardLib {
         for r in 2..5 {
 
             // boolean vector methods
-            let from_type = stdlib.structs[&format!("Vec{}<bool>",r)];
+            let from_type = stdlib.structs[&format!("Vec{}<bool>",r)].clone();
             stdlib.insert_method(&Type::Struct(from_type.ident.clone()),"all",vec![],&Type::Bool);
             stdlib.insert_method(&Type::Struct(from_type.ident.clone()),"any",vec![],&Type::Bool);
             stdlib.insert_method(&Type::Struct(from_type.ident.clone()),"not",vec![],&Type::Struct(from_type.ident.clone()));

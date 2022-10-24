@@ -11,11 +11,12 @@ pub use optimize::*;
 mod render;
 pub use render::*;
 
-pub fn compile_module(mut source: ast::Source) -> Option<Vec<u8>> {
+pub fn compile_module(mut module: ast::Module) -> Option<Vec<u8>> {
     
-    // resolve symbols, detuplify, destructure patterns and disenumify
-    let module = translate_source(source);
+    // destructure patterns, resolve symbols, translate tuples, translate enums, translate aliases
+    let module = translate_module(module);
 
+    println!("module before conversion to GLSL:\n{}",module);
     /*
     // translate to GLSL-specific AST
     let builder = Builder::new();
@@ -29,5 +30,6 @@ pub fn compile_module(mut source: ast::Source) -> Option<Vec<u8>> {
     let renderer = Renderer::new();
     renderer.render_module(module)
     */
+
     None
 }
