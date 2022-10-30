@@ -17,6 +17,7 @@ pub struct StandardLib {
     pub structs: HashMap<String,Struct>,
     pub enums: HashMap<String,Enum>,
     pub enum_structs: HashMap<String,Struct>,
+    pub enum_variants: HashMap<String,HashMap<String,usize>>,
     pub enum_indices: HashMap<String,Vec<Vec<usize>>>,
     pub aliases: HashMap<String,Alias>,
     pub consts: HashMap<String,Const>,
@@ -93,6 +94,7 @@ impl StandardLib {
             structs: HashMap::new(),
             enums: HashMap::new(),
             enum_structs: HashMap::new(),
+            enum_variants: HashMap::new(),
             enum_indices: HashMap::new(),
             aliases: HashMap::new(),
             consts: HashMap::new(),
@@ -405,8 +407,9 @@ impl StandardLib {
             stdlib.tuple_structs.insert(tuple.ident.clone(),Struct { ident: tuple.ident.clone(),fields: new_fields, });
         }
         for enum_ in stdlib.enums.values() {
-            let (struct_,indices) = convert_enum(enum_);
+            let (struct_,variants,indices) = convert_enum(enum_);
             stdlib.enum_structs.insert(enum_.ident.clone(),struct_);
+            stdlib.enum_variants.insert(enum_.ident.clone(),variants);
             stdlib.enum_indices.insert(enum_.ident.clone(),indices);
         }
 

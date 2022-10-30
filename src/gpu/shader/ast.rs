@@ -366,6 +366,7 @@ pub struct ConvertedModule {
     pub ident: String,
     pub structs: HashMap<String,Struct>,
     pub enums: HashMap<String,Enum>,
+    pub enum_variants: HashMap<String,HashMap<String,usize>>,
     pub enum_indices: HashMap<String,Vec<Vec<usize>>>,
     pub consts: HashMap<String,Const>,
     pub functions: HashMap<String,Function>,

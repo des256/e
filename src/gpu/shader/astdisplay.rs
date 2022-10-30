@@ -565,6 +565,34 @@ impl Display for Alias {
     }
 }
 
+impl Display for RustModule {
+    fn fmt(&self,f: &mut Formatter) -> Result {
+        write!(f,"mod {} {{\n",self.ident)?;
+        for tuple in self.tuples.values() {
+            write!(f,"{};\n",tuple)?;
+        }
+        for struct_ in self.structs.values() {
+            write!(f,"{}\n",struct_)?;
+        }
+        for struct_ in self.extern_structs.values() {
+            write!(f,"{}\n",struct_)?;
+        }
+        for enum_ in self.enums.values() {
+            write!(f,"{}\n",enum_)?;
+        }
+        for alias in self.aliases.values() {
+            write!(f,"{};\n",alias)?;
+        }
+        for const_ in self.consts.values() {
+            write!(f,"{};\n",const_)?;
+        }
+        for function in self.functions.values() {
+            write!(f,"{}\n",function)?;
+        }
+        write!(f,"}}")
+    }
+}
+
 impl Display for Module {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"mod {} {{\n",self.ident)?;

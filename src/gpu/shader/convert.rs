@@ -11,6 +11,7 @@ struct Context {
     extern_structs: HashMap<String,Struct>,
     enums: HashMap<String,Enum>,
     enum_structs: HashMap<String,Struct>,
+    enum_variants: HashMap<String,HashMap<String,usize>>,
     enum_indices: HashMap<String,Vec<Vec<usize>>>,
     aliases: HashMap<String,Alias>,
     consts: HashMap<String,Const>,
@@ -386,11 +387,11 @@ impl Context {
                 Expr::Struct(ident.clone(),new_fields)
             },
             Expr::Variant(ident,variant_expr) => {
-                let (enum_,struct_,indices) = if self.enums.contains_key(ident) {
-                    (&self.enums[ident],&self.enum_structs[ident],&self.enum_indices[ident])
+                let (struct_,variants,indices) = if self.enums.contains_key(ident) {
+                    (&self.enum_structs[ident],&self.enum_variants[ident],&self.enum_indices[ident])
                 }
                 else if self.stdlib.enums.contains_key(ident) {
-                    (&self.stdlib.enums[ident],&self.stdlib.structs[ident],&self.stdlib.enum_indices[ident])
+                    (&self.stdlib.structs[ident],&self.stdlib.enum_variants[ident],&self.stdlib.enum_indices[ident])
                 }
                 else {
                     panic!("unknown enum {}",ident)
@@ -400,19 +401,8 @@ impl Context {
                     VariantExpr::Tuple(ident,_) |
                     VariantExpr::Struct(ident,_) => ident,
                 };
-                let mut variant_index: Option<usize> = None;
-                for i in 0..enum_.variants.len() {
-                    let ident = match &enum_.variants[i] {
-                        Variant::Naked(ident) |
-                        Variant::Tuple(ident,_) |
-                        Variant::Struct(ident,_) => ident,
-                    };
-                    if variant_ident == ident {
-                        variant_index = Some(i);
-                        break;
-                    }
-                }
-                if let Some(variant_index) = variant_index {
+                if variants.contains_key(variant_ident) {
+                    let variant_index = variants[variant_ident];
                     let mut new_fields: Vec<(String,Expr)> = Vec::new();
                     for field in struct_.fields.iter() {
                         new_fields.push((field.ident.clone(),self.empty_type(&field.type_)));
@@ -584,7 +574,7 @@ impl Context {
         }
     }
 
-    pub fn convert_enum(enum_: &Enum) -> (Struct,Vec<Vec<usize>>) {
+    pub fn convert_enum(enum_: &Enum) -> (Struct,HashMap<String,usize>,Vec<Vec<usize>>) {
         let mut total_type_counts: Vec<(Type,usize)> = Vec::new();
         for i in 0..enum_.variants.len() {
             let mut type_counts: Vec<(Type,usize)> = Vec::new();
@@ -611,11 +601,15 @@ impl Context {
             fields.push(Symbol { ident,type_: total_type_count.0.clone(), });
             count += total_type_count.1;
         }
+        let mut enum_variants: HashMap<String,usize> = HashMap::new();
         let mut enum_indices: Vec<Vec<usize>> = Vec::new();
         for i in 0..enum_.variants.len() {
             match &enum_.variants[i] {
-                Variant::Naked(_) => { },
-                Variant::Tuple(_,types) => {
+                Variant::Naked(variant_ident) => {
+                    enum_variants.insert(variant_ident.clone(),i);
+                },
+                Variant::Tuple(variant_ident,types) => {
+                    enum_variants.insert(variant_ident.clone(),i);
                     let mut prev_type: Option<Type> = None;
                     let mut prev_index = 0usize;
                     let mut variant_indices: Vec<usize> = Vec::new();
@@ -624,7 +618,8 @@ impl Context {
                     }
                     enum_indices.push(variant_indices);
                 },
-                Variant::Struct(_,fields) => {
+                Variant::Struct(variant_ident,fields) => {
+                    enum_variants.insert(variant_ident.clone(),i);
                     let mut prev_type: Option<Type> = None;
                     let mut prev_index = 0usize;
                     let mut variant_indices: Vec<usize> = Vec::new();
@@ -635,7 +630,7 @@ impl Context {
                 },
             }
         }
-        (Struct { ident: enum_.ident.clone(),fields, },enum_indices)
+        (Struct { ident: enum_.ident.clone(),fields, },enum_variants,enum_indices)
     }
 
     pub fn process_module(module: DestructuredModule) -> ConvertedModule {
@@ -646,6 +641,7 @@ impl Context {
             extern_structs: HashMap::new(),
             enums: HashMap::new(),
             enum_structs: HashMap::new(),
+            enum_variants: HashMap::new(),
             enum_indices: HashMap::new(),
             aliases: HashMap::new(),
             consts: HashMap::new(),
@@ -670,8 +666,9 @@ impl Context {
             context.extern_structs.insert(struct_.ident.clone(),struct_.clone());
         }
         for enum_ in module.enums.values() {
-            let (struct_,indices) = convert_enum(enum_);
+            let (struct_,variants,indices) = convert_enum(enum_);
             context.enum_structs.insert(enum_.ident.clone(),struct_);
+            context.enum_variants.insert(enum_.ident.clone(),variants);
             context.enum_indices.insert(enum_.ident.clone(),indices);
         }
         for alias in module.aliases.values() {
@@ -770,6 +767,7 @@ impl Context {
             ident: module.ident.clone(),
             structs: new_structs,
             enums: context.enums,
+            enum_variants: context.enum_variants,
             enum_indices: context.enum_indices,
             consts: new_consts,
             functions: new_functions,
@@ -781,6 +779,6 @@ pub fn convert_module(module: DestructuredModule) -> ConvertedModule {
     Context::process_module(module)
 }
 
-pub fn convert_enum(enum_: &Enum) -> (Struct,Vec<Vec<usize>>) {
+pub fn convert_enum(enum_: &Enum) -> (Struct,HashMap<String,usize>,Vec<Vec<usize>>) {
     Context::convert_enum(enum_)   
 }
