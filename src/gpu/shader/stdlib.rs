@@ -1,4 +1,5 @@
 use {
+    super::*,
     super::ast::*,
     std::{
         collections::HashMap,
@@ -12,8 +13,11 @@ use {
 
 pub struct StandardLib {
     pub tuples: HashMap<String,Tuple>,
+    pub tuple_structs: HashMap<String,Struct>,
     pub structs: HashMap<String,Struct>,
     pub enums: HashMap<String,Enum>,
+    pub enum_structs: HashMap<String,Struct>,
+    pub enum_indices: HashMap<String,Vec<Vec<usize>>>,
     pub aliases: HashMap<String,Alias>,
     pub consts: HashMap<String,Const>,
     pub functions: HashMap<String,Vec<Function>>,
@@ -85,8 +89,11 @@ impl StandardLib {
 
         let mut stdlib = StandardLib {
             tuples: HashMap::new(),
+            tuple_structs: HashMap::new(),
             structs: HashMap::new(),
             enums: HashMap::new(),
+            enum_structs: HashMap::new(),
+            enum_indices: HashMap::new(),
             aliases: HashMap::new(),
             consts: HashMap::new(),
             functions: HashMap::new(),
@@ -387,6 +394,20 @@ impl StandardLib {
                 stdlib.insert_method(&Type::Struct(from_type.ident.clone()),"determinant",vec![],&t);
                 stdlib.insert_method(&Type::Struct(from_type.ident.clone()),"inverse",vec![],&Type::Struct(from_type.ident.clone()));
             }
+        }
+
+        // ==== PREPARE TEMPORARY STRUCTURES
+        for tuple in stdlib.tuples.values() {
+            let mut new_fields: Vec<Symbol> = Vec::new();
+            for i in 0..tuple.types.len() {
+                new_fields.push(Symbol { ident: format!("_{}",i),type_: tuple.types[i].clone(), });
+            }
+            stdlib.tuple_structs.insert(tuple.ident.clone(),Struct { ident: tuple.ident.clone(),fields: new_fields, });
+        }
+        for enum_ in stdlib.enums.values() {
+            let (struct_,indices) = convert_enum(enum_);
+            stdlib.enum_structs.insert(enum_.ident.clone(),struct_);
+            stdlib.enum_indices.insert(enum_.ident.clone(),indices);
         }
 
         stdlib

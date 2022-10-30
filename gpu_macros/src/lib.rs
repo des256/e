@@ -11,6 +11,8 @@ use {
 mod ast;
 use ast::*;
 
+mod astdisplay;
+
 mod parser;
 use parser::*;
 
@@ -28,7 +30,7 @@ use render::*;
 #[proc_macro_derive(Vertex)]
 pub fn derive_vertex(stream: TokenStream) -> TokenStream {
     let struct_ = Parser::new(stream).struct_();
-    let compiled = format!("impl Vertex for {} {{ fn ast() -> e::gpu::ast::Struct {{ {} }} }}",struct_.ident,struct_.render());
+    let compiled = format!("impl Vertex for {} {{ fn ast() -> e::ast::Struct {{ {} }} }}",struct_.ident,struct_.render());
     //panic!("DONE:\n{}",compiled);
     compiled.parse().unwrap()
 }
@@ -37,14 +39,14 @@ pub fn derive_vertex(stream: TokenStream) -> TokenStream {
 pub fn vertex_shader(_: TokenStream,item_stream: TokenStream) -> TokenStream {
     let module = Parser::new(item_stream).module();
     let compiled = format!("pub mod {} {{ pub fn code() -> Option<Vec<u8>> {{ let module = {}; e::compile_module(module) }} }}",module.ident,module.render());
-    panic!("DONE:\n{}",compiled);
-    //compiled.parse().unwrap()
+    //panic!("DONE:\n{}",compiled);
+    compiled.parse().unwrap()
 }
 
 #[proc_macro_attribute]
 pub fn fragment_shader(_: TokenStream,item_stream: TokenStream) -> TokenStream {
     let module = Parser::new(item_stream).module();
     let compiled = format!("pub mod {} {{ pub fn code() -> Option<Vec<u8>> {{ let module = {}; e::compile_module(module) }} }}",module.ident,module.render());
-    panic!("DONE:\n{}",compiled);
-    //compiled.parse().unwrap()
+    //panic!("DONE:\n{}",compiled);
+    compiled.parse().unwrap()
 }

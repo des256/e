@@ -8,16 +8,11 @@ pub use stdlib::*;
 mod destructure;
 pub use destructure::*;
 
-/*
-mod findtype;
-pub use findtype::*;
+mod convert;
+pub use convert::*;
 
-mod evaluate;
-pub use evaluate::*;
-
-mod resolvesymbols;
-pub use resolvesymbols::*;
-*/
+mod resolve;
+pub use resolve::*;
 
 #[cfg(any(gpu="opengl"))]
 mod glsl;
@@ -29,11 +24,19 @@ mod spirv;
 #[cfg(any(gpu="vulkan"))]
 pub use spirv::*;
 
-pub fn translate_module(module: ast::Module) -> ast::Module {
+pub fn translate_module(module: ast::RustModule) -> ast::Module {
 
+    // destructure all pattern nodes into regular boolean and field expressions
     let module = destructure_module(module);
 
-    // TODO: convert named tuples, convert anonymous tuples, eliminate aliases, convert enums
+    // convert tuples and enums to structs
+    // convert aliases to their types
+    let module = convert_module(module);
 
+    // resolve anonymous tuples
+    // resolve Expr:Discriptor and Expr::Destructure nodes
+    let module = resolve_module(module);
+
+    // what's left has no more patterns, tuples or enums and should be easily translatable into the target language
     module
 }

@@ -16,7 +16,7 @@ struct MyVertex {
 #[vertex_shader]
 mod my_vertex_shader {
     // TEST SHADER ATTEMPTING TO USE ALL FEATURES
-    /*struct SomeTuple(u8,i8,f16);
+    struct SomeTuple(u8,i8,f16);
 
     type SomeAlias = SomeOtherAlias;
 
@@ -37,6 +37,7 @@ mod my_vertex_shader {
         InfiniteBottleCaps,
     }
 
+    /*
     struct JustTypes {
         a: bool,
         b: i64,
@@ -48,14 +49,17 @@ mod my_vertex_shader {
         h: SomeEnum,
         i: SomeStruct,
     }
+    */
 
     fn do_stuff_with_enum(param: SomeEnum) -> SomeStruct {
+        let some_struct = SomeStruct { x: 4,y: 6, };
         let result = match param {
             SomeEnum::Euros(value) => SomeStruct { x: ORIGIN, y: MAYBES, },
-            SomeEnum::Dollars { coins: c, } => SomeStruct { x: ORIGIN.normalize(),y: MAYBES, },
-            SomeEnum::OneGoldBar => SomeStruct { x: ORIGIN * 2,y: MAYBES.not(), },
+            SomeEnum::Dollars { coins: c, } => some_struct,
+            SomeEnum::OneGoldBar => SomeStruct { x: ORIGIN.normalize() * 2,y: MAYBES.not(), },
             SomeEnum::InfiniteBottleCaps => SomeStruct { x: ORIGIN,y: MAYBES, },
         };
+        let happy = some_struct * 4;
         if result.y.x {
             result.y.x = false;
         }
@@ -68,8 +72,8 @@ mod my_vertex_shader {
             _ => { },
         }
         let y = ORIGIN.cos();
-    }*/
-
+    }
+    
     fn main(vertex: MyVertex) -> (Vec4<f32>,Vec4<f32>) {
         (
             Vec4::<f32> {
@@ -82,9 +86,6 @@ mod my_vertex_shader {
         )
     }
 }
-
-/*
-*/
 
 #[fragment_shader]
 mod my_fragment_shader {

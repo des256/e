@@ -11,7 +11,9 @@ pub use optimize::*;
 mod render;
 pub use render::*;
 
-pub fn compile_module(mut module: ast::Module) -> Option<Vec<u8>> {
+pub fn compile_module(module: ast::RustModule) -> Option<Vec<u8>> {
+    
+    println!("module right after parsing:\n{}",module);
     
     // destructure patterns, resolve symbols, translate tuples, translate enums, translate aliases
     let module = translate_module(module);

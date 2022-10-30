@@ -334,7 +334,7 @@ impl Context {
     
             Pat::Const(_) => { },
     
-            Pat::Tuple(ident,pats) => {
+            Pat::Tuple(_,pats) => {
                 for i in 0..pats.len() {
                     stats.append(&mut self.destructure_pat(
                         &pats[i],
@@ -346,7 +346,7 @@ impl Context {
                 }
             },
     
-            Pat::Struct(ident,fields) => {
+            Pat::Struct(_,fields) => {
                 for field in fields.iter() {
                     match field {
                         FieldPat::Wildcard |
@@ -374,10 +374,10 @@ impl Context {
                 }
             },
     
-            Pat::Variant(ident,variant) => {
+            Pat::Variant(_,variant) => {
                 match variant {
-                    VariantPat::Naked(ident) => { },
-                    VariantPat::Tuple(ident,pats) => {
+                    VariantPat::Naked(_) => { },
+                    VariantPat::Tuple(_,pats) => {
                         for i in 0..pats.len() {
                             stats.append(&mut self.destructure_pat(
                                 &pats[i],
@@ -388,7 +388,7 @@ impl Context {
                             ));
                         }
                     },
-                    VariantPat::Struct(ident,fields) => {
+                    VariantPat::Struct(_,fields) => {
                         for field in fields.iter() {
                             if let FieldPat::IdentPat(ident,pat) = field {
                                 stats.append(&mut self.destructure_pat(
@@ -728,7 +728,7 @@ impl Context {
 
             Expr::Match(expr,arms) => {
                 let new_expr = self.process_expr(*expr);
-                let match_block = Block {
+                let mut match_block = Block {
                     stats: vec![
                         Stat::Local(
                             "scrut".to_string(),
@@ -740,7 +740,7 @@ impl Context {
                 };
                 let mut exprs: Vec<Expr> = Vec::new();
                 let mut else_expr: Option<Box<Expr>> = None;
-                for (pats,if_expr,expr) in arms {
+                for (pats,_,expr) in arms {
                     // TODO: if_expr does what exactly?
                     let new_expr = self.process_expr(*expr);
                     if let Some(condition) = self.make_pats_bool(&pats,"scrut") {
@@ -767,7 +767,8 @@ impl Context {
                         result_expr = Some(Box::new(Expr::If(condition.clone(),block.clone(),result_expr)));
                     }
                 }
-                *result_expr.unwrap()
+                match_block.expr = Some(Box::new(*result_expr.unwrap()));
+                Expr::Block(match_block)
             },
 
             Expr::UnknownIdent(ident) => Expr::UnknownIdent(ident),
@@ -867,12 +868,15 @@ impl Context {
         }
     }
 
-    pub fn process_module(module: Module) -> Module {
+    pub fn process_module(module: RustModule) -> DestructuredModule {
+
+        // instantiate to get access to the constants
+        let stdlib = StandardLib::new();
 
         // create context with clones of original constant lists, this is only used to identify the constants, not do anything else with them
         let context = Context {
             consts: module.consts.clone(),
-            stdlib_consts: module.stdlib_consts.clone(),
+            stdlib_consts: stdlib.consts.clone(),
         };
 
         // user named tuples
@@ -1016,157 +1020,7 @@ impl Context {
             });
         }
 
-        // standard library tuples
-        let mut new_stdlib_tuples: HashMap<String,Tuple> = HashMap::new();
-        for tuple in module.stdlib_tuples.values() {
-            let mut new_types: Vec<Type> = Vec::new();
-            for type_ in tuple.types.iter() {
-                new_types.push(context.process_type(type_.clone()));
-            }
-            new_stdlib_tuples.insert(
-                tuple.ident.clone(),
-                Tuple {
-                    ident: tuple.ident.clone(),
-                    types: new_types,
-                }
-            );
-        }
-
-        // standard library structs
-        let mut new_stdlib_structs: HashMap<String,Struct> = HashMap::new();
-        for struct_ in module.stdlib_structs.values() {
-            let mut new_fields: Vec<Symbol> = Vec::new();
-            for field in struct_.fields.iter() {
-                new_fields.push(Symbol {
-                    ident: field.ident.clone(),
-                    type_: context.process_type(field.type_.clone()),
-                });
-            }
-            new_stdlib_structs.insert(
-                struct_.ident.clone(),
-                Struct {
-                    ident: struct_.ident.clone(),
-                    fields: new_fields,
-                }
-            );
-        }
-
-        // standard library enums
-        let mut new_stdlib_enums: HashMap<String,Enum> = HashMap::new();
-        for enum_ in module.stdlib_enums.values() {
-            let mut new_variants: Vec<Variant> = Vec::new();
-            for variant in enum_.variants.iter() {
-                match variant {
-
-                    Variant::Naked(ident) => new_variants.push(Variant::Naked(ident.clone())),
-
-                    Variant::Tuple(ident,types) => {
-                        let mut new_types: Vec<Type> = Vec::new();
-                        for type_ in types {
-                            new_types.push(context.process_type(type_.clone()));
-                        }
-                        new_variants.push(Variant::Tuple(ident.clone(),new_types));
-                    },
-
-                    Variant::Struct(ident,fields) => {
-                        let mut new_fields: Vec<Symbol> = Vec::new();
-                        for field in fields {
-                            new_fields.push(
-                                Symbol {
-                                    ident: field.ident.clone(),
-                                    type_: context.process_type(field.type_.clone()),
-                                }
-                            );
-                        }
-                        new_variants.push(Variant::Struct(ident.clone(),new_fields));
-                    },
-                }
-            }
-            new_stdlib_enums.insert(
-                enum_.ident.clone(),
-                Enum {
-                    ident: enum_.ident.clone(),
-                    variants: new_variants,
-                }
-            );
-        }
-
-        // standard library aliases
-        let mut new_stdlib_aliases: HashMap<String,Alias> = HashMap::new();
-        for alias in module.stdlib_aliases.values() {
-            let new_type = context.process_type(alias.type_.clone());
-            new_stdlib_aliases.insert(
-                alias.ident.clone(),
-                Alias {
-                    ident: alias.ident.clone(),
-                    type_: new_type,
-                }
-            );
-        }
-
-        // standard library constants
-        let mut new_stdlib_consts: HashMap<String,Const> = HashMap::new();
-        for const_ in module.stdlib_consts.values() {
-            let new_expr = context.process_expr(const_.expr.clone());
-            new_stdlib_consts.insert(
-                const_.ident.clone(),
-                Const {
-                    ident: const_.ident.clone(),
-                    type_: const_.type_.clone(),
-                    expr: new_expr,
-                }
-            );
-        }
-
-        // standard library functions
-        let mut new_stdlib_functions: HashMap<String,Vec<Function>> = HashMap::new();
-        for functions in module.stdlib_functions.values() {
-            let mut new_functions: Vec<Function> = Vec::new();
-            for function in functions {
-                let mut new_params: Vec<Symbol> = Vec::new();
-                for param in function.params.iter() {
-                    new_params.push(Symbol {
-                        ident: param.ident.clone(),
-                        type_: context.process_type(param.type_.clone()),
-                    });
-                }
-                let new_type = context.process_type(function.type_.clone());
-                let new_block = context.process_block(function.block.clone());
-                new_functions.push(Function {
-                    ident: function.ident.clone(),
-                    params: new_params,
-                    type_: new_type,
-                    block: new_block,
-                });
-            }
-            new_stdlib_functions.insert(new_functions[0].ident.clone(),new_functions);
-        }
-
-        // standard library methods
-        let mut new_stdlib_methods: HashMap<String,Vec<Method>> = HashMap::new();
-        for methods in module.stdlib_methods.values() {
-            let mut new_methods: Vec<Method> = Vec::new();
-            for method in methods {
-                let new_from_type = context.process_type(method.from_type.clone());
-                let mut new_params: Vec<Symbol> = Vec::new();
-                for param in method.params.iter() {
-                    new_params.push(Symbol {
-                        ident: param.ident.clone(),
-                        type_: context.process_type(param.type_.clone()),
-                    });
-                }
-                let new_type = context.process_type(method.type_.clone());
-                new_methods.push(Method {
-                    from_type: new_from_type,
-                    ident: method.ident.clone(),
-                    params: new_params,
-                    type_: new_type,
-                });
-            }
-            new_stdlib_methods.insert(new_methods[0].ident.clone(),new_methods);
-        }
-
-        Module {
+        DestructuredModule {
             ident: module.ident.clone(),
             tuples: new_tuples,
             structs: new_structs,
@@ -1175,17 +1029,10 @@ impl Context {
             aliases: new_aliases,
             consts: new_consts,
             functions: new_functions,
-            stdlib_tuples: new_stdlib_tuples,
-            stdlib_structs: new_stdlib_structs,
-            stdlib_enums: new_stdlib_enums,
-            stdlib_aliases: new_stdlib_aliases,
-            stdlib_consts: new_stdlib_consts,
-            stdlib_functions: new_stdlib_functions,
-            stdlib_methods: new_stdlib_methods,        
         }
     }
 }
 
-pub fn destructure_module(module: Module) -> Module {
+pub fn destructure_module(module: RustModule) -> DestructuredModule {
     Context::process_module(module)
 }

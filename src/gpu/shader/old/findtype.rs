@@ -7,40 +7,15 @@ pub trait FindType {
     fn find_type(&self,context: &Context) -> Type;
 }
 
-pub fn tightest(type1: &Type,type2: &Type,context: &Context) -> Option<Type> {
-
-    let mut type1 = type1.clone();
-    let mut type2 = type2.clone();
-    while let Type::Alias(ident) = type1 {
-        if context.stdlib.aliases.contains_key(&ident) {
-            type1 = context.stdlib.aliases[&ident].type_;
-        }
-        else if context.aliases.contains_key(&ident) {
-            type1 = context.aliases[&ident].type_;
-        }
-    }
-    while let Type::Alias(ident) = type2 {
-        if context.stdlib.aliases.contains_key(&ident) {
-            type2 = context.stdlib.aliases[&ident].type_;
-        }
-        else if context.aliases.contains_key(&ident) {
-            type2 = context.aliases[&ident].type_;
-        }
-    }
-    
-    if type1 == type2 {
-        Some(type1.clone())
-    }
-
-    else if let Type::Inferred = type1 {
-        Some(type2.clone())
-    }
-    else if let Type::Inferred = type2 {
-        Some(type1.clone())
-    }
-
-    else if let Type::Integer = type1 {
-        match type2 {
+pub fn tightest(type1: &Type,type2: &Type) -> Option<Type> {
+    match (type1,type2) {
+        (Type::Alias,_) | (_,Type::Alias) => None,
+        (Type::UnknownIdent(_),_) | (_,Type::UnknownIdent(_)) => None,
+        (Type::Tuple(_),_) | (_,Type::Tuple(_)) => None,
+        (Type::Enum(_),_) | (_,Type::Enum(_)) => None,
+        (Type::Inferred,_) => Some(type2.clone()),
+        (_,Type::Inferred) => Some(type1.clone()),
+        (Type::Integer,_) => match type2 {
             Type::Float => Some(Type::Float),
             Type::U8 => Some(Type::U8),
             Type::I8 => Some(Type::I8),
@@ -56,10 +31,8 @@ pub fn tightest(type1: &Type,type2: &Type,context: &Context) -> Option<Type> {
             Type::F32 => Some(Type::F32),
             Type::F64 => Some(Type::F64),
             _ => None,
-        }
-    }
-    else if let Type::Integer = type2 {
-        match type1 {
+        },
+        (_,Type::Integer) => match type1 {
             Type::Float => Some(Type::Float),
             Type::U8 => Some(Type::U8),
             Type::I8 => Some(Type::I8),
@@ -75,28 +48,25 @@ pub fn tightest(type1: &Type,type2: &Type,context: &Context) -> Option<Type> {
             Type::F32 => Some(Type::F32),
             Type::F64 => Some(Type::F64),
             _ => None,
-        }
-    }
-
-    else if let Type::Float = type1 {
-        match type2 {
+        },
+        (Type::Float,_) => match type2 {
             Type::F16 => Some(Type::F16),
             Type::F32 => Some(Type::F32),
             Type::F64 => Some(Type::F64),
             _ => None,
-        }
-    }
-    else if let Type::Float = type2 {
-        match type1 {
+        },
+        (_,Type::Float) => match type1 {
             Type::F16 => Some(Type::F16),
             Type::F32 => Some(Type::F32),
             Type::F64 => Some(Type::F64),
             _ => None,
+        },
+        _ => if type1 == type2 {
+            Some(type1.clone())
         }
-    }
-
-    else {
-        None
+        else {
+            None
+        },
     }
 }
 
@@ -120,7 +90,7 @@ impl FindType for Expr {
             Expr::Array(exprs) => {
                 let mut type_ = Type::Inferred;
                 for expr in exprs.iter() {
-                    type_ = tightest(&type_,&expr.find_type(context),context).expect(&format!("cannot infer type of array {}",self));
+                    type_ = tightest(&type_,&expr.find_type(context)).expect(&format!("cannot infer type of array {}",self));
                 }
                 Type::Array(Box::new(type_),Box::new(Expr::Integer(exprs.len() as i64)))
             },
@@ -148,7 +118,7 @@ impl FindType for Expr {
                     BinaryOp::Or |
                     BinaryOp::Xor |
                     BinaryOp::LogAnd |
-                    BinaryOp::LogOr => tightest(&lhs.find_type(context),&rhs.find_type(context),context).expect(&format!("operands of {} not compatible",op)),
+                    BinaryOp::LogOr => tightest(&lhs.find_type(context),&rhs.find_type(context)).expect(&format!("operands of {} not compatible",op)),
                     BinaryOp::Eq |
                     BinaryOp::NotEq |
                     BinaryOp::Greater |
@@ -175,7 +145,7 @@ impl FindType for Expr {
             Expr::If(_,block,else_expr) => {
                 let type_ = block.find_type(context);
                 if let Some(else_expr) = else_expr {
-                    tightest(&type_,&else_expr.find_type(context),context).expect("if block and else-expression not compatible")
+                    tightest(&type_,&else_expr.find_type(context)).expect("if block and else-expression not compatible")
                 }
                 else {
                     type_
@@ -186,7 +156,7 @@ impl FindType for Expr {
             Expr::IfLet(_,_,block,else_expr) => {
                 let type_ = block.find_type(context);
                 if let Some(else_expr) = else_expr {
-                    tightest(&type_,&else_expr.find_type(context),context).expect("if let block and else-expression not compatible")
+                    tightest(&type_,&else_expr.find_type(context)).expect("if let block and else-expression not compatible")
                 }
                 else {
                     type_
@@ -197,7 +167,7 @@ impl FindType for Expr {
             Expr::Match(_,arms) => {
                 let mut type_ = Type::Inferred;
                 for (_,_,expr) in arms {
-                    type_ = tightest(&type_,&expr.find_type(context),context).expect("match arms not compatible");
+                    type_ = tightest(&type_,&expr.find_type(context)).expect("match arms not compatible");
                 }
                 type_
             },
@@ -266,32 +236,6 @@ impl FindType for Expr {
             }
             else {
                 panic!("{} not a struct",expr);
-            },
-            Expr::TupleIndex(expr,index) => if let Type::Tuple(tuple_ident) = expr.find_type(context) {
-                if context.stdlib.tuples.contains_key(&tuple_ident) {
-                    let tuple = context.stdlib.tuples[&tuple_ident];
-                    if *index < tuple.types.len() {
-                        tuple.types[*index]
-                    }
-                    else {
-                        panic!("tuple index {} out of range on {}",index,expr);
-                    }
-                }
-                else if context.tuples.contains_key(&tuple_ident) {
-                    let tuple = context.stdlib.tuples[&tuple_ident];
-                    if *index < tuple.types.len() {
-                        tuple.types[*index]
-                    }
-                    else {
-                        panic!("tuple index {} out of range on {}",index,expr);
-                    }
-                }
-                else {
-                    panic!("unknown tuple in {} ({})",expr,tuple_ident);
-                }
-            }
-            else {
-                panic!("{} not a tuple",expr);
             },
             Expr::Param(ident) => if context.params.contains_key(ident) {
                 context.params[ident].type_

@@ -666,6 +666,9 @@ impl Parser {
                 stats.push(Stat::Expr(Box::new(expr)));
             }
             else {
+                if let Some(last_expr) = last_expr {
+                    stats.push(Stat::Expr(last_expr));
+                }
                 last_expr = Some(Box::new(expr));
             }
         }
@@ -693,7 +696,9 @@ impl Parser {
                     stats.push(Stat::Expr(Box::new(expr)));
                 }
                 else {
-                    // assuming that no ; only happens at the end of a block...
+                    if let Some(last_expr) = last_expr {
+                        stats.push(Stat::Expr(last_expr));
+                    }
                     last_expr = Some(Box::new(expr));
                 }
             }
