@@ -267,7 +267,6 @@ impl Context {
     }
         
     fn process_type(&mut self,type_: &Type,should_type: &Type) -> Option<Type> {
-        // returns type with processed anonymous tuples, unless it doesn't fit should_type
         match type_ {
             Type::AnonTuple(types) => {
                 if let Type::AnonTuple(should_types) = should_type {
@@ -288,7 +287,11 @@ impl Context {
                     }
                 }
                 else {
-                    None
+                    let mut new_types: Vec<Type> = Vec::new();
+                    for type_ in types.iter() {
+                        new_types.push(type_.clone());
+                    }
+                    Some(Type::Struct(self.get_anon_tuple_struct(&new_types)))
                 }
             },
             Type::Array(type_,expr) => if let Type::Array(should_type,_) = should_type {
@@ -296,11 +299,28 @@ impl Context {
                 let new_expr = self.process_expr(expr,&Type::Integer);
                 Some(Type::Array(Box::new(new_type),Box::new(new_expr)))                
             }
+            else if let Type::Inferred = should_type {
+                let new_expr = self.process_expr(expr,&Type::Integer);
+                Some(Type::Array(Box::new((**type_).clone()),Box::new(new_expr)))
+            }
             else {
                 None
             },
-            Type::Struct(ident) => if let Type::Struct(_) = should_type { Some(Type::Struct(ident.clone())) } else { None },
-            _ => if let Some(type_) = Self::tightest(type_,should_type) { Some(type_) } else { panic!("illegal type at this stage: {}",type_); },
+            Type::Struct(ident) => if let Type::Struct(_) = should_type {
+                Some(Type::Struct(ident.clone()))
+            }
+            else if let Type::Inferred = should_type {
+                Some(Type::Struct(ident.clone()))
+            }
+            else {
+                None
+            },
+            _ => if let Some(type_) = Self::tightest(type_,should_type) {
+                Some(type_)
+            }
+            else {
+                panic!("illegal type at this stage: {}",type_);
+            },
         }        
     }
 
@@ -452,7 +472,10 @@ impl Context {
                     self.structs[ident].clone()
                 }
                 else if self.anon_tuple_structs.contains_key(ident) {
-                    self.structs[ident].clone()
+                    self.anon_tuple_structs[ident].clone()
+                }
+                else if self.stdlib.structs.contains_key(ident) {
+                    self.stdlib.structs[ident].clone()
                 }
                 else {
                     panic!("unknown struct {}",ident);
@@ -468,14 +491,21 @@ impl Context {
                 if self.stdlib.methods.contains_key(ident) {
                     let mut found: Option<Method> = None;
                     for method in self.stdlib.methods[ident].iter() {
-                        // TODO: match expr's type with method.from_type
-                        // TODO: match method.type_ with should_type
+                        if let None = Self::tightest(&method.type_,should_type) {
+                            continue;
+                        }
+                        if let None = Self::tightest(&self.get_expr_type(expr),&method.from_type) {
+                            continue;
+                        }
                         if method.params.len() == exprs.len() {
-                            let mut all_params_fit = true;
+                            let mut all_params_match = true;
                             for i in 0..exprs.len() {
-                                // TODO: match exprs[i]'s type with method.params[i].type_
+                                if let None = Self::tightest(&self.get_expr_type(&exprs[i]),&method.params[i].type_) {
+                                    all_params_match = false;
+                                    break;
+                                }
                             }
-                            if all_params_fit {
+                            if all_params_match {
                                 found = Some(method.clone());
                             }
                         }
@@ -661,15 +691,22 @@ impl Context {
         }
     }
 
-    fn process_block(&self,block: &Block,should_type: &Type) -> Block {
+    fn process_block(&mut self,block: &Block,should_type: &Type) -> Block {
         let mut new_stats: Vec<Stat> = Vec::new();
         for stat in block.stats.iter() {
             // TODO: build new_stats
-            match stat {
-                Stat::Expr(expr) => { },
-                Stat::Local(ident,type_,expr) => { },
+            new_stats.push(match stat {
+                Stat::Expr(expr) => {
+                    let new_expr = self.process_expr(expr,&Type::Inferred);
+                    Stat::Expr(Box::new(new_expr))
+                },
+                Stat::Local(ident,type_,expr) => {
+                    let new_type = self.process_type(type_,&Type::Inferred).expect(&format!("Type not allowed {}",type_));
+                    let new_expr = self.process_expr(expr,&new_type);
+                    Stat::Local(ident.clone(),Box::new(new_type),Box::new(new_expr))
+                },
                 _ => panic!("Stat::Let cannot exist at this stage"),
-            }
+            });
         }
         let new_expr = if let Some(expr) = &block.expr {
             Some(Box::new(self.process_expr(&expr,should_type)))
@@ -732,8 +769,8 @@ impl Context {
                 new_params.push(new_param.clone());
                 context.params.insert(param.ident.clone(),new_param);
             }
-            let mut new_type = context.process_type(&function.type_,&Type::Inferred).expect(&format!("unknown type {}",function.type_));
-            let mut new_block = context.process_block(&function.block,&new_type);
+            let new_type = context.process_type(&function.type_,&Type::Inferred).expect(&format!("unknown type {}",function.type_));
+            let new_block = context.process_block(&function.block,&new_type);
             new_functions.insert(function.ident.clone(),Function { ident: function.ident.clone(),params: new_params,type_: new_type,block: new_block, });
         }
 
