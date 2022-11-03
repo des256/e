@@ -1,5 +1,6 @@
 use std::{
     rc::Rc,
+    collections::HashMap,
 };
 
 pub struct Field {
@@ -69,6 +70,131 @@ pub enum Type {
     Array(Box<Type>,usize),
 }
 
+pub enum StorageQual {
+    Const,
+    In,
+    Out,
+    Attribute,
+    Uniform,
+    Varying,
+    Buffer,
+    Shared,
+}
+
+pub enum LayoutQual {
+    Shared,
+    Packed,
+    Std140,
+    Std430,
+    RowMajor,
+    ColumnMajor,
+    Binding(usize),
+    Offset(usize),
+    Align(usize),
+    Location(usize),
+    Component(usize),
+    Index(usize),
+    Triangles,
+    Quads,
+    IsoLines,
+    EqualSpacing,
+    FracEvenSpacing,
+    FracOddSpacing,
+    CW,
+    CCW,
+    PointMode,
+    Points,
+    Lines,
+    LinesAdjacency,
+    Triangles,
+    TrianglesAdjacency,
+    OriginUpperLeft,
+    PixelCenterInteger,
+    EarlyFragmentTests,
+    LocalSizeX(f64),
+    LocalSizeY(f64),
+    LocalSizeZ(f64),
+    XfbBuffer(usize),
+    XfbStride(usize),
+    XfbOffset(usize),
+    Vertices(usize),
+    LineStrip,
+    TriangleStrip,
+    MaxVertices(usize),
+    Stream(usize),
+    DepthAny,
+    DepthGreater,
+    DepthLess,
+    DepthUnchanged,
+}
+
+pub enum InterpQual {
+
+}
+
+pub enum FormatQual {
+    RGBA32F,
+    RGBA16F,
+    RG32F,
+    RG16F,
+    R11G11B10F,
+    R32F,
+    R16F,
+    RGBA16,
+    RGB10A2,
+    RGBA8,
+    RG16,
+    RG8,
+    R16,
+    R8,
+    RGBA16SN,
+    RGBA8SN,
+    RG16SN,
+    RG8SN,
+    R16SN,
+    R8SN,
+    RGBA32I,
+    RGBA16I,
+    RGBA8I,
+    RG32I,
+    RG16I,
+    RG8I,
+    R32I,
+    R16I,
+    R8I,
+    RGBA32UI,
+    RGBA16UI,
+    RGB10A2UI,
+    RGBA8UI,
+    RG32UI,
+    RG16UI,
+    RG8UI,
+    R32UI,
+    R16UI,
+    R8UI,
+}
+
+enum InterpQual {
+    Smooth,
+    Flat,
+    NoPerspective,
+}
+
+enum ParamQual {
+    Const,
+    In,
+    Out,
+    InOut,
+}
+
+enum MemQual {
+    Coherent,
+    Volatile,
+    Restrict,
+    ReadOnly,
+    WriteOnly,
+}
+
 pub enum Qual {
     In,
     Out,
@@ -104,8 +230,126 @@ enum Expr {
 
 }
 
+enum Stat {
+    Compound(Vec<Stat>),
+    Decl(Decl),
+    Expr(Expr),
+    If(Expr,Stat,Option<Expr>),
+    Switch(Expr,Vec<Stat>),
+    For(Decl,Expr,Stat,Vec<Stat>),
+    While(Expr,Vec<Stat>),
+    Do(Vec<Stat>,Expr),
+    Discard,
+    Return(Option<Expr>),
+    Break,
+    Continue,
+    Case(Expr),
+    Default,
+}
+
+struct Function {
+    ident: String,
+    args: Vec<Decl>,
+    type_: Type,
+}
+
 pub struct Module {
     decls: HashMap<String,Decl>,
     declblocks: HashMap<String,DeclBlock>,
     functions: HashMap<String,Function>,
 }
+
+/*
+STDLIB:
+
+compute:
+    in uvec3 gl_NumWorkGroups;
+    const uvec3 gl_WorkGroupSize;
+    in uvec3 gl_WorkGroupID;
+    in uvec3 gl_LocalInvocationIndex;
+    in uvec3 gl_GlobalInvocationID;
+    in uint gl_LocalInvocationIndex;
+
+vertex:
+    in int gl_VertexID;
+    in int gl_InstanceID;
+    out gl_PerVertex {
+        vec4 gl_Position;
+        float gl_PointSize;
+        float gl_ClipDistance[];
+        float gl_CullDistance[];
+    };
+
+geometry:
+    in gl_PerVertex {
+        vec4 gl_Position;
+        float gl_PointSize;
+        float gl_ClipDistance[];
+        float gl_CullDistance[];
+    };
+    in int gl_PrimitiveIDIn;
+    in int gl_InvocationID;
+    out gl_PerVertex {
+        vec4 gl_Position;
+        float gl_PointSize;
+        float gl_ClipDistance[];
+        float gl_CullDistance[];
+    };
+    out int gl_PrimitiveID;
+    out int gl_Layer;
+    out int gl_ViewportIndex;
+
+tesselation:
+    in gl_PerVertex {
+        vec4 gl_Position;
+        float gl_PointSize;
+        float gl_ClipDistance[];
+        float gl_CullDistance[];
+    };
+    in int gl_PatchVerticesIn;
+    in int gl_PrimitiveID;
+    in int gl_InvocationID;
+    out gl_PerVertex {
+        vec4 gl_Position;
+        float gl_PointSize;
+        float gl_ClipDistance[];
+        float gl_CullDistance[];
+    } gl_out[];
+    patch out float gl_TessLevelOuter[4];
+    patch out float gl_TessLevelInner[2];
+
+tesselation evaluation:
+    in gl_PerVertex {
+        vec4 gl_Position;
+        float gl_PointSize;
+        float gl_ClipDistance[];
+        float gl_CullDistance[];
+    } gl_in[gl_MaxPatchVertices];
+    in int gl_PatchVerticesIn;
+    in int gl_PrimitiveID;
+    in vec3 gl_TessCoord;
+    patch in float gl_TessLevelOuter[4];
+    patch in float gl_TessLevelInner[2];
+    out gl_PerVertex {
+        vec4 gl_Position;
+        float gl_PointSize;
+        float gl_ClipDistance[];
+        float gl_CullDistance[];
+    };
+
+fragment:
+    in vec4 gl_FragCoord;
+    in bool gl_FrontFacing;
+    in float gl_ClipDistance[];
+    in float gl_CullDistance[];
+    in vec2 gl_PointCoord;
+    in int gl_PrimitiveID;
+    in int gl_SampleID;
+    in vec2 gl_SamplePosition;
+    in int gl_SampleMaskIn[];
+    in int gl_Layer;
+    in int gl_ViewportIndex;
+    in bool gl_HelperInvocation;
+    out float gl_FragDepth;
+    out int gl_SampleMask[];
+ */
