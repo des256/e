@@ -415,19 +415,20 @@ macro_rules! vec3_float {
                     }
                 }
 
-                pub fn invsqrt(self) -> Self {
-                    Vec3 {
-                        x: self.x.invsqrt(),
-                        y: self.y.invsqrt(),
-                        z: self.z.invsqrt(),
-                    }
-                }
-
                 pub fn rem_euclid(self,other: Self) -> Self {
                     Vec3 {
                         x: self.x.rem_euclid(other.x),
                         y: self.y.rem_euclid(other.y),
                         z: self.z.rem_euclid(other.z),
+                    }
+                }
+
+                /*
+                pub fn invsqrt(self) -> Self {
+                    Vec3 {
+                        x: self.x.invsqrt(),
+                        y: self.y.invsqrt(),
+                        z: self.z.invsqrt(),
                     }
                 }
 
@@ -488,7 +489,8 @@ macro_rules! vec3_float {
                         z: self.z.smoothstep(edge0,edge1),
                     }
                 }
-
+                */
+                
                 pub fn is_nan(self) -> Vec3<bool> {
                     Vec3 { 
                         x: self.x.is_nan(),

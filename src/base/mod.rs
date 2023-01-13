@@ -1,5 +1,4 @@
-mod half;
-pub use half::*;
+// basic types and functionality used everywhere
 
 pub trait Zero {
     const ZERO: Self;
@@ -41,33 +40,43 @@ impl One for f16 { const ONE: f16 = f16(1); }
 impl One for f32 { const ONE: f32 = 1.0; }
 impl One for f64 { const ONE: f64 = 1.0; }
 
+// unsigned numbers
 mod unsigned;
 pub use unsigned::*;
 
+// signed numbers
 mod signed;
 pub use signed::*;
 
+// rational numbers
 mod rational;
 pub use rational::*;
 
+// real numbers
 mod real;
 pub use real::*;
 
+// floating-point implementations of real numbers
 mod float;
 pub use float::*;
 
+// 16-bit floating-point real numbers
+mod half;
+pub use half::*;
+
+// fixed-point implementations of real numbers
 mod fixed;
 pub use fixed::*;
 
+// complex numbers
 mod complex;
 pub use complex::*;
 
-mod mat;
-pub use mat::*;
+// quaternion numbers
+mod quaternion;
+pub use quaternion::*;
 
-mod ten;
-pub use ten::*;
-
+// vectors
 mod vec2;
 pub use vec2::*;
 
@@ -77,6 +86,11 @@ pub use vec3::*;
 mod vec4;
 pub use vec4::*;
 
+// generic matrix/2D array/image
+mod mat;
+pub use mat::*;
+
+// matrices
 mod mat2x2;
 pub use mat2x2::*;
 
@@ -104,6 +118,7 @@ pub use mat4x3::*;
 mod mat4x4;
 pub use mat4x4::*;
 
+// multivectors
 mod multivec2;
 pub use multivec2::*;
 
@@ -113,26 +128,24 @@ pub use multivec3::*;
 mod multivec4;
 pub use multivec4::*;
 
-mod color;
-pub use color::*;
-
+// rectangle
 mod rect;
 pub use rect::*;
 
-mod hyper;
-pub use hyper::*;
-
+// space pose
 mod pose;
 pub use pose::*;
 
-mod quaternion;
-pub use quaternion::*;
+// yeah, maybe not
+mod color;
+pub use color::*;
+
+// yeah, maybe not
+mod pixel;
+pub use pixel::*;
 
 mod executor;
 pub use executor::*;
 
 mod timer;
 pub use timer::*;
-
-mod pixel;
-pub use pixel::*;

@@ -12,59 +12,54 @@ use {
     },
 };
 
-fn base_type_format(base_type: &sr::BaseType) -> sys::VkFormat {
-    match base_type {
-        sr::BaseType::U8 => sys::VK_FORMAT_R8_UINT,
-        sr::BaseType::U16 => sys::VK_FORMAT_R16_UINT,
-        sr::BaseType::U32 => sys::VK_FORMAT_R32_UINT,
-        sr::BaseType::U64 => sys::VK_FORMAT_R64_UINT,
-        sr::BaseType::I8 => sys::VK_FORMAT_R8_SINT,
-        sr::BaseType::I16 => sys::VK_FORMAT_R16_SINT,
-        sr::BaseType::I32 => sys::VK_FORMAT_R32_SINT,
-        sr::BaseType::I64 => sys::VK_FORMAT_R64_SINT,
-        sr::BaseType::F16 => sys::VK_FORMAT_R16_SFLOAT,
-        sr::BaseType::F32 => sys::VK_FORMAT_R32_SFLOAT,
-        sr::BaseType::F64 => sys::VK_FORMAT_R64_SFLOAT,
-        sr::BaseType::Vec2U8 => sys::VK_FORMAT_R8G8_UINT,
-        sr::BaseType::Vec2U16 => sys::VK_FORMAT_R16G16_UINT,
-        sr::BaseType::Vec2U32 => sys::VK_FORMAT_R32G32_UINT,
-        sr::BaseType::Vec2U64 => sys::VK_FORMAT_R64G64_UINT,
-        sr::BaseType::Vec2I8 => sys::VK_FORMAT_R8G8_SINT,
-        sr::BaseType::Vec2I16 => sys::VK_FORMAT_R16G16_SINT,
-        sr::BaseType::Vec2I32 => sys::VK_FORMAT_R32G32_SINT,
-        sr::BaseType::Vec2I64 => sys::VK_FORMAT_R64G64_SINT,
-        sr::BaseType::Vec2F16 => sys::VK_FORMAT_R16G16_SFLOAT,
-        sr::BaseType::Vec2F32 => sys::VK_FORMAT_R32G32_SFLOAT,
-        sr::BaseType::Vec2F64 => sys::VK_FORMAT_R64G64_SFLOAT,
-        sr::BaseType::Vec3U8 => sys::VK_FORMAT_R8G8B8_UINT,
-        sr::BaseType::Vec3U16 => sys::VK_FORMAT_R16G16B16_UINT,
-        sr::BaseType::Vec3U32 => sys::VK_FORMAT_R32G32B32_UINT,
-        sr::BaseType::Vec3U64 => sys::VK_FORMAT_R64G64B64_UINT,
-        sr::BaseType::Vec3I8 => sys::VK_FORMAT_R8G8B8_SINT,
-        sr::BaseType::Vec3I16 => sys::VK_FORMAT_R16G16B16_SINT,
-        sr::BaseType::Vec3I32 => sys::VK_FORMAT_R32G32B32_SINT,
-        sr::BaseType::Vec3I64 => sys::VK_FORMAT_R64G64B64_SINT,
-        sr::BaseType::Vec3F16 => sys::VK_FORMAT_R16G16B16_SFLOAT,
-        sr::BaseType::Vec3F32 => sys::VK_FORMAT_R32G32B32_SFLOAT,
-        sr::BaseType::Vec3F64 => sys::VK_FORMAT_R64G64B64_SFLOAT,
-        sr::BaseType::Vec4U8 => sys::VK_FORMAT_R8G8B8A8_UINT,
-        sr::BaseType::Vec4U16 => sys::VK_FORMAT_R16G16B16A16_UINT,
-        sr::BaseType::Vec4U32 => sys::VK_FORMAT_R32G32B32A32_UINT,
-        sr::BaseType::Vec4U64 => sys::VK_FORMAT_R64G64B64A64_UINT,
-        sr::BaseType::Vec4I8 => sys::VK_FORMAT_R8G8B8A8_SINT,
-        sr::BaseType::Vec4I16 => sys::VK_FORMAT_R16G16B16A16_SINT,
-        sr::BaseType::Vec4I32 => sys::VK_FORMAT_R32G32B32A32_SINT,
-        sr::BaseType::Vec4I64 => sys::VK_FORMAT_R64G64B64A64_SINT,
-        sr::BaseType::Vec4F16 => sys::VK_FORMAT_R16G16B16A16_SFLOAT,
-        sr::BaseType::Vec4F32 => sys::VK_FORMAT_R32G32B32A32_SFLOAT,
-        sr::BaseType::Vec4F64 => sys::VK_FORMAT_R64G64B64A64_SFLOAT,
-        sr::BaseType::ColorU8 => sys::VK_FORMAT_R8G8B8A8_UNORM,
-        sr::BaseType::ColorU16 => sys::VK_FORMAT_R16G16B16A16_UNORM,
-        sr::BaseType::ColorF16 => sys::VK_FORMAT_R16G16B16A16_SFLOAT,
-        sr::BaseType::ColorF32 => sys::VK_FORMAT_R32G32B32A32_SFLOAT,
-        sr::BaseType::ColorF64 => sys::VK_FORMAT_R64G64B64A64_SFLOAT,
-    }
+trait BaseTypeFormat {
+    const FORMAT: sys::VkFormat;
 }
+
+impl BaseTypeFormat for u8 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8_UINT; }
+impl BaseTypeFormat for u16 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16_UINT; }
+impl BaseTypeFormat for u32 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32_UINT; }
+impl BaseTypeFormat for u64 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64_UINT; }
+impl BaseTypeFormat for i8 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8_SINT; }
+impl BaseTypeFormat for i16 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16_SINT; }
+impl BaseTypeFormat for i32 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32_SINT; }
+impl BaseTypeFormat for i64 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64_SINT; }
+impl BaseTypeFormat for f16 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16_SFLOAT; }
+impl BaseTypeFormat for f32 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32_SFLOAT; }
+impl BaseTypeFormat for f64 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64_SFLOAT; }
+impl BaseTypeFormat for Vec2<u8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8_UINT; }
+impl BaseTypeFormat for Vec2<u16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16_UINT; }
+impl BaseTypeFormat for Vec2<u32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32_UINT; }
+impl BaseTypeFormat for Vec2<u64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64_UINT; }
+impl BaseTypeFormat for Vec2<i8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8_SINT; }
+impl BaseTypeFormat for Vec2<i16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16_SINT; }
+impl BaseTypeFormat for Vec2<i32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32_SINT; }
+impl BaseTypeFormat for Vec2<i64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64_SINT; }
+impl BaseTypeFormat for Vec2<f16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16_SFLOAT; }
+impl BaseTypeFormat for Vec2<f32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32_SFLOAT; }
+impl BaseTypeFormat for Vec2<f64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64_SFLOAT; }
+impl BaseTypeFormat for Vec3<u8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8B8_UINT; }
+impl BaseTypeFormat for Vec3<u16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16B16_UINT; }
+impl BaseTypeFormat for Vec3<u32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32_UINT; }
+impl BaseTypeFormat for Vec3<u64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64_UINT; }
+impl BaseTypeFormat for Vec3<i8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8B8_SINT; }
+impl BaseTypeFormat for Vec3<i16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16B16_SINT; }
+impl BaseTypeFormat for Vec3<i32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32_SINT; }
+impl BaseTypeFormat for Vec3<i64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64_SINT; }
+impl BaseTypeFormat for Vec3<f16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16B16_SFLOAT; }
+impl BaseTypeFormat for Vec3<f32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32_SFLOAT; }
+impl BaseTypeFormat for Vec3<f64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64_SFLOAT; }
+impl BaseTypeFormat for Vec4<u8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8B8A8_UINT; }
+impl BaseTypeFormat for Vec4<u16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16B16A16_UINT; }
+impl BaseTypeFormat for Vec4<u32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32A32_UINT; }
+impl BaseTypeFormat for Vec4<u64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64A64_UINT; }
+impl BaseTypeFormat for Vec4<i8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8B8A8_SINT; }
+impl BaseTypeFormat for Vec4<i16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16B16A16_SINT; }
+impl BaseTypeFormat for Vec4<i32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32A32_SINT; }
+impl BaseTypeFormat for Vec4<i64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64A64_SINT; }
+impl BaseTypeFormat for Vec4<f16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16B16A16_SFLOAT; }
+impl BaseTypeFormat for Vec4<f32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32A32_SFLOAT; }
+impl BaseTypeFormat for Vec4<f64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64A64_SFLOAT; }
 
 // Supplemental fields for System
 pub(crate) struct SystemGpu {
@@ -374,13 +369,13 @@ impl System {
         let capabilities = unsafe { capabilities.assume_init() };
 
         let extent = if capabilities.currentExtent.width != 0xFFFFFFFF {
-            u32xy {
+            Vec2 {
                 x: capabilities.currentExtent.width,
                 y: capabilities.currentExtent.height,
             }
         }
         else {
-            let mut extent = u32xy { x: r.s.x as u32,y: r.s.y as u32, };
+            let mut extent = Vec2 { x: r.s.x as u32,y: r.s.y as u32, };
             if extent.x < capabilities.minImageExtent.width {
                 extent.x = capabilities.minImageExtent.width;
             }

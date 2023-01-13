@@ -1,5 +1,4 @@
 pub trait Vertex where Self: Sized {
-    fn ast() -> shader::ast::Struct;
 }
 
 pub trait Uniform where Self: Sized {
@@ -201,15 +200,7 @@ pub enum BlendMode {
     _Over,
 }
 
-mod shader;
-pub use shader::*;
-
 #[cfg(gpu="vulkan")]
 mod vulkan;
 #[cfg(gpu="vulkan")]
 pub use vulkan::*;
-
-#[cfg(gpu="opengl")]
-mod opengl;
-#[cfg(gpu="opengl")]
-pub use opengl::*;

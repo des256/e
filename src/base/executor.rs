@@ -1,8 +1,7 @@
 // dump of rust-lang.github.io/async-book, as a starting point
 // aspirations:
 // - integrate smartly with event queues and I/O for various platforms, starting with Linux
-// - smooth multithreaded executor
-// - the ability to spawn to specific threads
+// - ability to use single or multiple threads
 
 use {
     std::{
@@ -96,12 +95,26 @@ pub struct Executor {
 
 impl Executor {
     pub fn run(&self) {
+
+        // get next task from the queue
         while let Ok(task) = self.ready_queue.recv() {
+
+            // lock the future slot
             let mut future_slot = task.future.lock().unwrap();
             if let Some(mut future) = future_slot.take() {
+
+                // execute the task until the next await, or until it's done
                 let ptr = Arc::as_ptr(&task).cast::<()>();
-                let waker = WakerRef::new_unowned(ManuallyDrop::new(unsafe { Waker::from_raw(RawWaker::new(ptr,waker_vtable::<Task>())) }));
+
+                // create new waker for this future
+                let waker = WakerRef::new_unowned(
+                    ManuallyDrop::new(unsafe {
+                        Waker::from_raw(RawWaker::new(ptr,waker_vtable::<Task>()))
+                    })
+                );
                 let context = &mut Context::from_waker(&*waker);
+
+                // if the future is still not complete, put it back in the slot
                 if future.as_mut().poll(context).is_pending() {
                     *future_slot = Some(future);
                 }

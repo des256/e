@@ -379,17 +379,18 @@ macro_rules! vec2_float {
                     }
                 }
 
-                pub fn invsqrt(self) -> Self {
-                    Vec2 {
-                        x: self.x.invsqrt(),
-                        y: self.y.invsqrt(),
-                    }
-                }
-
                 pub fn rem_euclid(self,other: Self) -> Self {
                     Vec2 {
                         x: self.x.rem_euclid(other.x),
                         y: self.y.rem_euclid(other.y),
+                    }
+                }
+
+                /*
+                pub fn invsqrt(self) -> Self {
+                    Vec2 {
+                        x: self.x.invsqrt(),
+                        y: self.y.invsqrt(),
                     }
                 }
 
@@ -443,6 +444,7 @@ macro_rules! vec2_float {
                         y: self.y.smoothstep(edge0,edge1),
                     }
                 }
+                */
 
                 pub fn is_nan(self) -> Vec2<bool> {
                     Vec2 { 

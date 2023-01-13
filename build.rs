@@ -33,7 +33,7 @@ fn main() {
 
     // define system and gpu configurations
 #[cfg(target_os="linux")]
-    let (system,gpu) = (System::Linux,Gpu::Opengl);  // Vulkan, Opengl, Gles
+    let (system,gpu) = (System::Linux,Gpu::Vulkan);  // Vulkan, Opengl, Gles
 #[cfg(target_os="windows")]
     let (system,gpu) = (System::Windows,Gpu::Vulkan);  // Vulkan, Opengl, Directx
 #[cfg(target_os="macos")]
