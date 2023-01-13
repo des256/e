@@ -18,9 +18,6 @@ mod sys;
 mod base;
 pub use base::*;
 
-mod math;
-pub use math::*;
-
 mod system;
 pub use system::*;
 

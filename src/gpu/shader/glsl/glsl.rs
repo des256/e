@@ -234,7 +234,7 @@ enum Stat {
     Compound(Vec<Stat>),
     Decl(Decl),
     Expr(Expr),
-    If(Expr,Stat,Option<Expr>),
+    If(Expr,Stat,Option<Stat>),
     Switch(Expr,Vec<Stat>),
     For(Decl,Expr,Stat,Vec<Stat>),
     While(Expr,Vec<Stat>),
@@ -273,6 +273,11 @@ compute:
 vertex:
     in int gl_VertexID;
     in int gl_InstanceID;
+    in int gl_VertexIndex;
+    in int gl_InstanceIndex;
+    in int gl_DrawID;
+    in int gl_BaseVertex;
+    in int gl_BaseInstance;
     out gl_PerVertex {
         vec4 gl_Position;
         float gl_PointSize;
