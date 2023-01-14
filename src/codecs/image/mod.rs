@@ -6,6 +6,7 @@ use {
     }
 };
 
+/*
 pub mod bmp;
 pub mod png;
 pub mod jpeg;
@@ -55,3 +56,4 @@ pub fn load<T: Pixel + Default>(filename: &str) -> Option<Mat<T>> {
         None
     }
 }
+*/

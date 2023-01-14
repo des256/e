@@ -1,3 +1,5 @@
+//! GPU-related structs and traits.
+
 mod system;
 pub(crate) use system::*;
 

@@ -34,9 +34,8 @@ use {
 /// floating point numbers at all.
 /// 
 /// `Fixed` implements `Real` as it is one implementation of real numbers. The onther one is IEEE floats `f32`/`f64`.
-
 #[derive(Copy,Clone,Debug)]
-pub struct Fixed<T,const B: usize>(T);
+pub struct Fixed<T,const B: usize>(pub T);
 
 impl<T,const B: usize> Fixed<T,B> {
     const BITS: usize = B;
@@ -186,9 +185,11 @@ impl<T: Zero,const B: usize> Zero for Fixed<T,B> {
     const ZERO: Self = Fixed(T::ZERO);
 }
 
+/*
 impl<T: One + Shl<usize,Output=T>,const B: usize> One for Fixed<T,B> {
     const ONE: Self = Fixed(T::ONE << B);
 }
+*/
 
 // fixed == fixed
 impl<T: PartialEq,const B: usize> PartialEq<Fixed<T,B>> for Fixed<T,B> {
@@ -250,17 +251,21 @@ impl<T: Copy + Mul<Output=T> + Shr<usize,Output=T>,const B: usize> MulAssign<Fix
 }
 
 // fixed / fixed
-impl<T: Div<Output=T> + Shl<usize,Output=T>,const B: usize> Div<Fixed<T,B>> for Fixed<T,B> {
+impl<T: Copy + Div<Output=T> + Shl<usize,Output=T> + Display,const B: usize> Div<Fixed<T,B>> for Fixed<T,B> {
     type Output = Self;
     fn div(self,other: Self) -> Self::Output {
-        Fixed((self.0 << B) / other.0)
+        let s = self.0 << B;
+        dprintln!("B = {}, self.0 = {}, other.0 = {}, s = {}, s / other.0 = {}",B,self.0,other.0,s,s / other.0);
+        Fixed(s / other.0)
     }
 }
 
 // fixed /= fixed
-impl<T: Copy + Div<Output=T> + Shl<usize,Output=T>,const B: usize> DivAssign<Fixed<T,B>> for Fixed<T,B> {
+impl<T: Copy + Div<Output=T> + Shl<usize,Output=T> + Display,const B: usize> DivAssign<Fixed<T,B>> for Fixed<T,B> {
     fn div_assign(&mut self,other: Fixed<T,B>) {
-        self.0 = (self.0 << B) / other.0;
+        let s = self.0 << B;
+        dprintln!("B = {}, self.0 = {}, other.0 = {}, s = {}, s / other.0 = {}",B,self.0,other.0,s,s / other.0);
+        self.0 = s / other.0;
     }
 }
 
@@ -589,4 +594,72 @@ macro_rules! fixed_real_impl {
     )*)
 }
 
-fixed_real_impl! { isize i8 i16 i32 i64 i128 }
+fixed_real_impl! { isize i16 i32 i64 i128 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::*;
+
+    #[test]
+    fn add() {
+        let a = Fixed::<u16,8>(256);
+        let b = Fixed::<u16,8>(128);
+        assert_eq!(a + b,Fixed::<u16,8>(384));
+    }
+
+    #[test]
+    fn add_assign() {
+        let mut a = Fixed::<u16,8>(256);
+        a += Fixed::<u16,8>(128);
+        assert_eq!(a,Fixed::<u16,8>(384));
+    }
+
+    #[test]
+    fn sub() {
+        let a = Fixed::<u16,8>(256);
+        let b = Fixed::<u16,8>(128);
+        assert_eq!(a - b,Fixed::<u16,8>(128));
+    }
+
+    #[test]
+    fn sub_assign() {
+        let mut a = Fixed::<u16,8>(256);
+        a -= Fixed::<u16,8>(128);
+        assert_eq!(a,Fixed::<u16,8>(128));
+    }
+
+    #[test]
+    fn mul() {
+        let a = Fixed::<u16,8>(256);
+        let b = Fixed::<u16,8>(128);
+        assert_eq!(a * b,Fixed::<u16,8>(128));
+    }
+
+    #[test]
+    fn mul_assign() {
+        let mut a = Fixed::<u16,8>(256);
+        a *= Fixed::<u16,8>(128);
+        assert_eq!(a,Fixed::<u16,8>(128));
+    }
+
+    #[test]
+    fn div() {
+        let a = Fixed::<u16,8>(256);
+        let b = Fixed::<u16,8>(512);
+        assert_eq!(a / b,Fixed::<u16,8>(128));
+    }
+
+    #[test]
+    fn div_assign() {
+        let mut a = Fixed::<u16,8>(256);
+        a /= Fixed::<u16,8>(512);
+        assert_eq!(a,Fixed::<u16,8>(128));
+    }
+
+    #[test]
+    fn neg() {
+        let a = Fixed::<i16,8>(256);
+        assert_eq!(-a,Fixed::<i16,8>(-256));
+    }
+}

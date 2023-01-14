@@ -1,6 +1,6 @@
 use crate::*;
 
-/// Signed integer number trait.
+/// Signed number trait.
 /// 
 /// Signed numbers already exist (`isize`, `i8`, `i16`, `i32`, `i64` and
 /// `i128`), but there is no way to address them generically. `Signed` numbers
@@ -10,12 +10,12 @@ use crate::*;
 pub trait Signed : Unsigned {
 }
 
-macro_rules! impl_unsigned {
+macro_rules! impl_signed {
     ($($t:ty)*) => ($(
         impl Signed for $t {
         }
     )*)
 }
 
-impl_unsigned! { isize i8 i16 i32 i64 i128 }
-impl_unsigned! { f32 f64 }
+impl_signed! { isize i8 i16 i32 i64 i128 }
+impl_signed! { f32 f64 }

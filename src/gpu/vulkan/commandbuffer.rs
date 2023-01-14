@@ -124,6 +124,7 @@ impl CommandBuffer {
         ) };
     }
 
+    /*
     /// Specify current viewport transformation.
     pub fn set_viewport(&self,h: Hyper<f32,f32>) {
         unsafe { sys::vkCmdSetViewport(
@@ -140,6 +141,7 @@ impl CommandBuffer {
             },
         ) };
     }
+    */
 
     /// Specify current scissor rectangle.
     pub fn set_scissor(&self,r: Rect<isize,usize>) {

@@ -1,3 +1,4 @@
+//! UI traits and structs.
 use {
     crate::*,
 };
