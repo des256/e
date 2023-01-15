@@ -1,21 +1,59 @@
 use crate::*;
 
-/// Signed number trait.
-/// 
-/// Signed numbers already exist (`isize`, `i8`, `i16`, `i32`, `i64` and
-/// `i128`), but there is no way to address them generically. `Signed` numbers
-/// contain the `Unsigned` numbers.
-/// 
-/// `object: Signed` corresponds to the mathematical 'object E Z'
-pub trait Signed : Unsigned {
+pub trait Signed: Unsigned {
+    fn abs(self) -> Self;
+    fn signum(self) -> Self;
+    fn is_negative(self) -> bool;
+    fn copysign(self,sign: Self) -> Self;
 }
 
-macro_rules! impl_signed {
-    ($($t:ty)*) => ($(
-        impl Signed for $t {
-        }
-    )*)
+macro_rules! signed_impl {
+    ($($t:ty)+) => {
+        $(
+            impl Signed for $t {
+                fn abs(self) -> Self {
+                    if self < Self::ZERO {
+                        -self
+                    }
+                    else {
+                        self
+                    }
+                }
+            
+                fn signum(self) -> Self {
+                    if self < Self::ZERO {
+                        -Self::ONE
+                    }
+                    else {
+                        Self::ONE
+                    }
+                }
+            
+                fn is_negative(self) -> bool {
+                    self < Self::ZERO
+                }
+            
+                fn copysign(self,sign: Self) -> Self {
+                    if sign < Self::ZERO {
+                        if self < Self::ZERO {
+                            self
+                        }
+                        else {
+                            -self
+                        }
+                    }
+                    else {
+                        if self < Self::ZERO {
+                            -self
+                        }
+                        else {
+                            self
+                        }
+                    }
+                }            
+            }
+        )+
+    }
 }
 
-impl_signed! { isize i8 i16 i32 i64 i128 }
-impl_signed! { f32 f64 }
+signed_impl! { isize i8 i16 i32 i64 i128 f32 f64 }

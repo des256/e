@@ -22,14 +22,13 @@ use {
             SubAssign,
             MulAssign,
             DivAssign,
-            RemAssign,
             Neg,
         },
     },
 };
 
-fn _gcd<UT: Copy + Zero + PartialEq + Rem<Output=UT>>(mut a: UT,mut b: UT) -> UT {
-    while b != UT::ZERO {
+fn _gcd<D: Copy + Zero + PartialEq + Rem<Output=D>>(mut a: D,mut b: D) -> D {
+    while b != D::ZERO {
         let c = b;
         b = a % b;
         a = c;
@@ -37,113 +36,91 @@ fn _gcd<UT: Copy + Zero + PartialEq + Rem<Output=UT>>(mut a: UT,mut b: UT) -> UT
     a
 }
 
-/// Rational template.
-/// 
-/// A rational number has a numerator and denominator. This is useful for cases where exact calculations are needed that
-/// cannot be handled by floating point numbers.
-/// 
-/// `object: Rational` corresponds to the mathematical 'object E Q'
+/// rational construct
 #[derive(Copy,Clone,Debug)]
-pub struct Rational<T,UT> {
-    n: T,  // negative, 0 or positive
-    d: UT,  // never 0 or negative
+pub struct Rational<N,D> {
+    n: N,
+    d: D,
 }
 
 macro_rules! rational_impl {
-    ($(($t:ty,$ut:ty))+) => {
+    ($(($n:ty,$d:ty))+) => {
         $(
-            impl Rational<$t,$ut> {
-
+            impl Rational<$n,$d> {
                 fn _reduce(&mut self) {
-                    let gcd = _gcd(self.n as $ut,self.d);
-                    self.n /= gcd as $t;
+                    let gcd = _gcd(self.n as $d,self.d);
+                    self.n /= gcd as $n;
                     self.d /= gcd;
                 }
-            
-                pub fn inverse(&self) -> Self {
-                    Rational {
-                        n: self.d as $t,
-                        d: self.n as $ut,
-                    }
-                }
             }
 
-            impl Zero for Rational<$t,$ut> {
-                const ZERO: Self = Rational { n: 0,d: 1, };
+            impl Zero for Rational<$n,$d> {
+                const ZERO: Self = Rational { n: <$n>::ZERO,d: <$d>::ONE, };
             }
 
-            impl One for Rational<$t,$ut> {
-                const ONE: Self = Rational { n: 1,d: 1, };
+            impl One for Rational<$n,$d> {
+                const ONE: Self = Rational { n: <$n>::ONE,d: <$d>::ONE, };
             }
-            
-            impl Display for Rational<$t,$ut> {
+
+            impl Display for Rational<$n,$d> {
                 fn fmt(&self,f: &mut Formatter) -> Result {
                     write!(f,"{}/{}",self.n,self.d)
                 }
             }
 
-            // scalar == rational
-            impl PartialEq<Rational<$t,$ut>> for $t {
-                fn eq(&self,other: &Rational<$t,$ut>) -> bool {
-                    (other.d == 1) && (self == &other.n)
+            impl PartialEq<Rational<$n,$d>> for $n {
+                fn eq(&self,other: &Rational<$n,$d>) -> bool {
+                    (*self == other.n) && (other.d == <$d>::ONE)
                 }
             }
             
-            // rational == scalar
-            impl PartialEq<$t> for Rational<$t,$ut> {
-                fn eq(&self,other: &$t) -> bool {
-                    (self.d == 1) && (self.n == *other)
+            impl PartialEq<$n> for Rational<$n,$d> {
+                fn eq(&self,other: &$n) -> bool {
+                    (self.n == *other) && (self.d == <$d>::ONE)
                 }
             }
 
-            // rational == rational
-            impl PartialEq<Rational<$t,$ut>> for Rational<$t,$ut> {
-                fn eq(&self,other: &Self) -> bool {
-                    (self.n == other.n) &&
-                    (self.d == other.d)
+            impl PartialEq<Rational<$n,$d>> for Rational<$n,$d> {
+                fn eq(&self,other: &Rational<$n,$d>) -> bool {
+                    (self.n == other.n) && (self.d == other.d)
+                }
+            }
+            
+            impl PartialOrd<Rational<$n,$d>> for $n {
+                fn partial_cmp(&self,other: &Rational<$n,$d>) -> Option<Ordering> {
+                    (self * (other.d as $n)).partial_cmp(&other.n)
                 }
             }
 
-            // scalar ? rational
-            impl PartialOrd<Rational<$t,$ut>> for $t {
-                fn partial_cmp(&self, other: &Rational<$t,$ut>) -> Option<Ordering> {
-                    (self * (other.d as $t)).partial_cmp(&other.n)
+            impl PartialOrd<$n> for Rational<$n,$d> {
+                fn partial_cmp(&self,other: &$n) -> Option<Ordering> {
+                    self.n.partial_cmp(&(*other * (self.d as $n)))
                 }
             }
-
-            // rational ? scalar
-            impl PartialOrd<$t> for Rational<$t,$ut> {
-                fn partial_cmp(&self, other: &$t) -> Option<Ordering> {
-                    self.n.partial_cmp(&(other * (self.d as $t)))
+            
+            impl PartialOrd<Rational<$n,$d>> for Rational<$n,$d> {
+                fn partial_cmp(&self,other: &Rational<$n,$d>) -> Option<Ordering> {
+                    (self.n * (other.d as $n)).partial_cmp(&(other.n * (self.d as $n)))
                 }
-            }
+            }            
 
-            // rational ? rational
-            impl PartialOrd<Rational<$t,$ut>> for Rational<$t,$ut> {
-                fn partial_cmp(&self, other: &Rational<$t,$ut>) -> Option<Ordering> {
-                    (self.n * (other.d as $t)).partial_cmp(&(other.n * (self.d as $t)))
-                }
-            }
-
-            // scalar + rational
-            impl Add<Rational<$t,$ut>> for $t {
-                type Output = Rational<$t,$ut>;
-                fn add(self,other: Rational<$t,$ut>) -> Self::Output {
+            impl Add<Rational<$n,$d>> for $n {
+                type Output = Rational<$n,$d>;
+                fn add(self,other: Rational<$n,$d>) -> Self::Output {
                     let mut result = Rational {
-                        n: self * other.d as $t + other.n,
-                        d: other.d,
+                        n: self * (other.d as $n) + other.n,
+                        d: other.d,            
                     };
                     result._reduce();
                     result
                 }
-            }
+            }            
 
-            // rational + scalar
-            impl Add<$t> for Rational<$t,$ut> {
-                type Output = Self;
-                fn add(self,other: $t) -> Self::Output {
+            impl Add<$n> for Rational<$n,$d> {
+                type Output = Rational<$n,$d>;
+                fn add(self,other: $n) -> Self::Output {
                     let mut result = Rational {
-                        n: self.n + (self.d as $t) * other,
+                        n: self.n + (self.d as $n) * other,
                         d: self.d,
                     };
                     result._reduce();
@@ -151,12 +128,11 @@ macro_rules! rational_impl {
                 }
             }
 
-            // rational + rational
-            impl Add<Rational<$t,$ut>> for Rational<$t,$ut> {
-                type Output = Self;
-                fn add(self,other: Self) -> Self::Output {
+            impl Add<Rational<$n,$d>> for Rational<$n,$d> {
+                type Output = Rational<$n,$d>;
+                fn add(self,other: Rational<$n,$d>) -> Self::Output {
                     let mut result = Rational {
-                        n: self.n * (other.d as $t) + other.n * (self.d as $t),
+                        n: self.n * (other.d as $n) + other.n * (self.d as $n),
                         d: self.d * other.d,
                     };
                     result._reduce();
@@ -164,43 +140,39 @@ macro_rules! rational_impl {
                 }
             }
 
-            // rational += scalar
-            impl AddAssign<$t> for Rational<$t,$ut> {
-                fn add_assign(&mut self,other: $t) {
-                    self.n += other * (self.d as $t);
+            impl AddAssign<$n> for Rational<$n,$d> {
+                fn add_assign(&mut self,other: $n) {
+                    self.n += other * (self.d as $n);
                     self._reduce();
                 }
             }
 
-            // rational += rational
-            impl AddAssign<Rational<$t,$ut>> for Rational<$t,$ut> {
-                fn add_assign(&mut self,other: Self) {
-                    self.n *= other.d as $t;
-                    self.n += other.n * (self.d as $t);
+            impl AddAssign<Rational<$n,$d>> for Rational<$n,$d> {
+                fn add_assign(&mut self,other: Rational<$n,$d>) {
+                    self.n *= other.d as $n;
+                    self.n += other.n * (self.d as $n);
                     self.d *= other.d;
                     self._reduce();
                 }
             }
 
-            // scalar - rational
-            impl Sub<Rational<$t,$ut>> for $t {
-                type Output = Rational<$t,$ut>;
-                fn sub(self,other: Rational<$t,$ut>) -> Self::Output {
+            impl Sub<Rational<$n,$d>> for $n {
+                type Output = Rational<$n,$d>;
+                fn sub(self,other: Rational<$n,$d>) -> Self::Output {
                     let mut result = Rational {
-                        n: self * other.d as $t - other.n,
-                        d: other.d,
+                        n: self * (other.d as $n) - other.n,
+                        d: other.d,            
                     };
                     result._reduce();
                     result
                 }
-            }
-            
-            // rational - scalar
-            impl Sub<$t> for Rational<$t,$ut> {
-                type Output = Self;
-                fn sub(self,other: $t) -> Self::Output {
+            }            
+
+            impl Sub<$n> for Rational<$n,$d> {
+                type Output = Rational<$n,$d>;
+                fn sub(self,other: $n) -> Self::Output {
                     let mut result = Rational {
-                        n: self.n - (self.d as $t) * other,
+                        n: self.n - (self.d as $n) * other,
                         d: self.d,
                     };
                     result._reduce();
@@ -208,12 +180,11 @@ macro_rules! rational_impl {
                 }
             }
 
-            // rational - rational
-            impl Sub<Rational<$t,$ut>> for Rational<$t,$ut> {
-                type Output = Self;
-                fn sub(self,other: Rational<$t,$ut>) -> Self::Output {
+            impl Sub<Rational<$n,$d>> for Rational<$n,$d> {
+                type Output = Rational<$n,$d>;
+                fn sub(self,other: Rational<$n,$d>) -> Self::Output {
                     let mut result = Rational {
-                        n: self.n * (other.d as $t) - other.n * (self.d as $t),
+                        n: self.n * (other.d as $n) - other.n * (self.d as $n),
                         d: self.d * other.d,
                     };
                     result._reduce();
@@ -221,41 +192,37 @@ macro_rules! rational_impl {
                 }
             }
 
-            // rational -= scalar
-            impl SubAssign<$t> for Rational<$t,$ut> {
-                fn sub_assign(&mut self,other: $t) {
-                    self.n -= other * (self.d as $t);
+            impl SubAssign<$n> for Rational<$n,$d> {
+                fn sub_assign(&mut self,other: $n) {
+                    self.n -= other * (self.d as $n);
                     self._reduce();
                 }
             }
 
-            // rational -= rational
-            impl SubAssign<Rational<$t,$ut>> for Rational<$t,$ut> {
-                fn sub_assign(&mut self,other: Self) {
-                    self.n *= other.d as $t;
-                    self.n -= other.n * (self.d as $t);
+            impl SubAssign<Rational<$n,$d>> for Rational<$n,$d> {
+                fn sub_assign(&mut self,other: Rational<$n,$d>) {
+                    self.n *= other.d as $n;
+                    self.n -= other.n * (self.d as $n);
                     self.d *= other.d;
                     self._reduce();
                 }
             }
 
-            // scalar * rational
-            impl Mul<Rational<$t,$ut>> for $t {
-                type Output = Rational<$t,$ut>;
-                fn mul(self,other: Rational<$t,$ut>) -> Rational<$t,$ut> {
+            impl Mul<Rational<$n,$d>> for $n {
+                type Output = Rational<$n,$d>;
+                fn mul(self,other: Rational<$n,$d>) -> Self::Output {
                     let mut result = Rational {
                         n: self * other.n,
-                        d: other.d,
+                        d: other.d,            
                     };
                     result._reduce();
                     result
                 }
-            }
+            }            
 
-            // rational * scalar
-            impl Mul<$t> for Rational<$t,$ut> {
-                type Output = Self;
-                fn mul(self,other: $t) -> Self::Output {
+            impl Mul<$n> for Rational<$n,$d> {
+                type Output = Rational<$n,$d>;
+                fn mul(self,other: $n) -> Self::Output {
                     let mut result = Rational {
                         n: self.n * other,
                         d: self.d,
@@ -265,10 +232,9 @@ macro_rules! rational_impl {
                 }
             }
 
-            // rational * rational
-            impl Mul<Rational<$t,$ut>> for Rational<$t,$ut> {
-                type Output = Self;
-                fn mul(self,other: Self) -> Self::Output {
+            impl Mul<Rational<$n,$d>> for Rational<$n,$d> {
+                type Output = Rational<$n,$d>;
+                fn mul(self,other: Rational<$n,$d>) -> Self::Output {
                     let mut result = Rational {
                         n: self.n * other.n,
                         d: self.d * other.d,
@@ -278,137 +244,129 @@ macro_rules! rational_impl {
                 }
             }
 
-            // rational *= scalar
-            impl MulAssign<$t> for Rational<$t,$ut> {
-                fn mul_assign(&mut self,other: $t) {
+            impl MulAssign<$n> for Rational<$n,$d> {
+                fn mul_assign(&mut self,other: $n) {
                     self.n *= other;
                     self._reduce();
                 }
             }
 
-            // rational *= rational
-            impl MulAssign<Rational<$t,$ut>> for Rational<$t,$ut> {
-                fn mul_assign(&mut self,other: Self) {
+            impl MulAssign<Rational<$n,$d>> for Rational<$n,$d> {
+                fn mul_assign(&mut self,other: Rational<$n,$d>) {
                     self.n *= other.n;
                     self.d *= other.d;
                     self._reduce();
                 }
             }
 
-            // rational % scalar
-            impl Rem<$t> for Rational<$t,$ut> {
-                type Output = Rational<$t,$ut>;
-                fn rem(self,other: $t) -> Self::Output {
-                    Rational {
-                        n: self.n % other,
-                        d: self.d,
+            impl Unsigned for Rational<$n,$d> {
+                const MIN: Rational<$n,$d> = Rational { n: <$n>::MIN,d: <$d>::MAX, };
+                const MAX: Rational<$n,$d> = Rational { n: <$n>::MAX,d: <$d>::ONE, };
+
+                fn div_euclid(self,other: Rational<$n,$d>) -> Rational<$n,$d> {
+                    // TODO
+                    Self::ZERO
+                }
+            
+                fn rem_euclid(self,other: Rational<$n,$d>) -> Rational<$n,$d> {
+                    // TODO
+                    Self::ZERO
+                }
+            
+                fn min(self,other: Rational<$n,$d>) -> Rational<$n,$d> {
+                    if other < self {
+                        other
+                    }
+                    else {
+                        self
                     }
                 }
-            }
-
-            // rational % rational
-            impl Rem<Rational<$t,$ut>> for Rational<$t,$ut> {
-                type Output = Rational<$t,$ut>;
-                fn rem(self,other: Rational<$t,$ut>) -> Rational<$t,$ut> {
-                    // TODO
-                    self
+            
+                fn max(self,other: Rational<$n,$d>) -> Rational<$n,$d> {
+                    if other > self {
+                        other
+                    }
+                    else {
+                        self
+                    }
+                }
+            
+                fn clamp(self,min: Rational<$n,$d>,max: Rational<$n,$d>) -> Rational<$n,$d> {
+                    if max < self {
+                        max
+                    }
+                    else if min > self {
+                        min
+                    }
+                    else {
+                        self
+                    }
+                }
+            
+                fn mul_add(self,b: Rational<$n,$d>,c: Rational<$n,$d>) -> Rational<$n,$d> {
+                    self * b + c
+                }
+            
+                fn powi(self,n: i32) -> Rational<$n,$d> {
+                    self.powi(n)
                 }
             }
-
-            // rational %= scalar
-            impl RemAssign<$t> for Rational<$t,$ut> {
-                fn rem_assign(&mut self,other: $t) {
-                    self.n %= other;
-                }
-            }
-
-            // rational %= rational
-            impl RemAssign<Rational<$t,$ut>> for Rational<$t,$ut> {
-                fn rem_assign(&mut self,other: Rational<$t,$ut>) {
-                    // TODO
-                }
-            }
-
-            impl Unsigned for Rational<$t,$ut> {
-
-                /*
-                const MIN: Self = Rational { n: <$t>::MIN,d: 1, };
-
-                const MAX: Self = Rational { n: <$t>::MAX,d: 1, };
-
-                const BITS: u32 = <$t>::BITS + <$ut>::BITS;
-                */
-
-                fn div_euclid(self,rhs: Self) -> Self {
-                    self / rhs
-                }
-
-                fn rem_euclid(self,rhs: Self) -> Self {
-                    self % rhs
-                }
-            }        
         )+
     }
 }
 
 rational_impl! { (usize,usize) (u8,u8) (u16,u16) (u32,u32) (u64,u64) (u128,u128) (isize,usize) (i8,u8) (i16,u16) (i32,u32) (i64,u64) (i128,u128) }
 
-macro_rules! rational_impl_div_unsigned {
-    ($(($t:ty,$ut:ty))+) => {
+macro_rules! rational_impl_unsigned {
+    ($(($n:ty,$d:ty))+) => {
         $(
-
-            // scalar / rational
-            impl Div<Rational<$t,$ut>> for $t {
-                type Output = Rational<$t,$ut>;
-                fn div(self,other: Rational<$t,$ut>) -> Self::Output {
+            impl Div<Rational<$n,$d>> for $n {
+                type Output = Rational<$n,$d>;
+                fn div(self,other: Rational<$n,$d>) -> Self::Output {
                     let mut result = Rational {
-                        n: self * other.d as $t,
-                        d: other.n as $ut,
+                        n: self * (other.d as $n),
+                        d: other.n as $d,            
                     };
                     result._reduce();
                     result
                 }
-            }
-
-            // rational / scalar
-            impl Div<$t> for Rational<$t,$ut> {
-                type Output = Rational<$t,$ut>;
-                fn div(self,other: $t) -> Self::Output {
+            }            
+            
+            impl Div<$n> for Rational<$n,$d> {
+                type Output = Rational<$n,$d>;
+                fn div(self,other: $n) -> Self::Output {
                     let mut result = Rational {
                         n: self.n,
-                        d: self.d * (other as $ut),
+                        d: self.d * (other as $d),
                     };
                     result._reduce();
                     result
                 }
             }
-
-            // rational / rational
-            impl Div<Rational<$t,$ut>> for Rational<$t,$ut> {
-                type Output = Rational<$t,$ut>;
-                fn div(self,other: Rational<$t,$ut>) -> Rational<$t,$ut> {
+            
+            impl Div<Rational<$n,$d>> for Rational<$n,$d> {
+                type Output = Rational<$n,$d>;
+                fn div(self,other: Rational<$n,$d>) -> Self::Output {
                     let mut result = Rational {
-                        n: self.n * (other.d as $t),
-                        d: self.d * (other.n as $ut),
+                        n: self.n * (other.d as $n),
+                        d: self.d * (other.n as $d),
                     };
                     result._reduce();
                     result
                 }
             }
 
-            // rational /= scalar
-            impl DivAssign<$t> for Rational<$t,$ut> {
-                fn div_assign(&mut self,other: $t) {
-                    self.d *= other as $ut;
+            impl DivAssign<$n> for Rational<$n,$d> {
+                fn div_assign(&mut self,other: $n) {
+                    self.d *= other as $d;
                     self._reduce();
                 }
             }
 
-            // rational /= rational
-            impl DivAssign<Rational<$t,$ut>> for Rational<$t,$ut> {
-                fn div_assign(&mut self,other: Rational<$t,$ut>) {
-                    self.n *= other.d as $t;
-                    self.d *= other.n as $ut;
+            impl DivAssign<Rational<$n,$d>> for Rational<$n,$d> {
+                fn div_assign(&mut self,other: Rational<$n,$d>) {
+                    self.n *= other.d as $n;
+                    self.d *= other.n as $d;
                     self._reduce();
                 }
             }
@@ -416,68 +374,64 @@ macro_rules! rational_impl_div_unsigned {
     }
 }
 
-rational_impl_div_unsigned! { (usize,usize) (u8,u8) (u16,u16) (u32,u32) (u64,u64) (u128,u128)  }
+rational_impl_unsigned! { (usize,usize) (u8,u8) (u16,u16) (u32,u32) (u64,u64) (u128,u128) }
 
-macro_rules! rational_impl_div_signed {
-    ($(($t:ty,$ut:ty))+) => {
+macro_rules! rational_impl_signed {
+    ($(($n:ty,$d:ty))+) => {
         $(
-
-            // scalar / rational
-            impl Div<Rational<$t,$ut>> for $t {
-                type Output = Rational<$t,$ut>;
-                fn div(self,other: Rational<$t,$ut>) -> Self::Output {
-                    let mut result = if other.n < 0 {
+            impl Div<Rational<$n,$d>> for $n {
+                type Output = Rational<$n,$d>;
+                fn div(self,other: Rational<$n,$d>) -> Self::Output {
+                    let mut result = if other.n < <$n>::ZERO {
                         Rational {
-                            n: -(self * other.d as $t),
-                            d: -other.n as $ut,
+                            n: -(self * (other.d as $n)),
+                            d: -other.n as $d,
                         }
                     }
                     else {
                         Rational {
-                            n: self * other.d as $t,
-                            d: other.n as $ut,
+                            n: self * (other.d as $n),
+                            d: other.n as $d,            
                         }
                     };
                     result._reduce();
                     result
                 }
-            }
-
-            // rational / scalar
-            impl Div<$t> for Rational<$t,$ut> {
-                type Output = Rational<$t,$ut>;
-                fn div(self,other: $t) -> Self::Output {
-                    let mut result = if other < 0 {
+            }            
+            
+            impl Div<$n> for Rational<$n,$d> {
+                type Output = Rational<$n,$d>;
+                fn div(self,other: $n) -> Self::Output {
+                    let mut result = if other < <$n>::ZERO {
                         Rational {
                             n: -self.n,
-                            d: self.d * (-other as $ut),
+                            d: self.d * (-other as $d),
                         }
                     }
                     else {
                         Rational {
                             n: self.n,
-                            d: self.d * (other as $ut),
+                            d: self.d * (other as $d),
                         }
                     };
                     result._reduce();
                     result
                 }
             }
-
-            // rational / rational
-            impl Div<Rational<$t,$ut>> for Rational<$t,$ut> {
-                type Output = Rational<$t,$ut>;
-                fn div(self,other: Rational<$t,$ut>) -> Rational<$t,$ut> {
+            
+            impl Div<Rational<$n,$d>> for Rational<$n,$d> {
+                type Output = Rational<$n,$d>;
+                fn div(self,other: Rational<$n,$d>) -> Self::Output {
                     let mut result = if other.n < 0 {
                         Rational {
-                            n: -self.n * (other.d as $t),
-                            d: self.d * (-other.n as $ut),
+                            n: -self.n * (other.d as $n),
+                            d: self.d * (-other.n as $d),
                         }
                     }
                     else {
                         Rational {
-                            n: self.n * (other.d as $t),
-                            d: self.d * (other.n as $ut),
+                            n: self.n * (other.d as $n),
+                            d: self.d * (other.n as $d),
                         }
                     };
                     result._reduce();
@@ -485,37 +439,34 @@ macro_rules! rational_impl_div_signed {
                 }
             }
 
-            // rational /= scalar
-            impl DivAssign<$t> for Rational<$t,$ut> {
-                fn div_assign(&mut self,other: $t) {
-                    if other < 0 {
+            impl DivAssign<$n> for Rational<$n,$d> {
+                fn div_assign(&mut self,other: $n) {
+                    if other < <$n>::ZERO {
                         self.n = -self.n;
-                        self.d *= -other as $ut;
+                        self.d *= -other as $d;
                     }
                     else {
-                        self.d *= other as $ut;
+                        self.d *= other as $d;
                     }
                     self._reduce();
                 }
             }
 
-            // rational /= rational
-            impl DivAssign<Rational<$t,$ut>> for Rational<$t,$ut> {
-                fn div_assign(&mut self,other: Rational<$t,$ut>) {
-                    if other.n < 0 {
-                        self.n *= -(other.d as $t);
-                        self.d *= -other.n as $ut;    
+            impl DivAssign<Rational<$n,$d>> for Rational<$n,$d> {
+                fn div_assign(&mut self,other: Rational<$n,$d>) {
+                    if other.n < <$n>::ZERO {
+                        self.n *= -(other.d as $n);
+                        self.d *= -other.n as $d;
                     }
                     else {
-                        self.n *= other.d as $t;
-                        self.d *= other.n as $ut;
+                        self.n *= other.d as $n;
+                        self.d *= other.n as $d;
                     }
                     self._reduce();
                 }
             }
 
-            // -rational
-            impl Neg for Rational<$t,$ut> {
+            impl Neg for Rational<$n,$d> {
                 type Output = Self;
                 fn neg(self) -> Self::Output {
                     Rational {
@@ -524,165 +475,69 @@ macro_rules! rational_impl_div_signed {
                     }
                 }
             }
+
+            impl Signed for Rational<$n,$d> {
+                fn abs(self) -> Self {
+                    if self < Self::ZERO {
+                        -self
+                    }
+                    else {
+                        self
+                    }
+                }
+            
+                fn signum(self) -> Self {
+                    if self < Self::ZERO {
+                        -Self::ONE
+                    }
+                    else {
+                        Self::ONE
+                    }
+                }
+            
+                fn is_negative(self) -> bool {
+                    self < Self::ZERO
+                }
+            
+                fn copysign(self,sign: Self) -> Self {
+                    if sign < Self::ZERO {
+                        if self < Self::ZERO {
+                            self
+                        }
+                        else {
+                            -self
+                        }
+                    }
+                    else {
+                        if self < Self::ZERO {
+                            -self
+                        }
+                        else {
+                            self
+                        }
+                    }
+                }            
+            }
         )+
     }
 }
 
-rational_impl_div_signed! { (isize,usize) (i8,u8) (i16,u16) (i32,u32) (i64,u64) (i128,u128) }
+rational_impl_signed! { (isize,usize) (i8,u8) (i16,u16) (i32,u32) (i64,u64) (i128,u128) }
 
-#[cfg(test)]
-mod tests {
+#[allow(non_camel_case_types)]
+pub type rsize = Rational<isize,usize>;
 
-    use crate::*;
+#[allow(non_camel_case_types)]
+pub type r8 = Rational<i8,u8>;
 
-    #[test]
-    fn inverse() {
-        let a = Rational::<i32,u32> { n: 1,d: 3, };
-        assert_eq!(a.inverse(),Rational { n: 3,d: 1, });
-    }
+#[allow(non_camel_case_types)]
+pub type r16 = Rational<i16,u16>;
 
-    #[test]
-    fn scalar_add() {
-        let a = Rational::<i32,u32> { n: 1,d: 3, };
-        assert_eq!(1 + a,Rational { n: 4,d: 3, });
-    }
+#[allow(non_camel_case_types)]
+pub type r32 = Rational<i32,u32>;
 
-    #[test]
-    fn add_scalar() {
-        let a = Rational::<i32,u32> { n: 1,d: 3, };
-        assert_eq!(a + 1,Rational { n: 4,d: 3, });
-    }
+#[allow(non_camel_case_types)]
+pub type r64 = Rational<i64,u64>;
 
-    #[test]
-    fn add() {
-        let a = Rational::<i32,u32> { n: 1,d: 3, };
-        let b = Rational::<i32,u32> { n: 5,d: 3, };
-        assert_eq!(a + b,Rational { n: 2,d: 1, });
-    }
-
-    #[test]
-    fn add_assign_scalar() {
-        let mut a = Rational::<i32,u32> { n: 1,d: 3, };
-        a += 1;
-        assert_eq!(a,Rational { n: 4,d: 3, });
-    }
-
-    #[test]
-    fn add_assign() {
-        let mut a = Rational::<i32,u32> { n: 1,d: 3, };
-        a += Rational::<i32,u32> { n: 2,d: 3, };
-        assert_eq!(a,1);
-    }
-
-    #[test]
-    fn scalar_sub() {
-        let a = Rational::<i32,u32> { n: 1,d: 3, };
-        assert_eq!(1 - a,Rational { n: 2,d: 3, });
-    }
-
-    #[test]
-    fn sub_scalar() {
-        let a = Rational::<i32,u32> { n: 1,d: 3, };
-        assert_eq!(a - 1,Rational { n: -2,d: 3, });
-    }
-
-    #[test]
-    fn sub() {
-        let a = Rational::<i32,u32> { n: 5,d: 3, };
-        let b = Rational::<i32,u32> { n: 2,d: 3, };
-        assert_eq!(a - b,1);
-    }
-
-    #[test]
-    fn sub_assign_scalar() {
-        let mut a = Rational::<i32,u32> { n: 3,d: 3, };
-        a -= 1;
-        assert_eq!(a,0);
-    }
-
-    #[test]
-    fn sub_assign() {
-        let mut a = Rational::<i32,u32> { n: 4,d: 3, };
-        a -= Rational::<i32,u32> { n: 1,d: 3, };
-        assert_eq!(a,1);
-    }
-
-    #[test]
-    fn scalar_mul() {
-        let a = Rational::<i32,u32> { n: 1,d: 3, };
-        assert_eq!(3 * a,1);
-    }
-
-    #[test]
-    fn mul_scalar() {
-        let a = Rational::<i32,u32> { n: 2,d: 3, };
-        assert_eq!(a * 3,2);
-    }
-
-    #[test]
-    fn mul() {
-        let a = Rational::<i32,u32> { n: 5,d: 3, };
-        let b = Rational::<i32,u32> { n: 2,d: 3, };
-        assert_eq!(a * b,Rational { n: 10,d: 9, });
-    }
-
-    #[test]
-    fn mul_assign_scalar() {
-        let mut a = Rational::<i32,u32> { n: 2,d: 3, };
-        a *= 2;
-        assert_eq!(a,Rational { n: 4,d: 3, });
-    }
-
-    #[test]
-    fn mul_assign() {
-        let mut a = Rational::<i32,u32> { n: 4,d: 3, };
-        a *= Rational::<i32,u32> { n: 2,d: 3, };
-        assert_eq!(a,Rational { n: 8,d: 9, });
-    }
-
-    #[test]
-    fn scalar_div() {
-        let a = Rational::<i32,u32> { n: 1,d: 3, };
-        assert_eq!(2 / a,6);
-    }
-
-    #[test]
-    fn div_scalar() {
-        let a = Rational::<i32,u32> { n: 2,d: 3, };
-        assert_eq!(a / 2,Rational { n: 1,d: 3, });
-    }
-
-    #[test]
-    fn div() {
-        let a = Rational::<i32,u32> { n: 4,d: 3, };
-        let b = Rational::<i32,u32> { n: 2,d: 3, };
-        assert_eq!(a / b,2);
-    }
-
-    #[test]
-    fn div_assign_scalar() {
-        let mut a = Rational::<i32,u32> { n: 2,d: 3, };
-        a /= 2;
-        assert_eq!(a,Rational { n: 1,d: 3, });
-    }
-
-    #[test]
-    fn div_assign() {
-        let mut a = Rational::<i32,u32> { n: 4,d: 3, };
-        a /= Rational::<i32,u32> { n: 2,d: 3, };
-        assert_eq!(a,2);
-    }
-
-    #[test]
-    fn rem_scalar() {
-        let a = Rational::<i32,u32> { n: 4,d: 3, };
-        assert_eq!(a % 3,Rational { n: 1,d: 3, });
-    }
-
-    #[test]
-    fn rem_assign_scalar() {
-        let mut a = Rational::<i32,u32> { n: 4,d: 3, };
-        a %= 3;
-        assert_eq!(a,Rational { n: 1,d: 3, });
-    }
-}
+#[allow(non_camel_case_types)]
+pub type r128 = Rational<i128,u128>;

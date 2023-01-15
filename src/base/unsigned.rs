@@ -1,59 +1,73 @@
-/// Unsigned number trait.
-/// 
-/// Unsigned numbers already exist (`usize`, `u8`, `u16`, `u32`, `u64` and
-/// `u128`), but there is no way to address them generically.
-/// 
-/// `object: Unsigned` corresponds to the mathematical 'object E N'
+use crate::*;
 
-pub trait Unsigned {
-    /*
+/// unsigned number trait
+pub trait Unsigned: Sized + Zero + One {
     const MIN: Self;
     const MAX: Self;
-    const BITS: u32;
-    */
-    fn div_euclid(self,rhs: Self) -> Self;
-    fn rem_euclid(self,rhs: Self) -> Self;
+    fn div_euclid(self,other: Self) -> Self;
+    fn rem_euclid(self,other: Self) -> Self;
+    fn min(self,other: Self) -> Self;
+    fn max(self,other: Self) -> Self;
+    fn clamp(self,min: Self,max: Self) -> Self;
+    fn mul_add(self,b: Self,c: Self) -> Self;
+    fn powi(self,n: i32) -> Self;
 }
 
-macro_rules! impl_unsigned {
+macro_rules! unsigned_impl {
     ($($t:ty)+) => {
         $(
             impl Unsigned for $t {
+                const MIN: Self = Self::MIN;
+                const MAX: Self = Self::MAX;
 
-                /*
-                const MIN: Self = <$t>::MIN;
-                const MAX: Self = <$t>::MAX;
-                const BITS: u32 = <$t>::BITS;
-                */
-
-                fn div_euclid(self,rhs: Self) -> Self {
-                    self / rhs
+                fn div_euclid(self,other: Self) -> Self {
+                    self.div_euclid(other)
                 }
-
-                fn rem_euclid(self,rhs: Self) -> Self {
-                    self % rhs
+            
+                fn rem_euclid(self,other: Self) -> Self {
+                    self.rem_euclid(other)
                 }
+            
+                fn min(self,other: Self) -> Self {
+                    if other < self {
+                        other
+                    }
+                    else {
+                        self
+                    }
+                }
+            
+                fn max(self,other: Self) -> Self {
+                    if other > self {
+                        other
+                    }
+                    else {
+                        self
+                    }
+                }
+            
+                fn clamp(self,min: Self,max: Self) -> Self {
+                    if max < self {
+                        max
+                    }
+                    else if min > self {
+                        min
+                    }
+                    else {
+                        self
+                    }
+                }
+            
+                fn mul_add(self,b: Self,c: Self) -> Self {
+                    self * b + c
+                }
+            
+                fn powi(self,n: i32) -> Self {
+                    self.powi(n)
+                }            
             }
         )+
     }
 }
 
-impl_unsigned! { usize u8 u16 u32 u64 u128 }
-impl_unsigned! { isize i8 i16 i32 i64 i128 }
-impl_unsigned! { f32 f64 }
-
-#[cfg(test)]
-mod tests {
-
-    use crate::*;
-
-    #[test]
-    fn div_euclid() {
-        assert_eq!(4f32.div_euclid(3f32),1f32);
-    }
-
-    #[test]
-    fn rem_euclid() {
-        assert_eq!(4f32.rem_euclid(3f32),1f32);
-    }
-}
+unsigned_impl! { usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 f32 f64 }

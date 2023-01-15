@@ -21,44 +21,73 @@ use {
     },
 };
 
+/// 2D vector.
 #[derive(Copy,Clone,Debug)]
 pub struct Vec2<T> {
     pub x: T,
     pub y: T,
 }
 
+/// Create vector from splatting one value.
 impl<T: Copy> Vec2<T> {
-    pub fn new(x: T,y: T) -> Self {
-        Vec2 { x: x,y: y, }
+    pub fn splat(value: T) -> Self {
+        Vec2 { x: value,y: value, }
     }
 }
 
-impl<T: Copy> From<[T; 2]> for Vec2<T> {
-    fn from(array: [T; 2]) -> Self {
-        Vec2 { x: array[0],y: array[1], }
+/// The dot-product.
+impl<T: Copy + Mul<T,Output=T> + Add<T,Output=T>> Vec2<T> {
+    pub fn dot(self,other: &Self) -> T {
+        self.x * other.x + self.y * other.y
     }
 }
 
-impl<T: Copy> From<&[T; 2]> for Vec2<T> {
-    fn from(slice: &[T; 2]) -> Self {
-        Vec2 { x: slice[0],y: slice[1], }
+/// The norm/length of the vector.
+impl<T: Copy + Real + Mul<T,Output=T> + Add<T,Output=T>> Vec2<T> {
+    pub fn norm(&self) -> T {
+        self.dot(&self).sqrt()
     }
 }
 
+/// Normalize the vector (scale so norm becomes 1).
+impl<T: Copy + Real + Mul<T,Output=T> + Add<T,Output=T> + Zero + PartialEq<T> + DivAssign<T>> Vec2<T> {
+    pub fn normalize(&mut self) {
+        let d = self.norm();
+        if d != T::ZERO {
+            self.x /= d;
+            self.y /= d;
+        }
+    }
+}
+
+/// Component-wise scaling of the vector.
+impl<T: Copy + Mul<T,Output=T>> Vec2<T> {
+    pub fn scale(&self,other: &Self) -> Self {
+        Vec2 {
+            x: self.x * other.x,
+            y: self.y * other.y,
+        }
+    }
+}
+
+/// Partial equality operators `==` and `!=`.
 impl<T: PartialEq> PartialEq for Vec2<T> {
     fn eq(&self,other: &Self) -> bool {
         (self.x == other.x) && (self.y == other.y)
     }
 }
 
+/// Prettyprint the vector.
 impl<T: Display> Display for Vec2<T> {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"({},{})",self.x,self.y)
     }
 }
 
+/// The Zero trait, adds ZERO constant to the vector.
 impl<T: Zero> Zero for Vec2<T> { const ZERO: Self = Vec2 { x: T::ZERO,y: T::ZERO, }; }
 
+/// The addition operator `+`.
 impl<T: Add<T,Output=T>> Add<Vec2<T>> for Vec2<T> {
     type Output = Self;
     fn add(self,other: Self) -> Self {
@@ -66,6 +95,7 @@ impl<T: Add<T,Output=T>> Add<Vec2<T>> for Vec2<T> {
     }
 }
 
+/// The addition-assignment operator `+=`.
 impl<T: AddAssign<T>> AddAssign<Vec2<T>> for Vec2<T> {
     fn add_assign(&mut self,other: Self) {
         self.x += other.x;
@@ -73,6 +103,7 @@ impl<T: AddAssign<T>> AddAssign<Vec2<T>> for Vec2<T> {
     }
 }
 
+/// The subtraction operator `-`.
 impl<T: Sub<T,Output=T>> Sub<Vec2<T>> for Vec2<T> {
     type Output = Self;
     fn sub(self,other: Self) -> Self {
@@ -80,6 +111,7 @@ impl<T: Sub<T,Output=T>> Sub<Vec2<T>> for Vec2<T> {
     }
 }
 
+/// The subtraction-assignment operator `-=`.
 impl<T: SubAssign<T>> SubAssign<Vec2<T>> for Vec2<T> {
     fn sub_assign(&mut self,other: Self) {
         self.x -= other.x;
@@ -90,6 +122,7 @@ impl<T: SubAssign<T>> SubAssign<Vec2<T>> for Vec2<T> {
 macro_rules! scalar_vec2_mul {
     ($($t:ty)+) => {
         $(
+            /// Scalar-vector multiplication operator `*`.
             impl Mul<Vec2<$t>> for $t {
                 type Output = Vec2<$t>;
                 fn mul(self,other: Vec2<$t>) -> Vec2<$t> {
@@ -100,8 +133,9 @@ macro_rules! scalar_vec2_mul {
     }
 }
 
-scalar_vec2_mul!(u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize f32 f64);
+scalar_vec2_mul!(usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 f32 f64);
 
+/// Vector-scalar multiplication operator `*`.
 impl<T: Copy + Mul<T,Output=T>> Mul<T> for Vec2<T> {
     type Output = Self;
     fn mul(self,other: T) -> Self {
@@ -109,6 +143,7 @@ impl<T: Copy + Mul<T,Output=T>> Mul<T> for Vec2<T> {
     }
 }
 
+/// Vector-scalar multiply-assignment operator `*=`.
 impl<T: Copy + MulAssign<T>> MulAssign<T> for Vec2<T> {
     fn mul_assign(&mut self,other: T) {
         self.x *= other;
@@ -116,6 +151,7 @@ impl<T: Copy + MulAssign<T>> MulAssign<T> for Vec2<T> {
     }
 }
 
+/// Vector-scalar division operator `/`.
 impl<T: Copy + Div<T,Output=T>> Div<T> for Vec2<T> {
     type Output = Self;
     fn div(self,other: T) -> Self {
@@ -123,6 +159,7 @@ impl<T: Copy + Div<T,Output=T>> Div<T> for Vec2<T> {
     }
 }
 
+/// Vector-scalar divide-assignment operator `/=`.
 impl<T: Copy + DivAssign<T>> DivAssign<T> for Vec2<T> {
     fn div_assign(&mut self,other: T) {
         self.x /= other;
@@ -130,22 +167,16 @@ impl<T: Copy + DivAssign<T>> DivAssign<T> for Vec2<T> {
     }
 }
 
-macro_rules! vec2_signed {
-    ($($t:ty)+) => {
-        $(
-            impl Neg for Vec2<$t> {
-                type Output = Vec2<$t>;
-                fn neg(self) -> Self::Output {
-                    Vec2 { x: -self.x,y: -self.y, }
-                }
-            }
-        )+
+/// Negation operator `-`.
+impl<T: Neg<Output=T>> Neg for Vec2<T> {
+    type Output = Vec2<T>;
+    fn neg(self) -> Self::Output {
+        Vec2 { x: -self.x,y: -self.y, }
     }
 }
 
-vec2_signed!(i8 i16 i32 i64 i128 isize f32 f64);
-
 impl Vec2<bool> {
+    /// select vector components from boolean choice.
     pub fn select<T>(&self,a: Vec2<T>,b: Vec2<T>) -> Vec2<T> {
         Vec2 {
             x: if self.x { b.x } else { a.x },
@@ -153,14 +184,17 @@ impl Vec2<bool> {
         }
     }
 
+    /// True if all components are true.
     pub fn all(&self) -> bool {
         self.x && self.y
     }
 
+    /// True if any component is true.
     pub fn any(&self) -> bool {
         self.x || self.y
     }
 
+    /// Boolean inverse.
     pub fn not(&self) -> Self {
         Vec2 {
             x: !self.x,
@@ -169,57 +203,59 @@ impl Vec2<bool> {
     }
 }
 
-macro_rules! vec2_int_float {
-    ($($t:ty)+) => {
-        $(
-            impl Vec2<$t> {
-                pub fn abs(self) -> Self {
-                    Vec2 {
-                        x: self.x.abs(),
-                        y: self.y.abs(),
-                    }
-                }
-
-                pub fn signum(self) -> Self {
-                    Vec2 {
-                        x: self.x.signum(),
-                        y: self.y.signum(),
-                    }
-                }
-
-                pub fn min(self,other: Self) -> Self {
-                    Vec2 {
-                        x: self.x.min(other.x),
-                        y: self.y.min(other.y),
-                    }
-                }
-
-                pub fn max(self,other: Self) -> Self {
-                    Vec2 {
-                        x: self.x.max(other.x),
-                        y: self.y.max(other.y),
-                    }
-                }
-
-                pub fn clamp(self,min: Self,max: Self) -> Self {
-                    Vec2 {
-                        x: self.x.clamp(min.x,max.x),
-                        y: self.y.clamp(min.y,max.y),
-                    }
-                }
-
-                pub fn sclamp(self,min: $t,max: $t) -> Self {
-                    Vec2 {
-                        x: self.x.clamp(min,max),
-                        y: self.y.clamp(min,max),
-                    }
-                }
-            }
-        )+
+impl<T: Signed> Vec2<T> {
+    pub fn abs(self) -> Self {
+        Vec2 {
+            x: self.x.abs(),
+            y: self.y.abs(),
+        }
     }
 }
 
-vec2_int_float!(i8 i16 i32 i64 i128 isize f32 f64);
+impl<T: Signed> Vec2<T> {
+    pub fn signum(self) -> Self {
+        Vec2 {
+            x: self.x.signum(),
+            y: self.y.signum(),
+        }
+    }
+}
+
+impl<T> Vec2<T> {
+    pub fn min(self,other: Self) -> Self {
+        Vec2 {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+        }
+    }
+}
+
+impl<T> Vec2<T> {
+    pub fn max(self,other: Self) -> Self {
+        Vec2 {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+        }
+    }
+}
+
+impl<T> Vec2<T> {
+    pub fn clamp(self,min: Self,max: Self) -> Self {
+        Vec2 {
+            x: self.x.clamp(min.x,max.x),
+            y: self.y.clamp(min.y,max.y),
+        }
+    }
+}
+
+impl<T> Vec2<T> {
+    pub fn sclamp(self,min: T,max: T) -> Self {
+        Vec2 {
+            x: self.x.clamp(min,max),
+            y: self.y.clamp(min,max),
+        }
+    }
+}
 
 macro_rules! vec2_float {
     ($($t:ty)+) => {
@@ -467,9 +503,9 @@ macro_rules! vec2_float {
                     }
                 }
 
-                pub fn dot(self,other: Self) -> $t {
-                    self.x * other.x + self.y * other.y
-                }
+                //pub fn dot(self,other: Self) -> $t {
+                //    self.x * other.x + self.y * other.y
+                //}
 
                 pub fn length(&self) -> $t {
                     (self.x * self.x + self.y * self.y).sqrt()
@@ -479,26 +515,26 @@ macro_rules! vec2_float {
                     (other - self).length()
                 }
 
-                pub fn normalize(self) -> Self {
-                    let d = self.length();
-                    if d != 0 as $t {
-                        self / d
-                    }
-                    else {
-                        self
-                    }
-                }
+                //pub fn normalize(self) -> Self {
+                //    let d = self.length();
+                //    if d != 0 as $t {
+                //        self / d
+                //    }
+                //    else {
+                //        self
+                //    }
+                //}
 
                 pub fn faceforward(self,n: Self,i: Self) -> Self {
-                    if Self::dot(n,i) < 0.0 { self } else { -self }
+                    if n.dot(&i) < 0.0 { self } else { -self }
                 }
 
                 pub fn reflect(self,n: Self) -> Self {
-                    self - 2.0 * n.dot(self) * n
+                    self - 2.0 * n.dot(&self) * n
                 }
 
                 pub fn refract(self,n: Self,eta: $t) -> Self {
-                    let nds = n.dot(self);
+                    let nds = n.dot(&self);
                     let k = 1.0 - eta * eta * (1.0 - nds * nds);
                     if k >= 0.0 { eta * self - (eta * nds + k.sqrt()) * n } else { Self::ZERO }
                 }
