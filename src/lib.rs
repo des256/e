@@ -25,13 +25,11 @@
 //! 
 //! Color, Pixel encodings, SIMD support.
 //! 
-//! ### Vectors
+//! ### Vectors and Matrices
 //! 
 //! Generic [`VecN`].
 //! 
 //! [`Vec2`], [`Vec3`], [`Vec4`].
-//! 
-//! ### Matrices
 //! 
 //! Generic [`Mat`].
 //! 
