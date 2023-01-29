@@ -25,11 +25,13 @@
 //! 
 //! Color, Pixel encodings, SIMD support.
 //! 
-//! ### Vectors and Matrices
+//! ### Vectors
 //! 
 //! Generic [`VecN`].
 //! 
 //! [`Vec2`], [`Vec3`], [`Vec4`].
+//! 
+//! ### Matrices
 //! 
 //! Generic [`Mat`].
 //! 
@@ -39,11 +41,15 @@
 //!
 //! [`Mat4x2`], [`Mat4x3`], [`Mat4x4`].
 //! 
-//! ### Advanced Algebra
+//! ### Tensors
 //! 
-//! Orientation [`Quaternion`], [`Pose`].
+//! Generic [`Ten`]
 //! 
-//! Geometric [`MultiVec2`], [`MultiVec3`], [`MultiVec4`].
+//! ### More Advanced Algebra
+//! 
+//! Orientation 3D/VR [`Quaternion`], [`Pose`].
+//! 
+//! Geometric/Clifford [`MultiVec2`], [`MultiVec3`], [`MultiVec4`].
 //! 
 //! ## System Functionality
 //! 
