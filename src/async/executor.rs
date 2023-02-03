@@ -1,7 +1,4 @@
 // dump of rust-lang.github.io/async-book, as a starting point
-// aspirations:
-// - integrate smartly with event queues and I/O for various platforms, starting with Linux
-// - ability to use single or multiple threads
 
 use {
     std::{
@@ -22,57 +19,62 @@ use {
             RawWaker,
             RawWakerVTable,
         },
-        mem::{
-            ManuallyDrop,
-        },
+        mem::ManuallyDrop,
         pin::Pin,
         marker::PhantomData,
         ops::Deref,
     },
 };
 
-type BoxFuture<'a,T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+// some pinned boxed object that implements Future outputting T, Send and outlives 'a
+type BoxFuture<'a,T> = Pin<Box<dyn Future<Output=T> + Send + 'a>>;
 
+// a waker reference that outlives 'a
 pub struct WakerRef<'a> {
     waker: ManuallyDrop<Waker>,
     _marker: PhantomData<&'a ()>,
 }
 
+// implementation of the waker reference
 impl<'a> WakerRef<'a> {
+
+    // create new owned reference for a waker
     pub fn new(waker: &'a Waker) -> Self {
         let waker = ManuallyDrop::new(unsafe { std::ptr::read(waker) });
         Self { waker, _marker: PhantomData }
     }
 
+    // create new unowned reference for a waker
     pub fn new_unowned(waker: ManuallyDrop<Waker>) -> Self {
         Self { waker, _marker: PhantomData }
     }
 }
 
-unsafe fn increase_refcount<T: ArcWake>(data: *const ()) {
+// clone raw waker
+unsafe fn clone_arc_raw<T: ArcWake>(data: *const ()) -> RawWaker {
     let arc = ManuallyDrop::new(Arc::<T>::from_raw(data.cast::<T>()));
     let _arc_clone: ManuallyDrop<_> = arc.clone();
-}
-
-unsafe fn clone_arc_raw<T: ArcWake>(data: *const ()) -> RawWaker {
-    increase_refcount::<T>(data);
     RawWaker::new(data, waker_vtable::<T>())
 }
 
+// wake raw waker
 unsafe fn wake_arc_raw<T: ArcWake>(data: *const ()) {
     let arc: Arc<T> = Arc::from_raw(data.cast::<T>());
     ArcWake::wake(arc);
 }
 
+// wake raw waker by reference
 unsafe fn wake_by_ref_arc_raw<T: ArcWake>(data: *const ()) {
     let arc = ManuallyDrop::new(Arc::<T>::from_raw(data.cast::<T>()));
     ArcWake::wake_by_ref(&arc);
 }
 
+// drop raw waker
 unsafe fn drop_arc_raw<T: ArcWake>(data: *const ()) {
     drop(Arc::<T>::from_raw(data.cast::<T>()))
 }
 
+// collect all waker functions into vtable
 fn waker_vtable<W: ArcWake>() -> &'static RawWakerVTable {
     &RawWakerVTable::new(
         clone_arc_raw::<W>,
@@ -82,6 +84,7 @@ fn waker_vtable<W: ArcWake>() -> &'static RawWakerVTable {
     )
 }
 
+// dereference waker reference into waker
 impl Deref for WakerRef<'_> {
     type Target = Waker;
     fn deref(&self) -> &Waker {
@@ -89,6 +92,7 @@ impl Deref for WakerRef<'_> {
     }
 }
 
+// the executor with queue of tasks
 pub struct Executor {
     ready_queue: Receiver<Arc<Task>>,
 }
@@ -149,11 +153,13 @@ pub fn new_executor_and_spawner() -> (Executor, Spawner) {
     (Executor { ready_queue }, Spawner { task_sender })
 }
 
+// trait to wake queued objects
 pub trait ArcWake: Send + Sync {
     fn wake_by_ref(arc_self: &Arc<Self>);
     fn wake(arc_self: Arc<Self>);
 }
 
+// implement ArcWake for the queued tasks
 impl ArcWake for Task {
     fn wake_by_ref(arc_self: &Arc<Self>) {
         let cloned = arc_self.clone();
