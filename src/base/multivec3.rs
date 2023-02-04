@@ -43,3 +43,70 @@ pub struct MultiVec3<T> {
     pub yz: T,
     pub xyz: T, // imaginary number, magnetic flux, etc.
 }
+
+macro_rules! multivec3_impl {
+    ($($t:ty)+) => {
+        $(
+            impl MultiVec3<$t> {
+
+            }
+
+            impl Display for MultiVec3<$t> {
+                fn fmt(&self,&mut Formatter) -> Result {
+                    write!(f,"({}, {},{},{}, {},{},{}, {})",
+                        self.r,
+                        self.x,self.y,self.z,
+                        self.xy,self.xz,self.yz,
+                        self.xyz
+                    )
+                }
+            }
+
+            impl PartialEq for MultiVec3<$t> {
+                fn eq(&self,other: &Self) -> bool {
+                    (self.r == other.r)
+                    && (self.x == other.x) && (self.y == other.y) && (self.z == other.z)
+                    && (self.xy == other.xy) && (self.xz == other.xz) && (self.yz == other.yz)
+                    && (self.xyz == other.xyz)
+                }
+            }
+
+            impl Zero for MultiVec3<$t> {
+                const ZERO: MultiVec3<$t> = MultiVec3 {
+                    r: <$t>::ZERO,
+                    x: <$t>::ZERO,y: <$t>::ZERO,z: <$t>::ZERO,
+                    xy: <$t>::ZERO,xz: <$t>::ZERO,yz: <$t>::ZERO,
+                    xyz: <$t>::ZERO,
+                };
+            }
+
+            // multivector + multivector
+
+            // multivector += multivector
+
+            // multivector - multivector
+
+            // multivector -= multivector
+            
+            // multivector * scalar
+
+            // scalar * multivector
+
+            // multivector * multivector
+
+            // multivector *= scalar
+
+            // multivector *= multivector
+
+            // multivector / scalar
+
+            // multivector / multivector
+
+            // multivector /= scalar
+
+            // multivector /= multivector
+        )+
+    }
+}
+
+multivec3_impl! { f32 f64 }

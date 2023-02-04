@@ -43,18 +43,28 @@ macro_rules! multivec2_impl {
 
             impl Display for MultiVec2<$t> {
                 fn fmt(&self,f: &mut Formatter) -> Result {
-                    write!(f,"({},{},{},{})",self.r,self.x,self.y,self.xy)
+                    write!(f,"({}, {},{}, {})",
+                        self.r,
+                        self.x,self.y,
+                        self.xy
+                    )
                 }
             }
 
             impl PartialEq for MultiVec2<$t> {
                 fn eq(&self,other: &Self) -> bool {
-                    (self.r == other.r) && (self.x == other.x) && (self.y == other.y) && (self.xy == other.xy)
+                    (self.r == other.r)
+                    && (self.x == other.x) && (self.y == other.y)
+                    && (self.xy == other.xy)
                 }
             }
 
             impl Zero for MultiVec2<$t> {
-                const ZERO: MultiVec2<$t> = MultiVec2 { r: <$t>::ZERO,x: <$t>::ZERO,y: <$t>::ZERO,xy: <$t>::ZERO, };
+                const ZERO: MultiVec2<$t> = MultiVec2 {
+                    r: <$t>::ZERO,
+                    x: <$t>::ZERO,y: <$t>::ZERO,
+                    xy: <$t>::ZERO,
+                };
             }
 
             // multivector + multivector
@@ -85,3 +95,5 @@ macro_rules! multivec2_impl {
         )+
     }
 }
+
+multivec2_impl! { f32 f64 }
