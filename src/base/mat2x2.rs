@@ -45,13 +45,33 @@ macro_rules! mat2x2_impl {
                 }
 
                 pub fn det(self) -> $t {
-                    let xx = self.x.x;
-                    let xy = self.x.y;
-                    let yx = self.y.x;
-                    let yy = self.y.y;
-                    let axx = yy;
-                    let axy = -yx;
-                    xx * axx + xy * axy
+                    let a = self.x.x;
+                    let b = self.y.x;
+                    let c = self.x.y;
+                    let d = self.y.y;
+                    let aa = d;
+                    let ab = c;
+                    a * aa - b * ab
+                }
+            }
+
+            impl Zero for Mat2x2<$t> {
+                Mat2x2 {
+                    x: Vec2::ZERO,
+                    y: Vec2::ZERO,
+                }
+            }
+
+            impl One for Mat2x2<$t> {
+                Mat2x2 {
+                    x: Vec2 {
+                        x: <$t>::ONE,
+                        y: <$t>::ZERO,
+                    },
+                    y: Vec2 {
+                        x: <$t>::ZERO,
+                        y: <$t>::ONE,
+                    },
                 }
             }
 
@@ -237,21 +257,21 @@ macro_rules! mat2x2_real_impl {
         $(
             impl Mat2x2<$t> {
                 pub fn inv(self) -> Self {
-                    let xx = self.x.x;
-                    let xy = self.x.y;
-                    let yx = self.y.x;
-                    let yy = self.y.y;
-                    let axx = yy;
-                    let axy = -yx;
-                    let det = xx * axx + xy * axy;
+                    let a = self.x.x;
+                    let b = self.y.x;
+                    let c = self.x.y;
+                    let d = self.y.y;
+                    let aa = d;
+                    let ab = c;
+                    let det = a * aa - b * ab;
                     if det == 0.0 {
                         return self;
                     }
-                    let ayx = -xy;
-                    let ayy = xx;
+                    let ac = b;
+                    let ad = a;
                     Mat2x2 {
-                        x: Vec2 { x: axx,y: ayx, },
-                        y: Vec2 { x: axy,y: ayy, },
+                        x: Vec2 { x: aa,y: -ac, },
+                        y: Vec2 { x: -ab,y: ad, },
                     } / det
                 }
             }

@@ -487,8 +487,7 @@ fn partial_idct(out: &mut [i32],inp: &[i32]) {
 		let x6 = inp[i + 32];
 		let x2 = inp[i + 40];
 		let x4 = inp[i + 48];
-		let x0 = inp[i + 56];
-		
+		let x0 = inp[i + 56];		
 		let q17 = C1 * (x1 + x7);
 		let q35 = C3 * (x3 + x5);
 		let r3 = C7PC1 * x1 - q17;
@@ -518,7 +517,6 @@ fn partial_idct(out: &mut [i32],inp: &[i32]) {
 		let y6 = (a1 - b1) >> (FIX + 1);
 		let y4 = (a3 - b3) >> (FIX + 1);
 		let y5 = (a2 - b2) >> (FIX + 1);
-
 		out[i] = y0;
 		out[i + 8] = y1;
 		out[i + 16] = y3;
@@ -531,6 +529,7 @@ fn partial_idct(out: &mut [i32],inp: &[i32]) {
 }
 
 fn unswizzle_transpose_swizzle(out: &mut [i32],inp: &[i32]) {
+
 	out[0] = inp[3];
 	out[1] = inp[11];
 	out[2] = inp[27];
@@ -539,6 +538,7 @@ fn unswizzle_transpose_swizzle(out: &mut [i32],inp: &[i32]) {
 	out[5] = inp[59];
 	out[6] = inp[43];
 	out[7] = inp[35];
+
 	out[8] = inp[1];
 	out[9] = inp[9];
 	out[10] = inp[25];
@@ -556,6 +556,7 @@ fn unswizzle_transpose_swizzle(out: &mut [i32],inp: &[i32]) {
 	out[21] = inp[61];
 	out[22] = inp[45];
 	out[23] = inp[37];
+
 	out[24] = inp[7];
 	out[25] = inp[15];
 	out[26] = inp[31];
@@ -573,6 +574,7 @@ fn unswizzle_transpose_swizzle(out: &mut [i32],inp: &[i32]) {
 	out[37] = inp[62];
 	out[38] = inp[46];
 	out[39] = inp[38];
+
 	out[40] = inp[2];
 	out[41] = inp[10];
 	out[42] = inp[26];
@@ -590,6 +592,7 @@ fn unswizzle_transpose_swizzle(out: &mut [i32],inp: &[i32]) {
 	out[53] = inp[60];
 	out[54] = inp[44];
 	out[55] = inp[36];
+
 	out[56] = inp[0];
 	out[57] = inp[8];
 	out[58] = inp[24];
@@ -609,6 +612,7 @@ fn unswizzle_transpose(out: &mut [i32],inp: &[i32]) {
 	out[5] = inp[56];
 	out[6] = inp[40];
 	out[7] = inp[32];
+
 	out[8] = inp[1];
 	out[9] = inp[9];
 	out[10] = inp[25];
@@ -626,6 +630,7 @@ fn unswizzle_transpose(out: &mut [i32],inp: &[i32]) {
 	out[21] = inp[58];
 	out[22] = inp[42];
 	out[23] = inp[34];
+
 	out[24] = inp[3];
 	out[25] = inp[11];
 	out[26] = inp[27];
@@ -643,6 +648,7 @@ fn unswizzle_transpose(out: &mut [i32],inp: &[i32]) {
 	out[37] = inp[60];
 	out[38] = inp[44];
 	out[39] = inp[36];
+
 	out[40] = inp[5];
 	out[41] = inp[13];
 	out[42] = inp[29];
@@ -660,6 +666,7 @@ fn unswizzle_transpose(out: &mut [i32],inp: &[i32]) {
 	out[53] = inp[62];
 	out[54] = inp[46];
 	out[55] = inp[38];
+
 	out[56] = inp[7];
 	out[57] = inp[15];
 	out[58] = inp[31];

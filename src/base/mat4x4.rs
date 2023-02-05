@@ -33,6 +33,35 @@ macro_rules! mat4x4_impl {
     ($($t:ty)+) => {
         $(
             impl Mat4x4<$t> {
+                pub fn from_mv(m: Mat3x3<$t>,v: Vec3<$t>) -> Mat4x4<$t> {
+                    Mat4x4 {
+                        x: Vec4 {
+                            x: m.x.x,
+                            y: m.x.y,
+                            z: m.x.z,
+                            w: <$t>::ZERO,
+                        },
+                        y: Vec4 {
+                            x: m.y.x,
+                            y: m.y.y,
+                            z: m.y.z,
+                            w: <$t>::ZERO,
+                        },
+                        z: Vec4 {
+                            x: m.z.x,
+                            y: m.z.y,
+                            z: m.z.z,
+                            w: <$t>::ZERO,
+                        },
+                        w: Vec4 {
+                            x: v.x,
+                            y: v.y,
+                            z: v.z,
+                            w: <$t>::ONE,
+                        },
+                    }
+                }
+
                 pub fn transpose(self) -> Mat4x4<$t> {
                     Mat4x4 {
                         x: Vec4 {
@@ -63,27 +92,33 @@ macro_rules! mat4x4_impl {
                 }
 
                 pub fn det(self) -> $t {
-                    let xx = self.x.x;
-                    let xy = self.x.y;
-                    let xz = self.x.z;
-                    let xw = self.x.w;
-                    let yx = self.y.x;
-                    let yy = self.y.y;
-                    let yz = self.y.z;
-                    let yw = self.y.w;
-                    let zx = self.z.x;
-                    let zy = self.z.y;
-                    let zz = self.z.z;
-                    let zw = self.z.w;
-                    let wx = self.w.x;
-                    let wy = self.w.y;
-                    let wz = self.w.z;
-                    let ww = self.w.w;
-                    let axx = yy * (zz * ww - wz * zw) - yz * (zw * wy - ww * zy) + yw * (zy * wz - wy * zz);
-                    let axy = yw * (zx * wz - wx * zz) + yx * (zz * ww - wz * zw) - yz * (zw * wx - ww * zx);
-                    let axz = yw * (zx * wy - wx * zy) - yx * (zy * ww - wy * zw) + yy * (zw * wx - ww * zx);
-                    let axw = yy * (zz * wx - wz * wx) + yz * (wx * wy - wx * zy) - yx * (zy * wz - wy * zz);
-                    xx * axx + xy * axy + xz * axz + xw * axw
+                    let a = self.x.x;
+                    let e = self.x.y;
+                    let i = self.x.z;
+                    let m = self.x.w;
+                    let b = self.y.x;
+                    let f = self.y.y;
+                    let j = self.y.z;
+                    let n = self.y.w;
+                    let c = self.z.x;
+                    let g = self.z.y;
+                    let k = self.z.z;
+                    let o = self.z.w;
+                    let d = self.w.x;
+                    let h = self.w.y;
+                    let l = self.w.z;
+                    let p = self.w.w;
+                    let kplo = k * p - l * o;
+                    let jpln = j * p - l * n;
+                    let jokn = j * o - k * n;
+                    let iplm = i * p - l * m;
+                    let iokm = i * o - k * m;
+                    let injm = i * n - j * m;
+                    let aa = f * kplo - g * jpln + h * jokn;
+                    let ab = e * kplo - g * iplm + h * iokm;
+                    let ac = e * jpln - f * iplm + h * injm;
+                    let ad = e * jokn - f * iokm + g * injm;
+                    a * aa - b * ab + c * ac - d * ad
                 }
             }
 
@@ -322,6 +357,80 @@ macro_rules! mat4x4_impl {
                     }
                 }
             }
+
+            impl From<Vec3<$t>> for Mat4x4<$t> {
+                fn from(value: Vec3<$t>) -> Self {
+                    Mat4x4 {
+                        x: Vec4 {
+                            x: <$t>::ONE,
+                            y: <$t>::ZERO,
+                            z: <$t>::ZERO,
+                            w: <$t>::ZERO,
+                        },
+                        y: Vec4 {
+                            x: <$t>::ZERO,
+                            y: <$t>::ONE,
+                            z: <$t>::ZERO,
+                            w: <$t>::ZERO,
+                        },
+                        z: Vec4 {
+                            x: <$t>::ZERO,
+                            y: <$t>::ZERO,
+                            z: <$t>::ONE,
+                            w: <$t>::ZERO,
+                        },
+                        w: Vec4 {
+                            x: value.x,
+                            y: value.y,
+                            z: value.z,
+                            w: <$t>::ONE,
+                        },
+                    }
+                }
+            }
+
+            impl From<Quaternion<$t>> for Mat4x4<$t> {
+                fn from(value: Quaternion<$t>) -> Self {
+                    let x2 = value.x + value.x;
+                    let y2 = value.y + value.y;
+                    let z2 = value.z + value.z;
+                    let xx2 = value.x * x2;
+                    let yy2 = value.y * y2;
+                    let zz2 = value.z * z2;
+                    let yz2 = value.y * z2;
+                    let wx2 = value.w * x2;
+                    let xy2 = value.x * y2;
+                    let wz2 = value.w * z2;
+                    let xz2 = value.x * z2;
+                    let wy2 = value.w * y2;
+                    Mat4x4 {
+                        x: Vec4 {
+                            x: <$t>::ONE - yy2 - zz2,
+                            y: xy2 + wz2,
+                            z: xz2 - wy2,
+                            w: <$t>::ZERO,
+                        },
+                        y: Vec4 {
+                            x: xy2 - wz2,
+                            y: <$t>::ONE - xx2 - zz2,
+                            z: yz2 + wx2,
+                            w: <$t>::ZERO,
+                        },
+                        z: Vec4 {
+                            x: xz2 + wy2,
+                            y: yz2 - wx2,
+                            z: <$t>::ONE - xx2 - yy2,
+                            w: <$t>::ZERO,
+                        },
+                        w: Vec4 {
+                            x: <$t>::ZERO,
+                            y: <$t>::ZERO,
+                            z: <$t>::ZERO,
+                            w: <$t>::ONE,
+                        },
+                    }
+                }
+            }
         )+
     }
 }
@@ -333,48 +442,60 @@ macro_rules! mat4x4_real_impl {
         $(
             impl Mat4x4<$t> {
                 pub fn inv(self) -> Self {
-                    let xx = self.x.x;
-                    let xy = self.x.y;
-                    let xz = self.x.z;
-                    let xw = self.x.w;
-                    let yx = self.y.x;
-                    let yy = self.y.y;
-                    let yz = self.y.z;
-                    let yw = self.y.w;
-                    let zx = self.z.x;
-                    let zy = self.z.y;
-                    let zz = self.z.z;
-                    let zw = self.z.w;
-                    let wx = self.w.x;
-                    let wy = self.w.y;
-                    let wz = self.w.z;
-                    let ww = self.w.w;
-                    let axx = yy * (zz * ww - wz * zw) - yz * (zw * wy - ww * zy) + yw * (zy * wz - wy * zz);
-                    let axy = yw * (zx * wz - wx * zz) + yx * (zz * ww - wz * zw) - yz * (zw * wx - ww * zx);
-                    let axz = yw * (zx * wy - wx * zy) - yx * (zy * ww - wy * zw) + yy * (zw * wx - ww * zx);
-                    let axw = yy * (zz * wx - wz * wx) + yz * (wx * wy - wx * zy) - yx * (zy * wz - wy * zz);
-                    let det = xx * axx + xy * axy + xz * axz + xw * axw;
+                    let a = self.x.x;
+                    let e = self.x.y;
+                    let i = self.x.z;
+                    let m = self.x.w;
+                    let b = self.y.x;
+                    let f = self.y.y;
+                    let j = self.y.z;
+                    let n = self.y.w;
+                    let c = self.z.x;
+                    let g = self.z.y;
+                    let k = self.z.z;
+                    let o = self.z.w;
+                    let d = self.w.x;
+                    let h = self.w.y;
+                    let l = self.w.z;
+                    let p = self.w.w;
+                    let kplo = k * p - l * o;
+                    let jpln = j * p - l * n;
+                    let jokn = j * o - k * n;
+                    let iplm = i * p - l * m;
+                    let iokm = i * o - k * m;
+                    let injm = i * n - j * m;                    
+                    let aa = f * kplo - g * jpln + k * iokm;
+                    let ab = e * kplo - g * iplm + h * iokm;
+                    let ac = e * jpln - f * iplm + h * injm;
+                    let ad = e * jokn - f * iokm + g * injm;
+                    let det = a * aa - b * ab + c * ac - d * ad;
                     if det == 0.0 {
                         return self;
                     }
-                    let ayx = zz * (ww * xy - xw * wy) + zw * (wy * xz - xy * wz) - zy * (wz * xw - xz * ww);
-                    let ayy = zz * (ww * xx - xw * wx) - zw * (wx * xz - xx * wz) + zx * (wz * xw - xz * ww);
-                    let ayz = zx * (wy * xw - xy * ww) + zy * (ww * xx - xw * wx) - zw * (wx * xy - xx * wy);
-                    let ayw = zx * (wy * xz - xy * wz) - zy * (wz * xx - xz * wx) + zz * (wx * xy - xx * wy);
-                    let azx = wy * (xz * yw - yz * xw) - wz * (xw * yy - yz * xy) + ww * (xy * yz - yy * xz);
-                    let azy = ww * (xx * yz - yx * xz) + wx * (xz * yw - yz * xw) - wz * (xw * yx - yw * xx);
-                    let azz = ww * (xx * yy - yx * xy) - wx * (xy * yw - yy * xw) + wy * (xw * yx - yw * xx);
-                    let azw = wy * (xz * yx - yz * xx) + wz * (xx * yy - yx * xy) - wx * (xy * yz - yy * xz);
-                    let awx = xz * (yw * zy - zw * yy) + xw * (yy * zz - zy * yz) - xy * (yz * zw - zz * yw);
-                    let awy = xz * (yw * zx - zw * yx) - xw * (yx * zz - zx * yz) + xx * (yz * zw - zz * yw);
-                    let awz = xx * (yy * zw - zy * yw) + xy * (yw * zx - zw * yx) - xw * (yx * zy - zx * yy);
-                    let aww = xx * (yy * zz - zy * yz) - xy * (yz * zx - zz * yx) + xz * (yx * zy - zx * yy);
-                    Mat4x4::new(
-                        axx,ayx,azx,awx,
-                        axy,ayy,azy,awy,
-                        axz,ayz,azz,awz,
-                        axw,ayw,azw,aww,
-                    ) / det
+                    let ae = e * kplo - c * jpln + d * jokn;
+                    let af = a * kplo - c * iplm + d * iokm;
+                    let ag = a * jpln - b * iplm + d * injm;
+                    let ah = a * jokn - b * iokm + c * injm;
+                    let chdg = c * h - d * g;
+                    let bhdf = b * h - d * f;
+                    let bgcf = b * g - c * f;
+                    let ahde = a * h - d * e;
+                    let agce = a * g - c * e;
+                    let afbe = a * f - b * e;
+                    let ai = n * chdg - o * bhdf + p * bgcf;
+                    let aj = m * chdg - o * ahde + p * agce;
+                    let ak = m * bhdf - n * ahde + p * afbe;
+                    let al = m * bgcf - n * ahce + o * afbe;
+                    let am = j * chdg - k * bhdf + l * bgcf;
+                    let an = i * chdg - k * ahde + l * agce;
+                    let ao = i * bhdf - j * ahde + l * afbe;
+                    let ap = i * bgcf - j * agce + k * afbe;
+                    Mat4x4 {
+                        x: Vec4 { x: aa,y: -ae,z: ai,w: -am, },
+                        y: Vec4 { x: -ab,y: af,z: -aj,w: an, },
+                        z: Vec4 { x: ac,y: -ag,z: ak,w: -ao, },
+                        w: Vec4 { x: -ad,y: ah,z: -al,w: ap, },
+                    } / det
                 }
             }
         )+
