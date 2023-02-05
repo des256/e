@@ -27,7 +27,12 @@ use {
 };
 
 // some pinned boxed object that implements Future outputting T, Send and outlives 'a
-type BoxFuture<'a,T> = Pin<Box<dyn Future<Output=T> + Send + 'a>>;
+//type BoxFuture<'a,T> = Pin<Box<dyn Future<Output=T> + Send + 'a>>;
+
+struct Task {
+    future: Mutex<Option<Future<Output=()>>>,
+    task_sender: SyncSender<Arc<Task>>,
+}
 
 // a waker reference that outlives 'a
 pub struct WakerRef<'a> {
@@ -140,11 +145,6 @@ impl Spawner {
         });
         self.task_sender.send(task).expect("too many tasks queued");
     }
-}
-
-struct Task {
-    future: Mutex<Option<BoxFuture<'static,()>>>,
-    task_sender: SyncSender<Arc<Task>>,
 }
 
 pub fn new_executor_and_spawner() -> (Executor, Spawner) {
