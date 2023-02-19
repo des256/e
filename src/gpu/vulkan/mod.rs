@@ -1,10 +1,10 @@
-//! GPU-related structs and traits.
+//! GPU interfaces (Vulkan implementation).
 
-mod system;
-pub(crate) use system::*;
+mod gpu;
+pub(crate) use gpu::*;
 
-mod window;
-pub(crate) use window::*;
+mod surface;
+pub(crate) use surface::*;
 
 mod commandbuffer;
 pub use commandbuffer::*;

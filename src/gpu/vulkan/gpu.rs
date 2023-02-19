@@ -58,43 +58,51 @@ impl BaseTypeFormat for Vec4<f32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT
 impl BaseTypeFormat for Vec4<f64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64A64_SFLOAT; }
 
 // Supplemental fields for System
-pub(crate) struct SystemGpu {
-    pub xcb_depth: u8,
-    pub xcb_visual_id: u32,
+pub(crate) struct Gpu {
     pub vk_instance: sys::VkInstance,
     pub vk_physical_device: sys::VkPhysicalDevice,
     pub vk_device: sys::VkDevice,
     pub vk_queue: sys::VkQueue,
     pub vk_command_pool: sys::VkCommandPool,
     pub shared_index: usize,
+#[cfg(system="linux")]
+    pub xcb_depth: u8,
+#[cfg(system="linux")]
+    pub xcb_visual_id: u32,
+}
+
+impl Gpu {
+    pub fn open(system: &System) -> Option<Gpu> {
+        // create instance
+        let extension_names = [
+            sys::VK_KHR_SURFACE_EXTENSION_NAME.as_ptr(),
+            sys::VK_KHR_XCB_SURFACE_EXTENSION_NAME.as_ptr(),
+        ];
+        let info = sys::VkInstanceCreateInfo {
+            sType: sys::VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            pApplicationInfo: &sys::VkApplicationInfo {
+                sType: sys::VK_STRUCTURE_TYPE_APPLICATION_INFO,
+                pNext: null_mut(),
+                pApplicationName: b"e::System\0".as_ptr() as *const i8,
+                applicationVersion: (1 << 22) as u32,
+                pEngineName: b"e::Gpu\0".as_ptr() as *const i8,
+                engineVersion: (1 << 22) as u32,
+                apiVersion: ((1 << 22) | (2 << 11)) as u32,
+            },
+            enabledExtensionCount: extension_names.len() as u32,
+            ppEnabledExtensionNames: extension_names.as_ptr() as *const *const i8,
+            enabledLayerCount: 0,
+            flags: 0,
+            pNext: null_mut(),
+            ppEnabledLayerNames: null_mut(),
+        };
+
+        // ...
+    }
 }
 
 pub(crate) fn open_system_gpu(xcb_screen: *mut sys::xcb_screen_t) -> Option<SystemGpu> {
 
-    // create instance
-    let extension_names = [
-        sys::VK_KHR_SURFACE_EXTENSION_NAME.as_ptr(),
-        sys::VK_KHR_XCB_SURFACE_EXTENSION_NAME.as_ptr(),
-    ];
-    let info = sys::VkInstanceCreateInfo {
-        sType: sys::VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        //pApplicationInfo: &application,
-        pApplicationInfo: &sys::VkApplicationInfo {
-            sType: sys::VK_STRUCTURE_TYPE_APPLICATION_INFO,
-            pNext: null_mut(),
-            pApplicationName: b"e::System\0".as_ptr() as *const i8,
-            applicationVersion: (1 << 22) as u32,
-            pEngineName: b"e::Gpu\0".as_ptr() as *const i8,
-            engineVersion: (1 << 22) as u32,
-            apiVersion: ((1 << 22) | (2 << 11)) as u32,
-        },
-        enabledExtensionCount: extension_names.len() as u32,
-        ppEnabledExtensionNames: extension_names.as_ptr() as *const *const i8,
-        enabledLayerCount: 0,
-        flags: 0,
-        pNext: null_mut(),
-        ppEnabledLayerNames: null_mut(),
-    };
     let mut vk_instance = MaybeUninit::<sys::VkInstance>::uninit();
     match unsafe { sys::vkCreateInstance(&info,null_mut(),vk_instance.as_mut_ptr()) } {
         sys::VK_SUCCESS => { }
