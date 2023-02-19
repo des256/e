@@ -49,6 +49,16 @@ macro_rules! quaternion_impl {
                         k: -self.k,
                     }
                 }
+
+                pub fn inv(&self) -> Self {
+                    let f = self.r * self.r + self.i * self.i + self.j * self.j + self.k * self.k;
+                    Quaternion {
+                        r: self.r / f,
+                        i: -self.i / f,
+                        j: -self.j / f,
+                        k: -self.k / f,
+                    }
+                }
             }
 
             impl Zero for Quaternion<$t> {
@@ -319,18 +329,18 @@ macro_rules! quaternion_impl {
             }
 
             // quaternion * vector
-            impl Mul<Vec3<$t>> for Quaternion<$t> {
+            /*impl Mul<Vec3<$t>> for Quaternion<$t> {
                 type Output = Vec3<$t>;
                 fn mul(self,other: Vec3<$t>) {
                     let aq = self * Quaternion { r: <$t>::ZERO,i: other.x,j: other.y,k: other.z, };
                     let aqa_inv = aq * aq.inv();
-                    Vec3<$t> {
+                    Vec3 {
                         x: aqa_inv.i,
                         y: aqa_inv.j,
                         z: aqa_inv.k,
                     }
                 }
-            }
+            }*/
 
             // quaternion * quaternion
             impl Mul<Quaternion<$t>> for Quaternion<$t> {

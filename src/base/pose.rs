@@ -1,18 +1,22 @@
 use {
     crate::*,
+    std::ops::{
+        Mul,
+        MulAssign,
+    },
 };
 
 #[derive(Copy,Clone,Debug)]
-struct Pose<T> {
-    p: Vec3<T>,
-    o: Quaternion<T>,
+pub struct Pose<T> {
+    pub p: Vec3<T>,
+    pub o: Quaternion<T>,
 }
 
 macro_rules! pose_impl {
     ($($t:ty)+) => {
         $(
             impl Pose<$t> {
-                fn inv(self) -> Pose<$t> {
+                pub fn inv(self) -> Pose<$t> {
                     let o = self.o.inv();
                     Pose {
                         p: o * -self.p,
@@ -22,7 +26,7 @@ macro_rules! pose_impl {
             }
 
             impl One for Pose<$t> {
-                const ONE: Self = Pose<$t> { p: Vec3::<$t>::ZERO,o: Quaternion::<$t>::ONE, };
+                const ONE: Self = Pose { p: Vec3::<$t>::ZERO,o: Quaternion::<$t>::ONE, };
             }
 
             // pose * vector
@@ -54,3 +58,5 @@ macro_rules! pose_impl {
         )+
     }
 }
+
+pose_impl! { f32 f64 }

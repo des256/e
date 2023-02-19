@@ -9,9 +9,11 @@ use {
 
 /// The system structure (linux).
 pub struct System {
-    pub(crate) gpu: SystemGpu,
+    pub(crate) gpu: Rc<Gpu>,
     pub(crate) xdisplay: *mut sys::Display,
     pub(crate) xcb_connection: *mut sys::xcb_connection_t,
+    pub(crate) xcb_screen: *mut sys::xcb_screen_t,
+    pub(crate) xcb_depth: u8,
     pub(crate) xcb_root_window: sys::xcb_window_t,
     pub(crate) epfd: c_int,
     pub(crate) wm_protocols: u32,
@@ -38,190 +40,174 @@ fn resolve_atom_cookie(xcb_connection: *mut sys::xcb_connection_t,cookie: sys::x
     unsafe { (*sys::xcb_intern_atom_reply(xcb_connection,cookie,null_mut())).atom }
 }
 
-/// Open the system interface.
-pub fn open_system() -> Option<Rc<System>> {
-
-    // open X connection and get first screen
-    let xdisplay = unsafe { sys::XOpenDisplay(null_mut()) };
-    if xdisplay == null_mut() {
-        println!("unable to connect to X server");
-        return None;
-    }
-    let xcb_connection = unsafe { sys::XGetXCBConnection(xdisplay) };
-    if xcb_connection == null_mut() {
-        println!("unable to connect to X server");
-        unsafe { sys::XCloseDisplay(xdisplay) };
-        return None;
-    }
-    unsafe { sys::XSetEventQueueOwner(xdisplay,sys::XCBOwnsEventQueue) };
-    let xcb_setup = unsafe { sys::xcb_get_setup(xcb_connection) };
-    if xcb_setup == null_mut() {
-        println!("unable to obtain X server setup");
-        return None;
-    }
-
-    // start by assuming the root depth and visual
-    let xcb_screen = unsafe { sys::xcb_setup_roots_iterator(xcb_setup) }.data;
-    let xcb_root_window = unsafe { *xcb_screen }.root;
-
-    // create epoll descriptor to be able to wait for UI events on a system level
-    let fd = unsafe { sys::xcb_get_file_descriptor(xcb_connection) };
-    let epfd = unsafe { sys::epoll_create1(0) };
-    let mut epe = [sys::epoll_event { events: sys::EPOLLIN as u32,data: sys::epoll_data_t { u64_: 0, }, }];
-    unsafe { sys::epoll_ctl(epfd,sys::EPOLL_CTL_ADD as c_int,fd,epe.as_mut_ptr()) };
-
-    // get the atoms
-    let protocols_cookie = intern_atom_cookie(xcb_connection,"WM_PROTOCOLS");
-    let delete_window_cookie = intern_atom_cookie(xcb_connection,"WM_DELETE_WINDOW");
-    let motif_hints_cookie = intern_atom_cookie(xcb_connection,"_MOTIF_WM_HINTS");
-    let transient_for_cookie = intern_atom_cookie(xcb_connection,"WM_TRANSIENT_FOR");
-    let net_type_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_TYPE");
-    let net_type_utility_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_TYPE_UTILITY");
-    let net_type_dropdown_menu_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_TYPE_DROPDOWN_MENU");
-    let net_state_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_STATE");
-    let net_state_above_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_STATE_ABOVE");
-
-    let wm_protocols = resolve_atom_cookie(xcb_connection,protocols_cookie);
-    let wm_delete_window = resolve_atom_cookie(xcb_connection,delete_window_cookie);
-    let wm_motif_hints = resolve_atom_cookie(xcb_connection,motif_hints_cookie);
-    let wm_transient_for = resolve_atom_cookie(xcb_connection,transient_for_cookie);
-    let wm_net_type = resolve_atom_cookie(xcb_connection,net_type_cookie);
-    let wm_net_type_utility = resolve_atom_cookie(xcb_connection,net_type_utility_cookie);
-    let wm_net_type_dropdown_menu = resolve_atom_cookie(xcb_connection,net_type_dropdown_menu_cookie);
-    let wm_net_state = resolve_atom_cookie(xcb_connection,net_state_cookie);
-    let wm_net_state_above = resolve_atom_cookie(xcb_connection,net_state_above_cookie);
-
-#[cfg(gpu="vulkan")]
-    if let Some(gpu) = open_system_gpu(xcb_screen) {
-        Some(Rc::new(System {
-            gpu,
-            xdisplay,
-            xcb_connection,
-            xcb_root_window,
-            epfd,
-            wm_protocols,
-            wm_delete_window,
-            wm_motif_hints,
-            wm_transient_for,
-            wm_net_type,
-            wm_net_type_utility,
-            wm_net_type_dropdown_menu,
-            wm_net_state,
-            wm_net_state_above,
-        }))
-    }
-    else {
-        None
-    }
-
-#[cfg(gpu="opengl")]
-    if let Some(gpu) = open_system_gpu(xdisplay,xcb_connection,xcb_root_window) {
-        Some(Rc::new(System {
-            gpu,
-            xdisplay,
-            xcb_connection,
-            xcb_root_window,
-            epfd,
-            wm_protocols,
-            wm_delete_window,
-            wm_motif_hints,
-            wm_transient_for,
-            wm_net_type,
-            wm_net_type_utility,
-            wm_net_type_dropdown_menu,
-            wm_net_state,
-            wm_net_state_above,
-        }))
-    }
-    else {
-        None
-    }
-}
-
 impl System {
 
+    /// Open the system interface.
+    pub fn open() -> Result<Rc<System>,String> {
+
+        // open X connection and get first screen
+        let xdisplay = unsafe { sys::XOpenDisplay(null_mut()) };
+        if xdisplay == null_mut() {
+            return Err("unable to connect to X server".to_string());
+        }
+        let xcb_connection = unsafe { sys::XGetXCBConnection(xdisplay) };
+        if xcb_connection == null_mut() {
+            unsafe { sys::XCloseDisplay(xdisplay) };
+            return Err("unable to connect to X server".to_string());
+        }
+        unsafe { sys::XSetEventQueueOwner(xdisplay,sys::XCBOwnsEventQueue) };
+        let xcb_setup = unsafe { sys::xcb_get_setup(xcb_connection) };
+        if xcb_setup == null_mut() {
+            unsafe { sys::XCloseDisplay(xdisplay) };
+            return Err("unable to obtain X server setup".to_string());
+        }
+
+        // start by assuming the root depth and visual
+        let xcb_screen = unsafe { sys::xcb_setup_roots_iterator(xcb_setup) }.data;
+        let xcb_depth = unsafe { *xcb_screen }.root_depth;
+        let xcb_root_window = unsafe { *xcb_screen }.root;
+
+        // create epoll descriptor to be able to wait for UI events on a system level
+        let fd = unsafe { sys::xcb_get_file_descriptor(xcb_connection) };
+        let epfd = unsafe { sys::epoll_create1(0) };
+        let mut epe = [sys::epoll_event { events: sys::EPOLLIN as u32,data: sys::epoll_data_t { u64_: 0, }, }];
+        unsafe { sys::epoll_ctl(epfd,sys::EPOLL_CTL_ADD as c_int,fd,epe.as_mut_ptr()) };
+
+        // get the atoms
+        let protocols_cookie = intern_atom_cookie(xcb_connection,"WM_PROTOCOLS");
+        let delete_window_cookie = intern_atom_cookie(xcb_connection,"WM_DELETE_WINDOW");
+        let motif_hints_cookie = intern_atom_cookie(xcb_connection,"_MOTIF_WM_HINTS");
+        let transient_for_cookie = intern_atom_cookie(xcb_connection,"WM_TRANSIENT_FOR");
+        let net_type_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_TYPE");
+        let net_type_utility_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_TYPE_UTILITY");
+        let net_type_dropdown_menu_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_TYPE_DROPDOWN_MENU");
+        let net_state_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_STATE");
+        let net_state_above_cookie = intern_atom_cookie(xcb_connection,"_NET_WM_STATE_ABOVE");
+
+        let wm_protocols = resolve_atom_cookie(xcb_connection,protocols_cookie);
+        let wm_delete_window = resolve_atom_cookie(xcb_connection,delete_window_cookie);
+        let wm_motif_hints = resolve_atom_cookie(xcb_connection,motif_hints_cookie);
+        let wm_transient_for = resolve_atom_cookie(xcb_connection,transient_for_cookie);
+        let wm_net_type = resolve_atom_cookie(xcb_connection,net_type_cookie);
+        let wm_net_type_utility = resolve_atom_cookie(xcb_connection,net_type_utility_cookie);
+        let wm_net_type_dropdown_menu = resolve_atom_cookie(xcb_connection,net_type_dropdown_menu_cookie);
+        let wm_net_state = resolve_atom_cookie(xcb_connection,net_state_cookie);
+        let wm_net_state_above = resolve_atom_cookie(xcb_connection,net_state_above_cookie);
+
+        // initialize GPU
+        let gpu = Gpu::open()?;
+
+        Ok(Rc::new(System {
+            gpu,
+            xdisplay,
+            xcb_connection,
+            xcb_screen,
+            xcb_depth,
+            xcb_root_window,
+            epfd,
+            wm_protocols,
+            wm_delete_window,
+            wm_motif_hints,
+            wm_transient_for,
+            wm_net_type,
+            wm_net_type_utility,
+            wm_net_type_dropdown_menu,
+            wm_net_state,
+            wm_net_state_above,
+        }))
+    }
+
 #[doc(hidden)]
-    fn translate_event(&self,xcb_event: *mut sys::xcb_generic_event_t) -> Option<(WindowId,Event)> {
+    fn translate_xevent(&self,xcb_event: *mut sys::xcb_generic_event_t) -> Option<(u32,Event)> {
         match (unsafe { *xcb_event }.response_type & 0x7F) as u32 {
             sys::XCB_EXPOSE => {
                 let expose = xcb_event as *const sys::xcb_expose_event_t;
                 //let expose = unsafe { std::mem::transmute::<_,xcb_expose_event_t>(xcb_event) };
-                //let r = rect!(expose.x as isize,expose.y as isize,expose.width() as isize,expose.height() as isize);
+                let r = Rect {
+                    o: Vec2 {
+                        x: unsafe { *expose }.x as f32,
+                        y: unsafe { *expose }.y as f32,
+                    },
+                    s: Vec2 {
+                        x: unsafe { *expose }.width as f32,
+                        y: unsafe { *expose }.height as f32,
+                    },
+                };
                 let xcb_window = unsafe { *expose }.window;
-                return Some((xcb_window as WindowId,Event::Expose));
+                return Some((xcb_window,Event::Expose(r)));
             },
             sys::XCB_KEY_PRESS => {
                 let key_press = xcb_event as *const sys::xcb_key_press_event_t;
                 let xcb_window = unsafe { *key_press }.event;
-                return Some((xcb_window as WindowId,Event::KeyPress(unsafe { *key_press }.detail as u8)));
+                return Some((xcb_window,Event::Key(KeyEvent::Press { code: unsafe { *key_press }.detail as u32, })));
             },
             sys::XCB_KEY_RELEASE => {
                 let key_release = xcb_event as *const sys::xcb_key_release_event_t;
                 let xcb_window = unsafe { *key_release }.event;
-                return Some((xcb_window as WindowId,Event::KeyRelease(unsafe { *key_release }.detail as u8)));
+                return Some((xcb_window,Event::Key(KeyEvent::Release { code: unsafe { *key_release }.detail as u32, })));
             },
             sys::XCB_BUTTON_PRESS => {
                 let button_press = xcb_event as *const sys::xcb_button_press_event_t;
                 let p = unsafe { Vec2 {
-                    x: (*button_press).event_x as isize,
-                    y: (*button_press).event_y as isize,
+                    x: (*button_press).event_x as f32,
+                    y: (*button_press).event_y as f32,
                 } };
                 let xcb_window = unsafe { *button_press }.event;
                 match unsafe { *button_press }.detail {
-                    1 => { return Some((xcb_window as WindowId,Event::MousePress(p,MouseButton::Left))); },
-                    2 => { return Some((xcb_window as WindowId,Event::MousePress(p,MouseButton::Middle))); },
-                    3 => { return Some((xcb_window as WindowId,Event::MousePress(p,MouseButton::Right))); },
-                    4 => { return Some((xcb_window as WindowId,Event::MouseWheel(MouseWheel::Up))); },
-                    5 => { return Some((xcb_window as WindowId,Event::MouseWheel(MouseWheel::Down))); },
-                    6 => { return Some((xcb_window as WindowId,Event::MouseWheel(MouseWheel::Left))); },
-                    7 => { return Some((xcb_window as WindowId,Event::MouseWheel(MouseWheel::Right))); },
+                    1 => { return Some((xcb_window,Event::Pointer(PointerEvent::Down { position: p,button: Button::Left, }))); },
+                    2 => { return Some((xcb_window,Event::Pointer(PointerEvent::Down { position: p,button: Button::Middle, }))); },
+                    3 => { return Some((xcb_window,Event::Pointer(PointerEvent::Down { position: p,button: Button::Right, }))); },
+                    4 => { return Some((xcb_window,Event::Pointer(PointerEvent::Scroll { position: p,buttons: Vec::new(), delta: Vec2 { x: 0.0,y: -1.0, }, }))); },
+                    5 => { return Some((xcb_window,Event::Pointer(PointerEvent::Scroll { position: p,buttons: Vec::new(), delta: Vec2 { x: 0.0,y: 1.0, }, }))); },
+                    6 => { return Some((xcb_window,Event::Pointer(PointerEvent::Scroll { position: p,buttons: Vec::new(), delta: Vec2 { x: -1.0,y: 0.0, }, }))); },
+                    7 => { return Some((xcb_window,Event::Pointer(PointerEvent::Scroll { position: p,buttons: Vec::new(), delta: Vec2 { x: 1.0,y: 0.0, }, }))); },
                     _ => { },
                 }        
             },
             sys::XCB_BUTTON_RELEASE => {
                 let button_release = xcb_event as *const sys::xcb_button_release_event_t;
                 let p = unsafe { Vec2 {
-                    x: (*button_release).event_x as isize,
-                    y: (*button_release).event_y as isize,
+                    x: (*button_release).event_x as f32,
+                    y: (*button_release).event_y as f32,
                 } };
                 let xcb_window = unsafe { *button_release }.event;
                 match unsafe { *button_release }.detail {
-                    1 => { return Some((xcb_window as WindowId,Event::MouseRelease(p,MouseButton::Left))); },
-                    2 => { return Some((xcb_window as WindowId,Event::MouseRelease(p,MouseButton::Middle))); },
-                    3 => { return Some((xcb_window as WindowId,Event::MouseRelease(p,MouseButton::Right))); },
+                    1 => { return Some((xcb_window,Event::Pointer(PointerEvent::Up { position: p,button: Button::Left, }))); },
+                    2 => { return Some((xcb_window,Event::Pointer(PointerEvent::Up { position: p,button: Button::Middle, }))); },
+                    3 => { return Some((xcb_window,Event::Pointer(PointerEvent::Up { position: p,button: Button::Right, }))); },
                     _ => { },
                 }        
             },
             sys::XCB_MOTION_NOTIFY => {
                 let motion_notify = xcb_event as *const sys::xcb_motion_notify_event_t;
                 let p = Vec2 {
-                    x: unsafe { *motion_notify }.event_x as isize,
-                    y: unsafe { *motion_notify }.event_y as isize,
+                    x: unsafe { *motion_notify }.event_x as f32,
+                    y: unsafe { *motion_notify }.event_y as f32,
                 };
                 let xcb_window = unsafe { *motion_notify }.event;
-                return Some((xcb_window as WindowId,Event::MouseMove(p)));
+                return Some((xcb_window,Event::Pointer(PointerEvent::Move { position: p,buttons: Vec::new(),hover: false, })));
             },
             sys::XCB_CONFIGURE_NOTIFY => {
                 let configure_notify = xcb_event as *const sys::xcb_configure_notify_event_t;
                 let r = Rect {
                     o: Vec2 {
-                        x: unsafe { *configure_notify }.x as isize,
-                        y: unsafe { *configure_notify }.y as isize,
+                        x: unsafe { *configure_notify }.x as f32,
+                        y: unsafe { *configure_notify }.y as f32,
                     },
                     s: Vec2 {
-                        x: unsafe { *configure_notify }.width as usize,
-                        y: unsafe { *configure_notify }.height as usize,
+                        x: unsafe { *configure_notify }.width as f32,
+                        y: unsafe { *configure_notify }.height as f32,
                     },
                 };
                 let xcb_window = unsafe { *configure_notify }.window;
-                return Some((xcb_window as WindowId,Event::Configure(r)));
+                return Some((xcb_window,Event::Configure(r)));
             },
             sys::XCB_CLIENT_MESSAGE => {
                 let client_message = xcb_event as *const sys::xcb_client_message_event_t;
                 let atom = unsafe { (*client_message).data.data32[0] };
                 if atom == self.wm_delete_window {
                     let xcb_window = unsafe { *client_message }.window;
-                    return Some((xcb_window as WindowId,Event::Close));
+                    return Some((xcb_window,Event::Close));
                 }
             },
             _ => {
@@ -231,12 +217,14 @@ impl System {
     }
 
     /// Get all OS window events that have gathered.
-    pub fn flush(&self) -> Vec<(WindowId,Event)> {
-        let mut events = Vec::<(WindowId,Event)>::new();
+
+    // TODO: this should be combined with a regular async handler/loop
+    pub fn flush(&self) -> Vec<(u32,Event)> {
+        let mut events = Vec::<(u32,Event)>::new();
         loop {
             let event = unsafe { sys::xcb_poll_for_event(self.xcb_connection) };
             if event != null_mut() {
-                if let Some((window_id,event)) = self.translate_event(event) {
+                if let Some((window_id,event)) = self.translate_xevent(event) {
                     events.push((window_id,event));
                 }
             }
@@ -248,6 +236,8 @@ impl System {
     }
 
     /// Sleep until new OS window events appear.
+
+    // TODO: this should be combined with a regular async handler/loop
     pub fn wait(&self) {
         let mut epe = [ sys::epoll_event { events: sys::EPOLLIN as u32,data: sys::epoll_data_t { u64_: 0, } } ];
         unsafe { sys::epoll_wait(self.epfd,epe.as_mut_ptr(),1,-1) };
@@ -282,12 +272,12 @@ impl System {
     }*/
 
     // create basic window, decorations are handled in the public create_frame and create_popup
-    fn create_window(self: &Rc<System>,r: Rect<isize,usize>,_absolute: bool) -> Option<Window> {
+    fn create_window(self: &Rc<System>,r: Rect<f32>,_absolute: bool) -> Result<Window,String> {
 
         // create window
         let xcb_window = unsafe { sys::xcb_generate_id(self.xcb_connection) };
         let xcb_colormap = unsafe { sys::xcb_generate_id(self.xcb_connection) };
-        unsafe { sys::xcb_create_colormap(self.xcb_connection,sys::XCB_COLORMAP_ALLOC_NONE as u8,xcb_colormap,self.xcb_root_window,self.gpu.xcb_visual_id) };
+        unsafe { sys::xcb_create_colormap(self.xcb_connection,sys::XCB_COLORMAP_ALLOC_NONE as u8,xcb_colormap,self.xcb_root_window,sys::XCB_COPY_FROM_PARENT) };
         let values = [
             sys::XCB_EVENT_MASK_EXPOSURE
             | sys::XCB_EVENT_MASK_KEY_PRESS
@@ -301,7 +291,7 @@ impl System {
         unsafe {
             sys::xcb_create_window(
                 self.xcb_connection,
-                self.gpu.xcb_depth,
+                self.xcb_depth,
                 xcb_window as u32,
                 //if let Some(id) = parent { id as u32 } else { system.rootwindow as u32 },
                 self.xcb_root_window,
@@ -311,7 +301,7 @@ impl System {
                 r.s.y as u16,
                 0,
                 sys::XCB_WINDOW_CLASS_INPUT_OUTPUT as u16,
-                self.gpu.xcb_visual_id,
+                sys::XCB_COPY_FROM_PARENT,
                 sys::XCB_CW_EVENT_MASK | sys::XCB_CW_COLORMAP,
                 &values as *const u32 as *const std::os::raw::c_void
             );
@@ -333,22 +323,18 @@ impl System {
             match unsafe { sys::vkCreateXcbSurfaceKHR(self.gpu.vk_instance,&info,null_mut(),vk_surface.as_mut_ptr()) } {
                 sys::VK_SUCCESS => { },
                 code => {
-                    println!("Unable to create Vulkan XCB surface (error {})",code);
-                    return None;
+                    return Err(format!("Unable to create Vulkan XCB surface (error {})",code));
                 },
             }
             let vk_surface = unsafe { vk_surface.assume_init() };
 
-            if let Some(gpu) = self.create_window_gpu(vk_surface,r) {
-                Some(Window {
-                    system: Rc::clone(self),
-                    xcb_window,
-                    gpu,
-                })                
-            }
-            else {
-                None
-            }
+            let surface = Surface::create(&self.gpu,vk_surface,r)?;
+
+            Ok(Window {
+                system: Rc::clone(&self),
+                surface,
+                xcb_window,
+            })
         }
         
 #[cfg(gpu="opengl")]
@@ -365,7 +351,7 @@ impl System {
     }
     
     /// Create application frame window.
-    pub fn create_frame_window(self: &Rc<System>,r: Rect<isize,usize>,title: &str) -> Option<Window> {
+    pub fn create_frame_window(self: &Rc<System>,r: Rect<f32>,title: &str) -> Result<Window,String> {
         let window = self.create_window(r,false)?;
         let protocol_set = [self.wm_delete_window];
         let protocol_set_void = protocol_set.as_ptr() as *const std::os::raw::c_void;
@@ -390,11 +376,11 @@ impl System {
             title.as_bytes().as_ptr() as *const std::os::raw::c_void
         ) };
         unsafe { sys::xcb_flush(self.xcb_connection) };
-        Some(window)
+        Ok(window)
     }
     
     /// Create standalone popup window.
-    pub fn create_popup_window(self: &Rc<System>,r: Rect<isize,usize>) -> Option<Window> {
+    pub fn create_popup_window(self: &Rc<System>,r: Rect<f32>) -> Result<Window,String> {
         let window = self.create_window(r,true)?;
         let net_state = [self.wm_net_state_above];
         unsafe { sys::xcb_change_property(
@@ -419,7 +405,7 @@ impl System {
             hints.as_ptr() as *const std::os::raw::c_void
         ) };
         unsafe { sys::xcb_flush(self.xcb_connection) };
-        Some(window)
+        Ok(window)
     }
 }
 
@@ -427,7 +413,6 @@ impl Drop for System {
 
     /// Drop the system interface.
     fn drop(&mut self) {
-        self.drop_gpu();
         unsafe { sys::XCloseDisplay(self.xdisplay) };
     }
 }

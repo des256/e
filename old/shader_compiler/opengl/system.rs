@@ -71,7 +71,7 @@ pub(crate) fn open_system_gpu(xdisplay: *mut sys::Display,xcb_connection: *mut s
     // create tiny window
     let xcb_hidden_window = unsafe { sys::xcb_generate_id(xcb_connection) };
     let xcb_colormap = unsafe { sys::xcb_generate_id(xcb_connection) };
-    unsafe { sys::xcb_create_colormap(xcb_connection,sys::XCB_COLORMAP_ALLOC_NONE as u8,xcb_colormap,xcb_root_window,xcb_visual_id) };
+    unsafe { sys::xcb_create_colormap(xcb_connection,sys::XCB_COLORMAP_ALLOC_NONE as u8,xcb_colormap,xcb_root_window,sys::XCB_COPY_FROM_PARENT) };
     let values = [
         sys::XCB_EVENT_MASK_EXPOSURE
         | sys::XCB_EVENT_MASK_KEY_PRESS
@@ -94,7 +94,7 @@ pub(crate) fn open_system_gpu(xdisplay: *mut sys::Display,xcb_connection: *mut s
             1,
             0,
             sys::XCB_WINDOW_CLASS_INPUT_OUTPUT as u16,
-            xcb_visual_id,
+            sys::XCB_COPY_FROM_PARENT,
             sys::XCB_CW_EVENT_MASK | sys::XCB_CW_COLORMAP,
             &values as *const u32 as *const c_void
         );

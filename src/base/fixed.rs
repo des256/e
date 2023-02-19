@@ -34,7 +34,7 @@ macro_rules! fixed_impl {
     ($(($t:ty,$b:expr))+) => {
         $(
             impl Fixed<$t,$b> {
-                const BITS: usize = $b;
+                pub const BITS: usize = $b;
             }
             
             impl Zero for Fixed<$t,$b> {
@@ -118,15 +118,15 @@ macro_rules! fixed_impl {
             }
             
             impl Unsigned for Fixed<$t,$b> {
-                const MIN: Self = Self::MIN;
-                const MAX: Self = Self::MAX;
+                const MIN: Self = Self::ZERO;
+                const MAX: Self = Fixed(<$t>::MAX);
 
-                fn div_euclid(self,other: Self) -> Self {
+                fn div_euclid(self,_other: Self) -> Self {
                     // TODO
                     Self::ZERO
                 }
             
-                fn rem_euclid(self,other: Self) -> Self {
+                fn rem_euclid(self,_other: Self) -> Self {
                     // TODO
                     Self::ZERO
                 }
@@ -165,15 +165,17 @@ macro_rules! fixed_impl {
                     self * b + c
                 }
             
-                fn powi(self,n: i32) -> Self {
-                    self.powi(n)
+                fn powi(self,_n: i32) -> Self {
+                    // TODO
+                    Self::ZERO
                 }            
             }
         )+
     }
 }
 
-fixed_impl! { (u8,8) (u16,8) (u32,16) (u64,32) (u128,64) (i8,8) (i16,8) (i32,16) (i64,32) (i128,64) }
+//fixed_impl! { (u8,8) (u16,8) (u32,16) (u64,32) (u128,64) (i8,8) (i16,8) (i32,16) (i64,32) (i128,64) }
+fixed_impl! { (u16,8) (u32,16) (u64,32) (u128,64) (i16,8) (i32,16) (i64,32) (i128,64) }
 
 macro_rules! fixed_impl_signed {
     ($(($t:ty,$b:expr))+) => {
@@ -229,10 +231,10 @@ macro_rules! fixed_impl_signed {
             }
 
             impl Real for Fixed<$t,$b> {
-                const PI: Self = Fixed((std::f64::consts::PI * ((1 << $b) as f64)) as $t);
+                const PI: Self = Fixed((std::f64::consts::PI * (Self::ONE.0 as f64)) as $t);
 
                 fn floor(self) -> Self {
-                    Fixed(self.0 & !((1 << $b) - 1))
+                    Fixed(self.0 & !(Self::ONE.0 - 1))
                 }
 
                 fn ceil(self) -> Self {
@@ -240,7 +242,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn round(self) -> Self { 
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.round();
                     let y = (r * one) as $t;
@@ -248,7 +250,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn trunc(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.trunc();
                     let y = (r * one) as $t;
@@ -256,7 +258,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn fract(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.fract();
                     let y = (r * one) as $t;
@@ -264,7 +266,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn powf(self,n: Self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.powf((n.0 as f64) / one);
                     let y = (r * one) as $t;
@@ -272,7 +274,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn sqrt(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.sqrt();
                     let y = (r * one) as $t;
@@ -280,7 +282,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn exp(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.exp();
                     let y = (r * one) as $t;
@@ -288,7 +290,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn exp2(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.exp2();
                     let y = (r * one) as $t;
@@ -296,7 +298,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn ln(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.ln();
                     let y = (r * one) as $t;
@@ -304,7 +306,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn log(self,base: Self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.log((base.0 as f64) / one);
                     let y = (r * one) as $t;
@@ -312,7 +314,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn log2(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.log2();
                     let y = (r * one) as $t;
@@ -320,7 +322,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn log10(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.log10();
                     let y = (r * one) as $t;
@@ -328,7 +330,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn cbrt(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.cbrt();
                     let y = (r * one) as $t;
@@ -336,7 +338,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn hypot(self,other: Self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.hypot((other.0 as f64) / one);
                     let y = (r * one) as $t;
@@ -344,7 +346,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn sin(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.sin();
                     let y = (r * one) as $t;
@@ -352,7 +354,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn cos(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.cos();
                     let y = (r * one) as $t;
@@ -360,7 +362,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn tan(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.tan();
                     let y = (r * one) as $t;
@@ -368,7 +370,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn asin(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.asin();
                     let y = (r * one) as $t;
@@ -376,7 +378,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn acos(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.acos();
                     let y = (r * one) as $t;
@@ -384,7 +386,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn atan(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.atan();
                     let y = (r * one) as $t;
@@ -392,7 +394,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn atan2(self,other: Self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.atan2((other.0 as f64) / one);
                     let y = (r * one) as $t;
@@ -400,7 +402,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn sin_cos(self) -> (Self,Self) {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let s = x.sin();
                     let c = x.cos();
@@ -410,7 +412,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn exp_m1(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.exp_m1();
                     let y = (r * one) as $t;
@@ -418,7 +420,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn ln_1p(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.ln_1p();
                     let y = (r * one) as $t;
@@ -426,7 +428,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn sinh(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.sinh();
                     let y = (r * one) as $t;
@@ -434,7 +436,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn cosh(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.cosh();
                     let y = (r * one) as $t;
@@ -442,7 +444,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn tanh(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.tanh();
                     let y = (r * one) as $t;
@@ -450,7 +452,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn asinh(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.asinh();
                     let y = (r * one) as $t;
@@ -458,7 +460,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn acosh(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.acosh();
                     let y = (r * one) as $t;
@@ -466,7 +468,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn atanh(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.atanh();
                     let y = (r * one) as $t;
@@ -474,7 +476,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn inv(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.inv();
                     let y = (r * one) as $t;
@@ -482,7 +484,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn to_degrees(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.to_degrees();
                     let y = (r * one) as $t;
@@ -490,7 +492,7 @@ macro_rules! fixed_impl_signed {
                 }
 
                 fn to_radians(self) -> Self {
-                    let one = (1 << $b) as f64;
+                    let one = Self::ONE.0 as f64;
                     let x = (self.0 as f64) / one;
                     let r = x.to_radians();
                     let y = (r * one) as $t;
@@ -501,10 +503,11 @@ macro_rules! fixed_impl_signed {
     }
 }
 
-fixed_impl_signed! { (i8,8) (i16,8) (i32,16) (i64,32) (i128,64) }
+//fixed_impl_signed! { (i8,8) (i16,8) (i32,16) (i64,32) (i128,64) }
+fixed_impl_signed! { (i16,8) (i32,16) (i64,32) (i128,64) }
 
-#[allow(non_camel_case_types)]
-pub type u88 = Fixed<u8,8>;
+//#[allow(non_camel_case_types)]
+//pub type u88 = Fixed<u8,8>;
 
 #[allow(non_camel_case_types)]
 pub type u168 = Fixed<u16,8>;

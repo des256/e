@@ -56,14 +56,14 @@ macro_rules! mat2x2_impl {
             }
 
             impl Zero for Mat2x2<$t> {
-                Mat2x2 {
+                const ZERO: Mat2x2<$t> = Mat2x2 {
                     x: Vec2::ZERO,
                     y: Vec2::ZERO,
-                }
+                };
             }
 
             impl One for Mat2x2<$t> {
-                Mat2x2 {
+                const ONE: Mat2x2<$t> = Mat2x2 {
                     x: Vec2 {
                         x: <$t>::ONE,
                         y: <$t>::ZERO,
@@ -72,7 +72,7 @@ macro_rules! mat2x2_impl {
                         x: <$t>::ZERO,
                         y: <$t>::ONE,
                     },
-                }
+                };
             }
 
             impl PartialEq for Mat2x2<$t> {
@@ -197,28 +197,14 @@ macro_rules! mat2x2_impl {
                 }
             }
 
-            // scalar / matrix
-            impl Div<Mat2x2<$t>> for $t {
-                type Output = Mat2x2<$t>;
-                fn div(self,other: Mat2x2<$t>) -> Self::Output {
-                    self * other.inv()
-                }
-            }
-
             // matrix / scalar
             impl Div<$t> for Mat2x2<$t> {
                 type Output = Mat2x2<$t>;
                 fn div(self,other: $t) -> Self::Output {
-                    self.x /= other;
-                    self.y /= other;
-                }
-            }
-
-            // matrix / matrix
-            impl Div<Mat2x2<$t>> for Mat2x2<$t> {
-                type Output = Mat2x2<$t>;
-                fn div(self,other: Mat2x2<$t>) -> Self::Output {
-                    self * other.inv()
+                    Mat2x2 {
+                        x: self.x / other,
+                        y: self.y / other,
+                    }
                 }
             }
 
@@ -230,16 +216,10 @@ macro_rules! mat2x2_impl {
                 }
             }
 
-            // matrix /= matrix
-            impl DivAssign<Mat2x2<$t>> for Mat2x2<$t> {
-                fn div_assign(&mut self,other: Mat2x2<$t>) {
-                    self *= other.inv()
-                }
-            }
-
             // -matrix
             impl Neg for Mat2x2<$t> {
-                fn neg(self) -> Self {
+                type Output = Mat2x2<$t>;
+                fn neg(self) -> Self::Output {
                     Mat2x2 {
                         x: -self.x,
                         y: -self.y,
@@ -273,6 +253,29 @@ macro_rules! mat2x2_real_impl {
                         x: Vec2 { x: aa,y: -ac, },
                         y: Vec2 { x: -ab,y: ad, },
                     } / det
+                }
+            }
+
+            // scalar / matrix
+            impl Div<Mat2x2<$t>> for $t {
+                type Output = Mat2x2<$t>;
+                fn div(self,other: Mat2x2<$t>) -> Self::Output {
+                    other.inv() * self
+                }
+            }
+
+            // matrix / matrix
+            impl Div<Mat2x2<$t>> for Mat2x2<$t> {
+                type Output = Mat2x2<$t>;
+                fn div(self,other: Mat2x2<$t>) -> Self::Output {
+                    self * other.inv()
+                }
+            }
+
+            // matrix /= matrix
+            impl DivAssign<Mat2x2<$t>> for Mat2x2<$t> {
+                fn div_assign(&mut self,other: Mat2x2<$t>) {
+                    *self *= other.inv()
                 }
             }
         )+

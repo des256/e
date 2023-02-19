@@ -263,12 +263,12 @@ macro_rules! rational_impl {
                 const MIN: Rational<$n,$d> = Rational { n: <$n>::MIN,d: <$d>::MAX, };
                 const MAX: Rational<$n,$d> = Rational { n: <$n>::MAX,d: <$d>::ONE, };
 
-                fn div_euclid(self,other: Rational<$n,$d>) -> Rational<$n,$d> {
+                fn div_euclid(self,_other: Rational<$n,$d>) -> Rational<$n,$d> {
                     // TODO
                     Self::ZERO
                 }
             
-                fn rem_euclid(self,other: Rational<$n,$d>) -> Rational<$n,$d> {
+                fn rem_euclid(self,_other: Rational<$n,$d>) -> Rational<$n,$d> {
                     // TODO
                     Self::ZERO
                 }
@@ -307,8 +307,9 @@ macro_rules! rational_impl {
                     self * b + c
                 }
             
-                fn powi(self,n: i32) -> Rational<$n,$d> {
-                    self.powi(n)
+                fn powi(self,_n: i32) -> Rational<$n,$d> {
+                    // TODO
+                    Self::ZERO
                 }
             }
         )+

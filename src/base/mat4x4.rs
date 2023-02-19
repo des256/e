@@ -293,39 +293,10 @@ macro_rules! mat4x4_impl {
                     let wy = self.w.x * other.x.y + self.w.y * other.y.y + self.w.z * other.z.y + self.w.w * other.w.y;
                     let wz = self.w.x * other.x.z + self.w.y * other.y.z + self.w.z * other.z.z + self.w.w * other.w.z;
                     let ww = self.w.x * other.x.w + self.w.y * other.y.w + self.w.z * other.z.w + self.w.w * other.w.w;
-                    Mat4x4 {
-                        x: Vec4 { x: xx,y: xy,z: xz,w: xw, },
-                        y: Vec4 { x: yx,y: yy,z: yz,w: yw, },
-                        z: Vec4 { x: zx,y: zy,z: zz,w: zw, },
-                        w: Vec4 { x: wx,y: wy,z: wz,w: ww, },
-                    }
-                }
-            }
-
-            // scalar / matrix
-            impl Div<Mat4x4<$t>> for $t {
-                type Output = Mat4x4<$t>;
-                fn div(self,other: Mat4x4<$t>) -> Self::Output {
-                    self * other.inv()
-                }
-            }
-
-            // matrix / scalar
-            impl Div<$t> for Mat4x4<$t> {
-                type Output = Mat4x4<$t>;
-                fn div(self,other: $t) -> Self::Output {
-                    self.x /= other;
-                    self.y /= other;
-                    self.z /= other;
-                    self.w /= other;
-                }
-            }
-
-            // matrix / matrix
-            impl Div<Mat4x4<$t>> for Mat4x4<$t> {
-                type Output = Mat4x4<$t>;
-                fn div(self,other: Mat4x4<$t>) -> Self::Output {
-                    self * other.inv()
+                    self.x = Vec4 { x: xx,y: xy,z: xz,w: xw, };
+                    self.y = Vec4 { x: yx,y: yy,z: yz,w: yw, };
+                    self.z = Vec4 { x: zx,y: zy,z: zz,w: zw, };
+                    self.w = Vec4 { x: wx,y: wy,z: wz,w: ww, };
                 }
             }
 
@@ -339,16 +310,10 @@ macro_rules! mat4x4_impl {
                 }
             }
 
-            // matrix /= matrix
-            impl DivAssign<Mat4x4<$t>> for Mat4x4<$t> {
-                fn div_assign(&mut self,other: Mat4x4<$t>) {
-                    self *= other.inv()
-                }
-            }
-
             // -matrix
             impl Neg for Mat4x4<$t> {
-                fn neg(self) -> Self {
+                type Output = Mat4x4<$t>;
+                fn neg(self) -> Self::Output {
                     Mat4x4 {
                         x: -self.x,
                         y: -self.y,
@@ -391,18 +356,18 @@ macro_rules! mat4x4_impl {
 
             impl From<Quaternion<$t>> for Mat4x4<$t> {
                 fn from(value: Quaternion<$t>) -> Self {
-                    let x2 = value.x + value.x;
-                    let y2 = value.y + value.y;
-                    let z2 = value.z + value.z;
-                    let xx2 = value.x * x2;
-                    let yy2 = value.y * y2;
-                    let zz2 = value.z * z2;
-                    let yz2 = value.y * z2;
-                    let wx2 = value.w * x2;
-                    let xy2 = value.x * y2;
-                    let wz2 = value.w * z2;
-                    let xz2 = value.x * z2;
-                    let wy2 = value.w * y2;
+                    let x2 = value.i + value.i;
+                    let y2 = value.j + value.j;
+                    let z2 = value.k + value.k;
+                    let xx2 = value.i * x2;
+                    let yy2 = value.j * y2;
+                    let zz2 = value.k * z2;
+                    let yz2 = value.j * z2;
+                    let wx2 = value.r * x2;
+                    let xy2 = value.i * y2;
+                    let wz2 = value.r * z2;
+                    let xz2 = value.i * z2;
+                    let wy2 = value.r * y2;
                     Mat4x4 {
                         x: Vec4 {
                             x: <$t>::ONE - yy2 - zz2,
@@ -463,7 +428,7 @@ macro_rules! mat4x4_real_impl {
                     let jokn = j * o - k * n;
                     let iplm = i * p - l * m;
                     let iokm = i * o - k * m;
-                    let injm = i * n - j * m;                    
+                    let injm = i * n - j * m;
                     let aa = f * kplo - g * jpln + k * iokm;
                     let ab = e * kplo - g * iplm + h * iokm;
                     let ac = e * jpln - f * iplm + h * injm;
@@ -485,7 +450,7 @@ macro_rules! mat4x4_real_impl {
                     let ai = n * chdg - o * bhdf + p * bgcf;
                     let aj = m * chdg - o * ahde + p * agce;
                     let ak = m * bhdf - n * ahde + p * afbe;
-                    let al = m * bgcf - n * ahce + o * afbe;
+                    let al = m * bgcf - n * agce + o * afbe;
                     let am = j * chdg - k * bhdf + l * bgcf;
                     let an = i * chdg - k * ahde + l * agce;
                     let ao = i * bhdf - j * ahde + l * afbe;
@@ -496,6 +461,42 @@ macro_rules! mat4x4_real_impl {
                         z: Vec4 { x: ac,y: -ag,z: ak,w: -ao, },
                         w: Vec4 { x: -ad,y: ah,z: -al,w: ap, },
                     } / det
+                }
+            }
+
+            // scalar / matrix
+            impl Div<Mat4x4<$t>> for $t {
+                type Output = Mat4x4<$t>;
+                fn div(self,other: Mat4x4<$t>) -> Self::Output {
+                    self * other.inv()
+                }
+            }
+
+            // matrix / scalar
+            impl Div<$t> for Mat4x4<$t> {
+                type Output = Mat4x4<$t>;
+                fn div(self,other: $t) -> Self::Output {
+                    Mat4x4 {
+                        x: self.x / other,
+                        y: self.y / other,
+                        z: self.z / other,
+                        w: self.w / other,
+                    }
+                }
+            }
+
+            // matrix / matrix
+            impl Div<Mat4x4<$t>> for Mat4x4<$t> {
+                type Output = Mat4x4<$t>;
+                fn div(self,other: Mat4x4<$t>) -> Self::Output {
+                    self * other.inv()
+                }
+            }
+
+            // matrix /= matrix
+            impl DivAssign<Mat4x4<$t>> for Mat4x4<$t> {
+                fn div_assign(&mut self,other: Mat4x4<$t>) {
+                    *self *= other.inv()
                 }
             }
         )+

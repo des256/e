@@ -8,17 +8,6 @@ use {
             Formatter,
             Result,
         },
-        ops::{
-            Add,
-            Sub,
-            Mul,
-            Div,
-            AddAssign,
-            SubAssign,
-            MulAssign,
-            DivAssign,
-            Neg,
-        },
     },
 };
 
@@ -52,7 +41,7 @@ macro_rules! multivec3_impl {
             }
 
             impl Display for MultiVec3<$t> {
-                fn fmt(&self,&mut Formatter) -> Result {
+                fn fmt(&self,f: &mut Formatter) -> Result {
                     write!(f,"({}, {},{},{}, {},{},{}, {})",
                         self.r,
                         self.x,self.y,self.z,

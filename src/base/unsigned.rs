@@ -62,9 +62,10 @@ macro_rules! unsigned_impl {
                     self * b + c
                 }
             
-                fn powi(self,n: i32) -> Self {
-                    self.powi(n)
-                }            
+                fn powi(self,_n: i32) -> Self {
+                    // TODO
+                    Self::ZERO
+                }
             }
         )+
     }

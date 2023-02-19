@@ -90,15 +90,15 @@ macro_rules! mat3x3_impl {
             }
 
             impl Zero for Mat3x3<$t> {
-                Mat3x3 {
+                const ZERO: Mat3x3<$t> = Mat3x3 {
                     x: Vec3::ZERO,
                     y: Vec3::ZERO,
                     z: Vec3::ZERO,
-                }
+                };
             }
 
             impl One for Mat3x3<$t> {
-                Mat3x3 {
+                const ONE: Mat3x3<$t> = Mat3x3 {
                     x: Vec3 {
                         x: <$t>::ONE,
                         y: <$t>::ZERO,
@@ -114,7 +114,7 @@ macro_rules! mat3x3_impl {
                         y: <$t>::ZERO,
                         z: <$t>::ONE,
                     },
-                }
+                };
             }
 
             impl PartialEq for Mat3x3<$t> {
@@ -264,29 +264,15 @@ macro_rules! mat3x3_impl {
                 }
             }
 
-            // scalar / matrix
-            impl Div<Mat3x3<$t>> for $t {
-                type Output = Mat3x3<$t>;
-                fn div(self,other: Mat3x3<$t>) -> Self::Output {
-                    self * other.inv()
-                }
-            }
-
             // matrix / scalar
             impl Div<$t> for Mat3x3<$t> {
                 type Output = Mat3x3<$t>;
                 fn div(self,other: $t) -> Self::Output {
-                    self.x /= other;
-                    self.y /= other;
-                    self.z /= other;
-                }
-            }
-
-            // matrix / matrix
-            impl Div<Mat3x3<$t>> for Mat3x3<$t> {
-                type Output = Mat3x3<$t>;
-                fn div(self,other: Mat3x3<$t>) -> Self::Output {
-                    self * other.inv()
+                    Mat3x3 {
+                        x: self.x / other,
+                        y: self.y / other,
+                        z: self.z / other,
+                    }
                 }
             }
 
@@ -299,15 +285,9 @@ macro_rules! mat3x3_impl {
                 }
             }
 
-            // matrix /= matrix
-            impl DivAssign<Mat3x3<$t>> for Mat3x3<$t> {
-                fn div_assign(&mut self,other: Mat3x3<$t>) {
-                    self *= other.inv()
-                }
-            }
-
             // -matrix
             impl Neg for Mat3x3<$t> {
+                type Output = Mat3x3<$t>;
                 fn neg(self) -> Self {
                     Mat3x3 {
                         x: -self.x,
@@ -354,6 +334,29 @@ macro_rules! mat3x3_real_impl {
                         y: Vec3 { x: -ab,y: ae,z: -ah, },
                         z: Vec3 { x: ac,y: -af,z: ai, },
                     } / det
+                }
+            }
+
+            // scalar / matrix
+            impl Div<Mat3x3<$t>> for $t {
+                type Output = Mat3x3<$t>;
+                fn div(self,other: Mat3x3<$t>) -> Self::Output {
+                    self * other.inv()
+                }
+            }
+
+            // matrix / matrix
+            impl Div<Mat3x3<$t>> for Mat3x3<$t> {
+                type Output = Mat3x3<$t>;
+                fn div(self,other: Mat3x3<$t>) -> Self::Output {
+                    self * other.inv()
+                }
+            }
+
+            // matrix /= matrix
+            impl DivAssign<Mat3x3<$t>> for Mat3x3<$t> {
+                fn div_assign(&mut self,other: Mat3x3<$t>) {
+                    *self *= other.inv()
                 }
             }
         )+

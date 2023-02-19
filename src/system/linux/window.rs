@@ -10,7 +10,7 @@ pub const KEY_RIGHT: u8 = 114;
 
 pub struct Window {
     pub system: Rc<System>,
-    pub(crate) gpu: WindowGpu,
+    pub(crate) surface: Surface,
 #[doc(hidden)]
     pub(crate) xcb_window: sys::xcb_window_t,
 }
@@ -18,8 +18,8 @@ pub struct Window {
 impl Window {
 
     /// Get WindowID for this window.
-    pub fn id(&self) -> WindowId {
-        self.xcb_window as WindowId
+    pub fn id(&self) -> u32 {
+        self.xcb_window
     }
 }
 
@@ -93,7 +93,6 @@ impl Window {self.resources.borrow().vk_renderpass
 impl Drop for Window {
 
     fn drop(&mut self) {
-        self.drop_gpu();
         unsafe {
             sys::xcb_unmap_window(self.system.xcb_connection,self.xcb_window as u32);
             sys::xcb_destroy_window(self.system.xcb_connection,self.xcb_window as u32);

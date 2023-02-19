@@ -75,7 +75,7 @@ macro_rules! real_impl {
                 fn asinh(self) -> Self { self.asinh() }
                 fn acosh(self) -> Self { self.acosh() }
                 fn atanh(self) -> Self { self.atanh() }
-                fn inv(self) -> Self { self.inv() }
+                fn inv(self) -> Self { 1.0 / self }
                 fn to_degrees(self) -> Self { self.to_degrees() }
                 fn to_radians(self) -> Self { self.to_radians() }
             }
