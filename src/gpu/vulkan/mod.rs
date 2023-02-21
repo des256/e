@@ -1,7 +1,7 @@
 //! GPU subsystem (Vulkan implementation).
 
-mod gpu;
-pub(crate) use gpu::*;
+mod gpusystem;
+pub(crate) use gpusystem::*;
 
-mod surface;
-pub(crate) use surface::*;
+mod gpuwindow;
+pub(crate) use gpuwindow::*;

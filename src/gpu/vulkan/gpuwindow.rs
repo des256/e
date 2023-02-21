@@ -7,8 +7,9 @@ use {
     },
 };
 
+#[derive(Debug)]
 pub(crate) struct SwapchainResources {
-    pub gpu: Rc<Gpu>,
+    pub gpu_system: Rc<GpuSystem>,
     pub vk_swapchain: sys::VkSwapchainKHR,
     pub vk_framebuffers: Vec<sys::VkFramebuffer>,
     pub vk_image_views: Vec<sys::VkImageView>,
@@ -17,16 +18,24 @@ pub(crate) struct SwapchainResources {
 impl SwapchainResources {
 
     /// Create swapchain resources for surface, render pass and rectangle.
-    pub(crate) fn create(gpu: &Rc<Gpu>,vk_surface: sys::VkSurfaceKHR,vk_render_pass: sys::VkRenderPass,r: Rect<f32>) -> Result<SwapchainResources,String> {
+    pub(crate) fn create(gpu_system: &Rc<GpuSystem>,vk_surface: sys::VkSurfaceKHR,vk_render_pass: sys::VkRenderPass,r: Rect<f32>) -> Result<SwapchainResources,String> {
+
+        dprintln!("SwapchainResources::create: vk_physical_device = {:?}, vk_surface = {:?}, vk_render_pass = {:?}, r = {}",gpu_system.vk_physical_device,vk_surface,vk_render_pass,r);
 
         // get surface capabilities to calculate the extent and image count
         let mut capabilities = MaybeUninit::uninit();
-        unsafe { sys::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-            gpu.vk_physical_device,
+        match unsafe { sys::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+            gpu_system.vk_physical_device,
             vk_surface,
             capabilities.as_mut_ptr(),
-        ) };
+        ) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                return Err(format!("unable to get surface capabilities (error {})",code));
+            },
+        }
         let capabilities = unsafe { capabilities.assume_init() };
+        dprintln!("capabilities = {:?}",capabilities);
 
         let extent = if capabilities.currentExtent.width != 0xFFFFFFFF {
             Vec2 {
@@ -54,7 +63,7 @@ impl SwapchainResources {
         // make sure VK_FORMAT_B8G8R8A8_SRGB is supported (BGRA8UN)
         let mut count = 0u32;
         match unsafe { sys::vkGetPhysicalDeviceSurfaceFormatsKHR(
-            gpu.vk_physical_device,
+            gpu_system.vk_physical_device,
             vk_surface,
             &mut count,
             null_mut(),
@@ -64,9 +73,10 @@ impl SwapchainResources {
                 return Err(format!("unable to get surface formats (error {})",code));
             },
         }
+        dprintln!("there are {} surface formats supported by the window",count);
         let mut formats = vec![MaybeUninit::<sys::VkSurfaceFormatKHR>::uninit(); count as usize];
         match unsafe { sys::vkGetPhysicalDeviceSurfaceFormatsKHR(
-            gpu.vk_physical_device,
+            gpu_system.vk_physical_device,
             vk_surface,
             &mut count,
             formats.as_mut_ptr() as *mut sys::VkSurfaceFormatKHR,
@@ -78,13 +88,11 @@ impl SwapchainResources {
         }
         let formats = unsafe { std::mem::transmute::<_,Vec<sys::VkSurfaceFormatKHR>>(formats) };
 
-        let mut format_supported = false;
-        for i in 0..formats.len() {
-            if (formats[i].format == sys::VK_FORMAT_B8G8R8A8_SRGB) && 
-                (formats[i].colorSpace == sys::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-                format_supported = true;
-            }
-        }
+        dprintln!("and those are:");
+        formats.iter().for_each(|vk_format| {
+            dprintln!("    format: {}, colorspace: {}",vk_format.format,vk_format.colorSpace);
+        });
+        let format_supported = formats.iter().any(|vk_format| (vk_format.format == sys::VK_FORMAT_B8G8R8A8_SRGB) && (vk_format.colorSpace == sys::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR));
         if !format_supported {
             return Err("window does not support BGRA8UN".to_string());
         }
@@ -112,7 +120,7 @@ impl SwapchainResources {
         };
         let mut vk_swapchain = MaybeUninit::uninit();
         match unsafe { sys::vkCreateSwapchainKHR(
-            gpu.vk_device,
+            gpu_system.vk_device,
             &info,
             null_mut(),
             vk_swapchain.as_mut_ptr(),
@@ -126,31 +134,30 @@ impl SwapchainResources {
 
         // get swapchain images
         let mut count = 0u32;
-        match unsafe { sys::vkGetSwapchainImagesKHR(gpu.vk_device,vk_swapchain,&mut count,null_mut()) } {
+        match unsafe { sys::vkGetSwapchainImagesKHR(gpu_system.vk_device,vk_swapchain,&mut count,null_mut()) } {
             sys::VK_SUCCESS => { },
             code => {
-                unsafe { sys::vkDestroySwapchainKHR(gpu.vk_device,vk_swapchain,null_mut()) };
+                unsafe { sys::vkDestroySwapchainKHR(gpu_system.vk_device,vk_swapchain,null_mut()) };
                 return Err(format!("unable to get swap chain image count (error {})",code));
             },
         }
         let mut vk_images = vec![MaybeUninit::<sys::VkImage>::uninit(); count as usize];
         match unsafe { sys::vkGetSwapchainImagesKHR(
-            gpu.vk_device,
+            gpu_system.vk_device,
             vk_swapchain,
             &count as *const u32 as *mut u32,
             vk_images.as_mut_ptr() as *mut sys::VkImage,
         ) } {
             sys::VK_SUCCESS => { },
             code => {
-                unsafe { sys::vkDestroySwapchainKHR(gpu.vk_device,vk_swapchain,null_mut()) };
+                unsafe { sys::vkDestroySwapchainKHR(gpu_system.vk_device,vk_swapchain,null_mut()) };
                 return Err(format!("unable to get swap chain images (error {})",code));
             },
         }
         let vk_images = unsafe { std::mem::transmute::<_,Vec<sys::VkImage>>(vk_images) };
 
         // create image views for the swapchain images
-        let mut vk_image_views = Vec::<sys::VkImageView>::new();
-        for vk_image in &vk_images {
+        let results: Vec<Result<sys::VkImageView,String>> = vk_images.iter().map(|vk_image| {
             let info = sys::VkImageViewCreateInfo {
                 sType: sys::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                 pNext: null_mut(),
@@ -173,24 +180,20 @@ impl SwapchainResources {
                 },
             };
             let mut vk_image_view = MaybeUninit::uninit();
-            match unsafe { sys::vkCreateImageView(gpu.vk_device,&info,null_mut(),vk_image_view.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    unsafe {
-                        for vk_image_view in &vk_image_views {
-                            sys::vkDestroyImageView(gpu.vk_device,*vk_image_view,null_mut());
-                        }
-                        sys::vkDestroySwapchainKHR(gpu.vk_device,vk_swapchain,null_mut());
-                    }
-                    return Err(format!("unable to create image view (error {})",code));
-                }
+            match unsafe { sys::vkCreateImageView(gpu_system.vk_device,&info,null_mut(),vk_image_view.as_mut_ptr()) } {
+                sys::VK_SUCCESS => Ok(unsafe { vk_image_view.assume_init() }),
+                code => Err(format!("unable to create image view (error {})",code)),
             }
-            vk_image_views.push(unsafe { vk_image_view.assume_init() });
+        }).collect();
+        if results.iter().any(|result| result.is_err()) {
+            results.iter().for_each(|result| if let Ok(vk_image_view) = result { unsafe { sys::vkDestroyImageView(gpu_system.vk_device,*vk_image_view,null_mut()) } });
+            unsafe { sys::vkDestroySwapchainKHR(gpu_system.vk_device,vk_swapchain,null_mut()); }
+            return Err("unable to create image view".to_string());
         }
+        let vk_image_views: Vec<sys::VkImageView> = results.into_iter().map(|result| result.unwrap()).collect();
 
         // create framebuffers for the image views
-        let mut vk_framebuffers = Vec::<sys::VkFramebuffer>::new();
-        for vk_image_view in &vk_image_views {
+        let results: Vec<Result<sys::VkFramebuffer,String>> = vk_image_views.iter().map(|vk_image_view| {
             let info = sys::VkFramebufferCreateInfo {
                 sType: sys::VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
                 pNext: null_mut(),
@@ -203,26 +206,19 @@ impl SwapchainResources {
                 layers: 1,
             };
             let mut vk_framebuffer = MaybeUninit::uninit();
-            match unsafe { sys::vkCreateFramebuffer(gpu.vk_device,&info,null_mut(),vk_framebuffer.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    unsafe {
-                        for vk_framebuffer in &vk_framebuffers {
-                            sys::vkDestroyFramebuffer(gpu.vk_device,*vk_framebuffer,null_mut());
-                        }
-                        for vk_image_view in &vk_image_views {
-                            sys::vkDestroyImageView(gpu.vk_device,*vk_image_view,null_mut());
-                        }
-                        sys::vkDestroySwapchainKHR(gpu.vk_device,vk_swapchain,null_mut());
-                    }
-                    return Err(format!("unable to create framebuffer (error {})",code));
-                }
+            match unsafe { sys::vkCreateFramebuffer(gpu_system.vk_device,&info,null_mut(),vk_framebuffer.as_mut_ptr()) } {
+                sys::VK_SUCCESS => Ok(unsafe { vk_framebuffer.assume_init() }),
+                code => Err(format!("unable to create framebuffer (error {})",code)),
             }
-            vk_framebuffers.push(unsafe { vk_framebuffer.assume_init() });
+        }).collect();
+        if results.iter().any(|result| result.is_err()) {
+            results.iter().for_each(|result| if let Ok(vk_framebuffer) = result { unsafe { sys::vkDestroyFramebuffer(gpu_system.vk_device,*vk_framebuffer,null_mut()) } });
+            vk_image_views.iter().for_each(|vk_image_view| unsafe { sys::vkDestroyImageView(gpu_system.vk_device,*vk_image_view,null_mut()) });
+            return Err("unable to create framebuffer".to_string());
         }
-
+        let vk_framebuffers: Vec<sys::VkFramebuffer> = results.into_iter().map(|result| result.unwrap()).collect();
         Ok(SwapchainResources {
-            gpu: Rc::clone(&gpu),
+            gpu_system: Rc::clone(&gpu_system),
             vk_swapchain,
             vk_image_views,
             vk_framebuffers,
@@ -232,29 +228,44 @@ impl SwapchainResources {
 
 impl Drop for SwapchainResources {
     fn drop(&mut self) {
-        unsafe {
-            for vk_framebuffer in &self.vk_framebuffers {
-                sys::vkDestroyFramebuffer(self.gpu.vk_device,*vk_framebuffer,null_mut());
-            }
-            for vk_image_view in &self.vk_image_views {
-                sys::vkDestroyImageView(self.gpu.vk_device,*vk_image_view,null_mut());
-            }
-            sys::vkDestroySwapchainKHR(self.gpu.vk_device,self.vk_swapchain,null_mut());
-        }    
+        self.vk_framebuffers.iter().for_each(|vk_framebuffer| unsafe { sys::vkDestroyFramebuffer(self.gpu_system.vk_device,*vk_framebuffer,null_mut()) });
+        self.vk_image_views.iter().for_each(|vk_image_view| unsafe { sys::vkDestroyImageView(self.gpu_system.vk_device,*vk_image_view,null_mut()) });
+        unsafe { sys::vkDestroySwapchainKHR(self.gpu_system.vk_device,self.vk_swapchain,null_mut()); }
     }
 }
 
-pub(crate) struct Surface {
-    pub gpu: Rc<Gpu>,
+#[derive(Debug)]
+pub(crate) struct GpuWindow {
+    pub gpu_system: Rc<GpuSystem>,
     pub vk_surface: sys::VkSurfaceKHR,
     pub vk_render_pass: sys::VkRenderPass,
     pub swapchain_resources: SwapchainResources,
 }
 
-impl Surface {
+impl GpuWindow {
 
-    pub(crate) fn create(gpu: &Rc<Gpu>,vk_surface: sys::VkSurfaceKHR,r: Rect<f32>) -> Result<Surface,String> {
+    pub(crate) fn create(gpu_system: &Rc<GpuSystem>,r: Rect<f32>,xcb_connection: *mut sys::xcb_connection_t,xcb_window: u32) -> Result<GpuWindow,String> {
 
+        // create surface for this window
+        dprintln!("creating surrface for xcb_connection = {:?}, xcb_window = {} at r = {}",xcb_connection,xcb_window,r);
+        let info = sys::VkXcbSurfaceCreateInfoKHR {
+            sType: sys::VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+            pNext: null_mut(),
+            flags: 0,
+            connection: xcb_connection,
+            window: xcb_window,
+        };
+        let mut vk_surface = std::mem::MaybeUninit::uninit();
+        match unsafe { sys::vkCreateXcbSurfaceKHR(gpu_system.vk_instance,&info,null_mut(),vk_surface.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                return Err(format!("Unable to create Vulkan XCB surface (error {})",code));
+            },
+        }
+        let vk_surface = unsafe { vk_surface.assume_init() };
+        dprintln!("vk_surface = {:?}",vk_surface);
+
+        dprintln!("creating render pass");
         let info = sys::VkRenderPassCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
             pNext: null_mut(),
@@ -299,20 +310,21 @@ impl Surface {
             },
         };
         let mut vk_render_pass = MaybeUninit::uninit();
-        match unsafe { sys::vkCreateRenderPass(gpu.vk_device,&info,null_mut(),vk_render_pass.as_mut_ptr()) } {
+        match unsafe { sys::vkCreateRenderPass(gpu_system.vk_device,&info,null_mut(),vk_render_pass.as_mut_ptr()) } {
             sys::VK_SUCCESS => { },
             code => {
-                unsafe { sys::vkDestroySurfaceKHR(gpu.vk_instance,vk_surface,null_mut()) };
+                unsafe { sys::vkDestroySurfaceKHR(gpu_system.vk_instance,vk_surface,null_mut()) };
                 return Err(format!("unable to create render pass (error {})",code));
             }
         }
         let vk_render_pass = unsafe { vk_render_pass.assume_init() };
+        dprintln!("vk_render_pass = {:?}",vk_render_pass);
 
         // create swapchain resources
-        let swapchain_resources = SwapchainResources::create(gpu,vk_surface,vk_render_pass,r)?;
+        let swapchain_resources = SwapchainResources::create(gpu_system,vk_surface,vk_render_pass,r)?;
 
-        Ok(Surface {
-            gpu: Rc::clone(&gpu),
+        Ok(GpuWindow {
+            gpu_system: Rc::clone(&gpu_system),
             vk_surface,
             vk_render_pass,
             swapchain_resources,
@@ -320,11 +332,11 @@ impl Surface {
     }
 }
 
-impl Drop for Surface {
+impl Drop for GpuWindow {
     fn drop(&mut self) {
         unsafe {
-            sys::vkDestroySurfaceKHR(self.gpu.vk_instance,self.vk_surface,null_mut());
-            sys::vkDestroyRenderPass(self.gpu.vk_device,self.vk_render_pass,null_mut());
+            sys::vkDestroySurfaceKHR(self.gpu_system.vk_instance,self.vk_surface,null_mut());
+            sys::vkDestroyRenderPass(self.gpu_system.vk_device,self.vk_render_pass,null_mut());
         }
     }
 }

@@ -10,7 +10,7 @@ pub const KEY_RIGHT: u8 = 114;
 
 pub struct Window {
     pub system: Rc<System>,
-    pub(crate) surface: Surface,
+    pub(crate) gpu_window: GpuWindow,
 #[doc(hidden)]
     pub(crate) xcb_window: sys::xcb_window_t,
 }

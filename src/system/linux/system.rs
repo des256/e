@@ -9,7 +9,7 @@ use {
 
 /// The system structure (linux).
 pub struct System {
-    pub(crate) gpu: Rc<Gpu>,
+    pub(crate) gpu_system: Rc<GpuSystem>,
     pub(crate) xdisplay: *mut sys::Display,
     pub(crate) xcb_connection: *mut sys::xcb_connection_t,
     pub(crate) xcb_screen: *mut sys::xcb_screen_t,
@@ -95,10 +95,10 @@ impl System {
         let wm_net_state_above = resolve_atom_cookie(xcb_connection,net_state_above_cookie);
 
         // initialize GPU
-        let gpu = Gpu::open()?;
+        let gpu_system = GpuSystem::open()?;
 
         Ok(Rc::new(System {
-            gpu,
+            gpu_system,
             xdisplay,
             xcb_connection,
             xcb_screen,
@@ -308,46 +308,15 @@ impl System {
             sys::xcb_map_window(self.xcb_connection,xcb_window as u32);
             sys::xcb_flush(self.xcb_connection);
         }
+        dprintln!("created xcb_window = {}, mapped and flushed",xcb_window);
 
-#[cfg(gpu="vulkan")]
-        {
-            // create surface for this window
-            let info = sys::VkXcbSurfaceCreateInfoKHR {
-                sType: sys::VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
-                pNext: null_mut(),
-                flags: 0,
-                connection: self.xcb_connection,
-                window: xcb_window,
-            };
-            let mut vk_surface = std::mem::MaybeUninit::uninit();
-            match unsafe { sys::vkCreateXcbSurfaceKHR(self.gpu.vk_instance,&info,null_mut(),vk_surface.as_mut_ptr()) } {
-                sys::VK_SUCCESS => { },
-                code => {
-                    return Err(format!("Unable to create Vulkan XCB surface (error {})",code));
-                },
-            }
-            let vk_surface = unsafe { vk_surface.assume_init() };
+        let gpu_window = GpuWindow::create(&self.gpu_system,r,self.xcb_connection,xcb_window)?;
 
-            let surface = Surface::create(&self.gpu,vk_surface,r)?;
-
-            Ok(Window {
-                system: Rc::clone(&self),
-                surface,
-                xcb_window,
-            })
-        }
-        
-#[cfg(gpu="opengl")]
-        if let Some(gpu) = self.create_window_gpu() {
-            Some(Window {
-                system: Rc::clone(self),
-                gpu,
-                xcb_window,
-            })
-        }
-        else {
-            None
-        }
+        Ok(Window {
+            system: Rc::clone(&self),
+            gpu_window,
+            xcb_window,
+        })
     }
     
     /// Create application frame window.
