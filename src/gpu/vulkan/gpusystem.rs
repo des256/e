@@ -69,7 +69,6 @@ impl GpuSystem {
     pub(crate) fn open() -> Result<Rc<GpuSystem>,String> {
 
         // create instance
-        dprintln!("creating instance");
         let extension_names = [
             sys::VK_KHR_SURFACE_EXTENSION_NAME.as_ptr(),
             sys::VK_KHR_XCB_SURFACE_EXTENSION_NAME.as_ptr(),
@@ -95,13 +94,11 @@ impl GpuSystem {
         let mut vk_instance = MaybeUninit::<sys::VkInstance>::uninit();
         match unsafe { sys::vkCreateInstance(&info,null_mut(),vk_instance.as_mut_ptr()) } {
             sys::VK_SUCCESS => { },
-            code => return Err(format!("unable to create VkInstance ({})",code)),
+            code => return Err(format!("unable to create VkInstance ({})",vk_code_to_string(code))),
         }
         let vk_instance = unsafe { vk_instance.assume_init() };
-        dprintln!("vk_instance = {:?}",vk_instance);
 
         // enumerate physical devices
-        dprintln!("enumerating physical devices");
         let mut count = MaybeUninit::<u32>::uninit();
         unsafe { sys::vkEnumeratePhysicalDevices(vk_instance,count.as_mut_ptr(),null_mut()) };
         let count = unsafe { count.assume_init() };
@@ -109,28 +106,28 @@ impl GpuSystem {
             unsafe { sys::vkDestroyInstance(vk_instance,null_mut()) };
             return Err("unable to enumerate physical devices".to_string());
         }
-        let mut vk_physical_devices = vec![null_mut() as sys::VkPhysicalDevice; count as usize];
+        let mut vk_physical_devices = vec![null_mut(); count as usize];
         unsafe { sys::vkEnumeratePhysicalDevices(vk_instance,&count as *const u32 as *mut u32,vk_physical_devices.as_mut_ptr()) };
 
-        // get first physical device
-        let vk_physical_device = vk_physical_devices[0];
-        dprintln!("vk_physical_device = {:?}",vk_physical_device);
-
-        // DEBUG: show the name in debug build
 #[cfg(build="debug")]
         {
-            let mut properties = MaybeUninit::<sys::VkPhysicalDeviceProperties>::uninit();
-            unsafe { sys::vkGetPhysicalDeviceProperties(vk_physical_device,properties.as_mut_ptr()) };
-            let properties = unsafe { properties.assume_init() };
-            let slice: &[u8] = unsafe { &*(&properties.deviceName as *const [i8] as *const [u8]) };
-            dprintln!("first physical device: {}",std::str::from_utf8(slice).unwrap());
+            dprintln!("physical devices:");
+            vk_physical_devices.iter().for_each(|vk_physical_device| {
+                let mut properties = MaybeUninit::<sys::VkPhysicalDeviceProperties>::uninit();
+                unsafe { sys::vkGetPhysicalDeviceProperties(*vk_physical_device,properties.as_mut_ptr()) };
+                let properties = unsafe { properties.assume_init() };
+                let slice: &[u8] = unsafe { &*(&properties.deviceName as *const [i8] as *const [u8]) };
+                dprintln!("    {}",std::str::from_utf8(slice).unwrap());
+            });
         }
+
+        // get first physical device
+        dprintln!("choosing first device");
+        let vk_physical_device = vk_physical_devices[0];
         
         // get supported queue families
-        dprintln!("obtaining supported queue families");
-        let mut count = MaybeUninit::<u32>::uninit();
-        unsafe { sys::vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_device,count.as_mut_ptr(),null_mut()) };
-        let count = unsafe { count.assume_init() };
+        let mut count = 0u32;
+        unsafe { sys::vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_device,&mut count as *mut u32,null_mut()) };
         if count == 0 {
             unsafe { sys::vkDestroyInstance(vk_instance,null_mut()) };
             return Err("no queue families supported on this GPU".to_string());
@@ -145,33 +142,36 @@ impl GpuSystem {
 
         // DEBUG: display the number of queues and capabilities
 #[cfg(build="debug")]
-        vk_queue_families.iter().for_each(|vk_queue_family| {
-            let mut capabilities = String::new();
-            if vk_queue_family.queueFlags & sys::VK_QUEUE_GRAPHICS_BIT != 0 {
-                capabilities.push_str("graphics ");
-            }
-            if vk_queue_family.queueFlags & sys::VK_QUEUE_TRANSFER_BIT != 0 {
-                capabilities.push_str("transfer ");
-            }
-            if vk_queue_family.queueFlags & sys::VK_QUEUE_COMPUTE_BIT != 0 {
-                capabilities.push_str("compute ");
-            }
-            if vk_queue_family.queueFlags & sys::VK_QUEUE_SPARSE_BINDING_BIT != 0 {
-                capabilities.push_str("sparse ");
-            }
-            dprintln!("    - {} queues, capable of: {}",vk_queue_family.queueCount,capabilities);
-        });
+        {
+            dprintln!("supported queue families:");
+            vk_queue_families.iter().for_each(|vk_queue_family| {
+                let mut capabilities = String::new();
+                if vk_queue_family.queueFlags & sys::VK_QUEUE_GRAPHICS_BIT != 0 {
+                    capabilities.push_str("graphics ");
+                }
+                if vk_queue_family.queueFlags & sys::VK_QUEUE_TRANSFER_BIT != 0 {
+                    capabilities.push_str("transfer ");
+                }
+                if vk_queue_family.queueFlags & sys::VK_QUEUE_COMPUTE_BIT != 0 {
+                    capabilities.push_str("compute ");
+                }
+                if vk_queue_family.queueFlags & sys::VK_QUEUE_SPARSE_BINDING_BIT != 0 {
+                    capabilities.push_str("sparse ");
+                }
+                dprintln!("    - {} queues, capable of: {}",vk_queue_family.queueCount,capabilities);
+            });
+        }
 
         // assume the first queue family is the one we want for all queues
+        dprintln!("choosing first family");
         let vk_queue_family = vk_queue_families[0];
         let mask = sys::VK_QUEUE_GRAPHICS_BIT | sys::VK_QUEUE_TRANSFER_BIT | sys::VK_QUEUE_COMPUTE_BIT;
         if (vk_queue_family.queueFlags & mask) != mask {
             unsafe { sys::vkDestroyInstance(vk_instance,null_mut()) };
-            return Err("queue family 0 of the GPU does not support graphics, transfer and compute operations".to_string());
+            return Err("first queue family does not support graphics, transfer and compute operations".to_string());
         }
 
         // assume that presentation is done on the same family as graphics and create logical device with one queue of queue family 0
-        dprintln!("creating device");
         let mut queue_create_infos = Vec::<sys::VkDeviceQueueCreateInfo>::new();
         let priority = 1f32;
         queue_create_infos.push(sys::VkDeviceQueueCreateInfo {
@@ -253,51 +253,54 @@ impl GpuSystem {
                 inheritedQueries: 0,
             },
         };
-        let mut vk_device = MaybeUninit::uninit();
-        if unsafe { sys::vkCreateDevice(vk_physical_device,&info,null_mut(),vk_device.as_mut_ptr()) } != sys::VK_SUCCESS {
-            unsafe { sys::vkDestroyInstance(vk_instance,null_mut()) };
-            return Err("unable to create VkDevice".to_string());
+        let mut vk_device = MaybeUninit::<sys::VkDevice>::uninit();
+        match unsafe { sys::vkCreateDevice(vk_physical_device,&info,null_mut(),vk_device.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => { 
+                unsafe { sys::vkDestroyInstance(vk_instance,null_mut()) };
+                return Err(format!("unable to create VkDevice ({})",vk_code_to_string(code)));
+            },
         }
         let vk_device = unsafe { vk_device.assume_init() };
-        dprintln!("vk_device = {:?}",vk_device);
 
         // obtain the queue from queue family 0
-        dprintln!("obtaining queue from family 0");
-        let mut vk_queue = MaybeUninit::uninit();
+        let mut vk_queue = MaybeUninit::<sys::VkQueue>::uninit();
         unsafe { sys::vkGetDeviceQueue(vk_device,0,0,vk_queue.as_mut_ptr()) };
         let vk_queue = unsafe { vk_queue.assume_init() };
-        dprintln!("vk_queue = {:?}",vk_queue);
 
         // create command pool for this queue
-        dprintln!("create command pool");
         let info = sys::VkCommandPoolCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             pNext: null_mut(),
             flags: sys::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
             queueFamilyIndex: 0,
         };
-        let mut vk_command_pool = MaybeUninit::uninit();
-        if unsafe { sys::vkCreateCommandPool(vk_device,&info,null_mut(),vk_command_pool.as_mut_ptr()) } != sys::VK_SUCCESS {
-            unsafe { 
-                sys::vkDestroyDevice(vk_device,null_mut());
-                sys::vkDestroyInstance(vk_instance,null_mut());
-            }
-            return Err("unable to create command pool".to_string());
+        let mut vk_command_pool = MaybeUninit::<sys::VkCommandPool>::uninit();
+        match unsafe { sys::vkCreateCommandPool(vk_device,&info,null_mut(),vk_command_pool.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                unsafe {
+                    sys::vkDestroyDevice(vk_device,null_mut());
+                    sys::vkDestroyInstance(vk_instance,null_mut());
+                }
+                return Err(format!("unable to create command pool ({})",vk_code_to_string(code)));
+            },
         }
         let vk_command_pool = unsafe { vk_command_pool.assume_init() };
-        dprintln!("vk_command_pool = {:?}",vk_command_pool);
 
         // get memory properties
-        dprintln!("obtaining memory properties");
         let mut vk_memory_properties = MaybeUninit::<sys::VkPhysicalDeviceMemoryProperties>::uninit();
         unsafe { sys::vkGetPhysicalDeviceMemoryProperties(vk_physical_device,vk_memory_properties.as_mut_ptr()) };
         let vk_memory_properties = unsafe { vk_memory_properties.assume_init() };
-        dprintln!("vk_memory_properties = {:?}",vk_memory_properties);
 
         // DEBUG: show the entire memory description
 #[cfg(build="debug")]
         {
             dprintln!("device memory properties:");
+            dprintln!("    memory heaps:");
+            for i in 0..vk_memory_properties.memoryHeapCount as usize {
+                dprintln!("        {}: size {} MiB, {:X}",i,vk_memory_properties.memoryHeaps[i].size / (1024 * 1024),vk_memory_properties.memoryHeaps[i].flags);
+            }
             dprintln!("    memory types:");
             for i in 0..vk_memory_properties.memoryTypeCount as usize {
                 let mut flags = String::new();
@@ -322,21 +325,15 @@ impl GpuSystem {
                 }            
                 dprintln!("        - on heap {}, {}",vk_memory_type.heapIndex,flags);
             }
-            dprintln!("    memory heaps:");
-            for i in 0..vk_memory_properties.memoryHeapCount as usize {
-                dprintln!("        - size {} MiB, {:X}",vk_memory_properties.memoryHeaps[i].size / (1024 * 1024),vk_memory_properties.memoryHeaps[i].flags);
-            }
         }
 
         // find shared memory heap and type (later also find device-only index)
-        dprintln!("finding shared memory heap and type");
         let mask = sys::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | sys::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | sys::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
         let valid_types: Vec<(usize,&sys::VkMemoryType)> = vk_memory_properties.memoryTypes.iter().enumerate().filter(|vk_memory_type| (vk_memory_type.1.propertyFlags & mask) == mask).collect();
         if valid_types.is_empty() {
             return Err("no valid memory types found".to_string());
         }
         let shared_index = valid_types[0].0;
-        dprintln!("shared_index = {}",shared_index);
 
         Ok(Rc::new(GpuSystem {
             vk_instance,

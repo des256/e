@@ -20,10 +20,8 @@ impl SwapchainResources {
     /// Create swapchain resources for surface, render pass and rectangle.
     pub(crate) fn create(gpu_system: &Rc<GpuSystem>,vk_surface: sys::VkSurfaceKHR,vk_render_pass: sys::VkRenderPass,r: Rect<f32>) -> Result<SwapchainResources,String> {
 
-        dprintln!("SwapchainResources::create: vk_physical_device = {:?}, vk_surface = {:?}, vk_render_pass = {:?}, r = {}",gpu_system.vk_physical_device,vk_surface,vk_render_pass,r);
-
         // get surface capabilities to calculate the extent and image count
-        let mut capabilities = MaybeUninit::uninit();
+        let mut capabilities = MaybeUninit::<sys::VkSurfaceCapabilitiesKHR>::uninit();
         match unsafe { sys::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
             gpu_system.vk_physical_device,
             vk_surface,
@@ -31,18 +29,20 @@ impl SwapchainResources {
         ) } {
             sys::VK_SUCCESS => { },
             code => {
-                return Err(format!("unable to get surface capabilities (error {})",code));
+                return Err(format!("unable to get surface capabilities ({})",vk_code_to_string(code)));
             },
         }
         let capabilities = unsafe { capabilities.assume_init() };
-        dprintln!("capabilities = {:?}",capabilities);
 
+        // get current extent, if any
         let extent = if capabilities.currentExtent.width != 0xFFFFFFFF {
             Vec2 {
                 x: capabilities.currentExtent.width,
                 y: capabilities.currentExtent.height,
             }
         }
+
+        // otherwise take window size as extent, and make sure it fits the constraints
         else {
             let mut extent = Vec2 { x: r.s.x as u32,y: r.s.y as u32, };
             if extent.x < capabilities.minImageExtent.width {
@@ -65,15 +65,14 @@ impl SwapchainResources {
         match unsafe { sys::vkGetPhysicalDeviceSurfaceFormatsKHR(
             gpu_system.vk_physical_device,
             vk_surface,
-            &mut count,
+            &mut count as *mut u32,
             null_mut(),
         ) } {
             sys::VK_SUCCESS => { },
             code => {
-                return Err(format!("unable to get surface formats (error {})",code));
+                return Err(format!("unable to get surface formats ({})",vk_code_to_string(code)));
             },
         }
-        dprintln!("there are {} surface formats supported by the window",count);
         let mut formats = vec![MaybeUninit::<sys::VkSurfaceFormatKHR>::uninit(); count as usize];
         match unsafe { sys::vkGetPhysicalDeviceSurfaceFormatsKHR(
             gpu_system.vk_physical_device,
@@ -83,18 +82,13 @@ impl SwapchainResources {
         ) } {
             sys::VK_SUCCESS => { },
             code => {
-                return Err(format!("unable to get surface formats (error {})",code));
+                return Err(format!("unable to get surface formats ({})",vk_code_to_string(code)));
             }
         }
         let formats = unsafe { std::mem::transmute::<_,Vec<sys::VkSurfaceFormatKHR>>(formats) };
-
-        dprintln!("and those are:");
-        formats.iter().for_each(|vk_format| {
-            dprintln!("    format: {}, colorspace: {}",vk_format.format,vk_format.colorSpace);
-        });
         let format_supported = formats.iter().any(|vk_format| (vk_format.format == sys::VK_FORMAT_B8G8R8A8_SRGB) && (vk_format.colorSpace == sys::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR));
         if !format_supported {
-            return Err("window does not support BGRA8UN".to_string());
+            return Err("window does not support BGRA8UN at SRGB".to_string());
         }
 
         // create swap chain for this window
@@ -117,28 +111,27 @@ impl SwapchainResources {
             presentMode: sys::VK_PRESENT_MODE_FIFO_KHR,
             clipped: sys::VK_TRUE,
             oldSwapchain: null_mut(),
-        };
-        let mut vk_swapchain = MaybeUninit::uninit();
+        };        
+        let mut vk_swapchain: sys::VkSwapchainKHR = null_mut();
         match unsafe { sys::vkCreateSwapchainKHR(
             gpu_system.vk_device,
             &info,
             null_mut(),
-            vk_swapchain.as_mut_ptr(),
+            &mut vk_swapchain as *mut sys::VkSwapchainKHR,
         ) } {
             sys::VK_SUCCESS => { },
             code => {
-                return Err(format!("unable to create swap chain (error {})",code));
+                return Err(format!("unable to create swap chain ({})",vk_code_to_string(code)));
             },
         }
-        let vk_swapchain = unsafe { vk_swapchain.assume_init() };
 
         // get swapchain images
         let mut count = 0u32;
-        match unsafe { sys::vkGetSwapchainImagesKHR(gpu_system.vk_device,vk_swapchain,&mut count,null_mut()) } {
+        match unsafe { sys::vkGetSwapchainImagesKHR(gpu_system.vk_device,vk_swapchain,&mut count as *mut u32,null_mut()) } {
             sys::VK_SUCCESS => { },
             code => {
                 unsafe { sys::vkDestroySwapchainKHR(gpu_system.vk_device,vk_swapchain,null_mut()) };
-                return Err(format!("unable to get swap chain image count (error {})",code));
+                return Err(format!("unable to get swap chain image count ({})",vk_code_to_string(code)));
             },
         }
         let mut vk_images = vec![MaybeUninit::<sys::VkImage>::uninit(); count as usize];
@@ -151,7 +144,7 @@ impl SwapchainResources {
             sys::VK_SUCCESS => { },
             code => {
                 unsafe { sys::vkDestroySwapchainKHR(gpu_system.vk_device,vk_swapchain,null_mut()) };
-                return Err(format!("unable to get swap chain images (error {})",code));
+                return Err(format!("unable to get swap chain images ({})",vk_code_to_string(code)));
             },
         }
         let vk_images = unsafe { std::mem::transmute::<_,Vec<sys::VkImage>>(vk_images) };
@@ -179,10 +172,10 @@ impl SwapchainResources {
                     layerCount: 1,
                 },
             };
-            let mut vk_image_view = MaybeUninit::uninit();
-            match unsafe { sys::vkCreateImageView(gpu_system.vk_device,&info,null_mut(),vk_image_view.as_mut_ptr()) } {
-                sys::VK_SUCCESS => Ok(unsafe { vk_image_view.assume_init() }),
-                code => Err(format!("unable to create image view (error {})",code)),
+            let mut vk_image_view: sys::VkImageView = null_mut();
+            match unsafe { sys::vkCreateImageView(gpu_system.vk_device,&info,null_mut(),&mut vk_image_view) } {
+                sys::VK_SUCCESS => Ok(vk_image_view),
+                code => Err(format!("unable to create image view ({})",vk_code_to_string(code))),
             }
         }).collect();
         if results.iter().any(|result| result.is_err()) {
@@ -208,7 +201,7 @@ impl SwapchainResources {
             let mut vk_framebuffer = MaybeUninit::uninit();
             match unsafe { sys::vkCreateFramebuffer(gpu_system.vk_device,&info,null_mut(),vk_framebuffer.as_mut_ptr()) } {
                 sys::VK_SUCCESS => Ok(unsafe { vk_framebuffer.assume_init() }),
-                code => Err(format!("unable to create framebuffer (error {})",code)),
+                code => Err(format!("unable to create framebuffer ({})",vk_code_to_string(code))),
             }
         }).collect();
         if results.iter().any(|result| result.is_err()) {
@@ -247,7 +240,6 @@ impl GpuWindow {
     pub(crate) fn create(gpu_system: &Rc<GpuSystem>,r: Rect<f32>,xcb_connection: *mut sys::xcb_connection_t,xcb_window: u32) -> Result<GpuWindow,String> {
 
         // create surface for this window
-        dprintln!("creating surrface for xcb_connection = {:?}, xcb_window = {} at r = {}",xcb_connection,xcb_window,r);
         let info = sys::VkXcbSurfaceCreateInfoKHR {
             sType: sys::VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
             pNext: null_mut(),
@@ -255,17 +247,29 @@ impl GpuWindow {
             connection: xcb_connection,
             window: xcb_window,
         };
-        let mut vk_surface = std::mem::MaybeUninit::uninit();
+        let mut vk_surface = MaybeUninit::<sys::VkSurfaceKHR>::uninit();
         match unsafe { sys::vkCreateXcbSurfaceKHR(gpu_system.vk_instance,&info,null_mut(),vk_surface.as_mut_ptr()) } {
             sys::VK_SUCCESS => { },
             code => {
-                return Err(format!("Unable to create Vulkan XCB surface (error {})",code));
+                return Err(format!("Unable to create Vulkan XCB surface ({})",vk_code_to_string(code)));
             },
         }
         let vk_surface = unsafe { vk_surface.assume_init() };
-        dprintln!("vk_surface = {:?}",vk_surface);
 
-        dprintln!("creating render pass");
+        // verify the surface is supported for the current physical device
+        let mut supported = MaybeUninit::<sys::VkBool32>::uninit();
+        match unsafe { sys::vkGetPhysicalDeviceSurfaceSupportKHR(gpu_system.vk_physical_device,0,vk_surface,supported.as_mut_ptr()) } {
+            sys::VK_SUCCESS => { },
+            code => {
+                return Err(format!("Surface not supported on physical device ({})",vk_code_to_string(code)));
+            },
+        }
+        let supported = unsafe { supported.assume_init() };
+        if supported == sys::VK_FALSE {
+            return Err("Surface not supported on physical device".to_string());
+        }
+
+        // create render pass
         let info = sys::VkRenderPassCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
             pNext: null_mut(),
@@ -314,7 +318,7 @@ impl GpuWindow {
             sys::VK_SUCCESS => { },
             code => {
                 unsafe { sys::vkDestroySurfaceKHR(gpu_system.vk_instance,vk_surface,null_mut()) };
-                return Err(format!("unable to create render pass (error {})",code));
+                return Err(format!("unable to create render pass ({})",vk_code_to_string(code)));
             }
         }
         let vk_render_pass = unsafe { vk_render_pass.assume_init() };

@@ -98,11 +98,4 @@ impl Drop for Window {
             sys::xcb_destroy_window(self.system.xcb_connection,self.xcb_window as u32);
         }
     }
-
-    /*
-    Cannot call vkDestroyRenderPass on VkRenderPass 0x30000000003[] that is
-    currently in use by a command buffer. The Vulkan spec states: All
-    submitted commands that refer to renderPass must have completed execution
-    (https://vulkan.lunarg.com/doc/view/1.2.162.1~rc2/linux/1.2-extensions/vkspec.html#VUID-vkDestroyRenderPass-renderPass-00873)
-    */
 }

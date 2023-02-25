@@ -2,7 +2,10 @@ use {
     crate::*,
     std::{
         rc::Rc,
-        os::raw::c_int,
+        os::raw::{
+            c_int,
+            c_void,
+        },
         ptr::null_mut,
     },
 };
@@ -13,8 +16,6 @@ pub struct System {
     pub(crate) xdisplay: *mut sys::Display,
     pub(crate) xcb_connection: *mut sys::xcb_connection_t,
     pub(crate) xcb_screen: *mut sys::xcb_screen_t,
-    pub(crate) xcb_depth: u8,
-    pub(crate) xcb_root_window: sys::xcb_window_t,
     pub(crate) epfd: c_int,
     pub(crate) wm_protocols: u32,
     pub(crate) wm_delete_window: u32,
@@ -64,8 +65,6 @@ impl System {
 
         // start by assuming the root depth and visual
         let xcb_screen = unsafe { sys::xcb_setup_roots_iterator(xcb_setup) }.data;
-        let xcb_depth = unsafe { *xcb_screen }.root_depth;
-        let xcb_root_window = unsafe { *xcb_screen }.root;
 
         // create epoll descriptor to be able to wait for UI events on a system level
         let fd = unsafe { sys::xcb_get_file_descriptor(xcb_connection) };
@@ -102,8 +101,6 @@ impl System {
             xdisplay,
             xcb_connection,
             xcb_screen,
-            xcb_depth,
-            xcb_root_window,
             epfd,
             wm_protocols,
             wm_delete_window,
@@ -276,8 +273,6 @@ impl System {
 
         // create window
         let xcb_window = unsafe { sys::xcb_generate_id(self.xcb_connection) };
-        let xcb_colormap = unsafe { sys::xcb_generate_id(self.xcb_connection) };
-        unsafe { sys::xcb_create_colormap(self.xcb_connection,sys::XCB_COLORMAP_ALLOC_NONE as u8,xcb_colormap,self.xcb_root_window,sys::XCB_COPY_FROM_PARENT) };
         let values = [
             sys::XCB_EVENT_MASK_EXPOSURE
             | sys::XCB_EVENT_MASK_KEY_PRESS
@@ -286,30 +281,29 @@ impl System {
             | sys::XCB_EVENT_MASK_BUTTON_RELEASE
             | sys::XCB_EVENT_MASK_POINTER_MOTION
             | sys::XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-            xcb_colormap,
+            sys::XCB_COPY_FROM_PARENT,
         ];
         unsafe {
             sys::xcb_create_window(
                 self.xcb_connection,
-                self.xcb_depth,
+                (*self.xcb_screen).root_depth,
                 xcb_window as u32,
-                //if let Some(id) = parent { id as u32 } else { system.rootwindow as u32 },
-                self.xcb_root_window,
+                (*self.xcb_screen).root,
                 r.o.x as i16,
                 r.o.y as i16,
                 r.s.x as u16,
                 r.s.y as u16,
                 0,
                 sys::XCB_WINDOW_CLASS_INPUT_OUTPUT as u16,
-                sys::XCB_COPY_FROM_PARENT,
+                (*self.xcb_screen).root_visual,
                 sys::XCB_CW_EVENT_MASK | sys::XCB_CW_COLORMAP,
-                &values as *const u32 as *const std::os::raw::c_void
+                &values as *const u32 as *const c_void
             );
             sys::xcb_map_window(self.xcb_connection,xcb_window as u32);
             sys::xcb_flush(self.xcb_connection);
         }
-        dprintln!("created xcb_window = {}, mapped and flushed",xcb_window);
 
+        // create GPU-specific portion of the window
         let gpu_window = GpuWindow::create(&self.gpu_system,r,self.xcb_connection,xcb_window)?;
 
         Ok(Window {
@@ -319,7 +313,7 @@ impl System {
         })
     }
     
-    /// Create application frame window.
+    /// Create application frame window (with frame and title bar).
     pub fn create_frame_window(self: &Rc<System>,r: Rect<f32>,title: &str) -> Result<Window,String> {
         let window = self.create_window(r,false)?;
         let protocol_set = [self.wm_delete_window];
@@ -348,7 +342,7 @@ impl System {
         Ok(window)
     }
     
-    /// Create standalone popup window.
+    /// Create standalone popup window (no frame or title bar).
     pub fn create_popup_window(self: &Rc<System>,r: Rect<f32>) -> Result<Window,String> {
         let window = self.create_window(r,true)?;
         let net_state = [self.wm_net_state_above];
