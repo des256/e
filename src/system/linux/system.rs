@@ -11,6 +11,7 @@ use {
 };
 
 /// The system structure (linux).
+#[derive(Debug)]
 pub struct System {
     pub(crate) gpu_system: Rc<GpuSystem>,
     pub(crate) xdisplay: *mut sys::Display,

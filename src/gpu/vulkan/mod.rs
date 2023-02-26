@@ -7,6 +7,15 @@ pub(crate) use gpusystem::*;
 mod gpuwindow;
 pub(crate) use gpuwindow::*;
 
+mod graphicspipeline;
+pub use graphicspipeline::*;
+
+mod computepipeline;
+pub use computepipeline::*;
+
+mod commandbuffer;
+pub use commandbuffer::*;
+
 // NOTE: no need for extra as *mut, MaybeUninit actually looks cleaner...
 
 pub(crate) fn vk_code_to_string(code: i32) -> &'static str {
