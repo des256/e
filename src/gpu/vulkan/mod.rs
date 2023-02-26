@@ -1,5 +1,8 @@
 //! GPU subsystem (Vulkan implementation).
-use crate::*;
+use {
+    crate::*,
+    ast::*,
+};
 
 mod gpusystem;
 pub(crate) use gpusystem::*;
@@ -341,5 +344,106 @@ pub(crate) fn vk_colorspace_to_string(colorspace: sys::VkColorSpaceKHR) -> &'sta
         sys::VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT => "VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT",
         sys::VK_COLOR_SPACE_DISPLAY_NATIVE_AMD => "VK_COLOR_SPACE_DISPLAY_NATIVE_AMD",
         _ => "(unknown)",
+    }
+}
+
+pub(crate) fn type_to_vk_format(type_: &ast::Type) -> Result<sys::VkFormat,String> {
+    match type_ {
+        Type::Inferred | Type::Void | Type::Integer | Type::Float | Type::USize | Type::ISize => Err(format!("Vertex field cannot be {}",type_)),
+        Type::Bool | Type::AnonTuple(_) | Type::Array(_,_) | Type::UnknownIdent(_) => Err(format!("TODO: Vertex field {}",type_)),
+        Type::U8 => Ok(sys::VK_FORMAT_R8_UINT),
+        Type::I8 => Ok(sys::VK_FORMAT_R8_SINT),
+        Type::U16 => Ok(sys::VK_FORMAT_R16_UINT),
+        Type::I16 => Ok(sys::VK_FORMAT_R16_SINT),
+        Type::U32 => Ok(sys::VK_FORMAT_R32_UINT),
+        Type::I32 => Ok(sys::VK_FORMAT_R32_SINT),
+        Type::U64 => Ok(sys::VK_FORMAT_R64_UINT),
+        Type::I64 => Ok(sys::VK_FORMAT_R64_SINT),
+        Type::F16 => Ok(sys::VK_FORMAT_R16_SFLOAT),
+        Type::F32 => Ok(sys::VK_FORMAT_R32_SFLOAT),
+        Type::F64 => Ok(sys::VK_FORMAT_R64_SFLOAT),
+        Type::Generic(ident,types) => {
+            if types.len() == 1 {
+                let vc = match ident.as_str() {
+                    "Vec2" => Ok(2),
+                    "Vec3" => Ok(3),
+                    "Vec4" => Ok(4),
+                    _ => Err(format!("Vertex field cannot be a {}",ident)),
+                }?;
+                match types[0] {
+                    Type::Inferred | Type::Void | Type::Integer | Type::Float | Type::USize | Type::ISize | Type::Generic(_,_) => Err(format!("Vertex field cannot be Vec{}<{}>",vc,type_)),
+                    Type::Bool | Type::AnonTuple(_) | Type::Array(_,_) | Type::UnknownIdent(_) => Err(format!("TODO: Vertex field Vec{}<{}>",vc,type_)),
+                    Type::U8 => match vc {
+                        2 => Ok(sys::VK_FORMAT_R8G8_UINT),
+                        3 => Ok(sys::VK_FORMAT_R8G8B8_UINT),
+                        4 => Ok(sys::VK_FORMAT_R8G8B8A8_UINT),
+                        _ => Err("NOPE!".to_string()),
+                    },
+                    Type::I8 => match vc {
+                        2 => Ok(sys::VK_FORMAT_R8G8_SINT),
+                        3 => Ok(sys::VK_FORMAT_R8G8B8_SINT),
+                        4 => Ok(sys::VK_FORMAT_R8G8B8A8_SINT),
+                        _ => Err("NOPE!".to_string()),
+                    },
+                    Type::U16 => match vc {
+                        2 => Ok(sys::VK_FORMAT_R16G16_UINT),
+                        3 => Ok(sys::VK_FORMAT_R16G16B16_UINT),
+                        4 => Ok(sys::VK_FORMAT_R16G16B16A16_UINT),
+                        _ => Err("NOPE!".to_string()),
+                    },
+                    Type::I16 => match vc {
+                        2 => Ok(sys::VK_FORMAT_R16G16_SINT),
+                        3 => Ok(sys::VK_FORMAT_R16G16B16_SINT),
+                        4 => Ok(sys::VK_FORMAT_R16G16B16A16_SINT),
+                        _ => Err("NOPE!".to_string()),
+                    },
+                    Type::U32 => match vc {
+                        2 => Ok(sys::VK_FORMAT_R32G32_UINT),
+                        3 => Ok(sys::VK_FORMAT_R32G32B32_UINT),
+                        4 => Ok(sys::VK_FORMAT_R32G32B32A32_UINT),
+                        _ => Err("NOPE!".to_string()),
+                    },
+                    Type::I32 => match vc {
+                        2 => Ok(sys::VK_FORMAT_R32G32_SINT),
+                        3 => Ok(sys::VK_FORMAT_R32G32B32_SINT),
+                        4 => Ok(sys::VK_FORMAT_R32G32B32A32_SINT),
+                        _ => Err("NOPE!".to_string()),
+                    },
+                    Type::U64 => match vc {
+                        2 => Ok(sys::VK_FORMAT_R64G64_UINT),
+                        3 => Ok(sys::VK_FORMAT_R64G64B64_UINT),
+                        4 => Ok(sys::VK_FORMAT_R64G64B64A64_UINT),
+                        _ => Err("NOPE!".to_string()),
+                    },
+                    Type::I64 => match vc {
+                        2 => Ok(sys::VK_FORMAT_R64G64_SINT),
+                        3 => Ok(sys::VK_FORMAT_R64G64B64_SINT),
+                        4 => Ok(sys::VK_FORMAT_R64G64B64A64_SINT),
+                        _ => Err("NOPE!".to_string()),
+                    },
+                    Type::F16 => match vc {
+                        2 => Ok(sys::VK_FORMAT_R16G16_SFLOAT),
+                        3 => Ok(sys::VK_FORMAT_R16G16B16_SFLOAT),
+                        4 => Ok(sys::VK_FORMAT_R16G16B16A16_SFLOAT),
+                        _ => Err("NOPE!".to_string()),
+                    },
+                    Type::F32 => match vc {
+                        2 => Ok(sys::VK_FORMAT_R32G32_SFLOAT),
+                        3 => Ok(sys::VK_FORMAT_R32G32B32_SFLOAT),
+                        4 => Ok(sys::VK_FORMAT_R32G32B32A32_SFLOAT),
+                        _ => Err("NOPE!".to_string()),
+                    },
+                    Type::F64 => match vc {
+                        2 => Ok(sys::VK_FORMAT_R64G64_SFLOAT),
+                        3 => Ok(sys::VK_FORMAT_R64G64B64_SFLOAT),
+                        4 => Ok(sys::VK_FORMAT_R64G64B64A64_SFLOAT),
+                        _ => Err("NOPE!".to_string()),
+                    },
+                }
+            }
+            else {
+                Err(format!("Vertex field cannot be {}",type_))
+            }
+        },
     }
 }

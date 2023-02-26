@@ -20,24 +20,22 @@ impl Parser {
                 "f32" => Type::F32,
                 "f64" => Type::F64,
                 _ => {
-                    let mut full = ident;
                     self.punct2(':',':');
                     if self.punct('<') {
-                        full += "<";
-                        if let Some(ident) = self.ident() {
-                            full += &ident;
+                        let mut types = Vec::<Type>::new();
+                        loop {
+                            let type_ = self.type_();
+                            types.push(type_);
+                            self.punct(',');
                             if self.punct('>') {
-                                full += ">";
-                            }
-                            else {
-                                self.fatal(&format!("closing '>' expected instead of '{}'",ident));
-                            }
+                                break;
+                            }    
                         }
-                        else {
-                            self.fatal(&format!("identifier expected instead of '{}'",full));
-                        }
+                        Type::Generic(ident,types)
                     }
-                    Type::UnknownIdent(full)
+                    else {
+                        Type::UnknownIdent(ident)
+                    }
                 }
             }
         }

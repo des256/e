@@ -44,6 +44,18 @@ impl Display for Type {
             },
             Type::Array(type_,expr) => write!(f,"[{}; {}]",type_,expr),
             Type::UnknownIdent(ident) => write!(f,"{}",ident),
+            Type::Generic(ident,types) => {
+                write!(f,"{}<",ident)?;
+                let mut first = true;
+                for type_ in types.iter() {
+                    if !first {
+                        write!(f,",")?;
+                    }
+                    write!(f,"{}",type_)?;
+                    first = false;
+                }
+                write!(f,">")
+            },
         }
     }
 }

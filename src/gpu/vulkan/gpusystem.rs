@@ -8,51 +8,6 @@ use {
     },
 };
 
-trait BaseTypeFormat {
-    const FORMAT: sys::VkFormat;
-}
-
-impl BaseTypeFormat for u8 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8_UINT; }
-impl BaseTypeFormat for u16 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16_UINT; }
-impl BaseTypeFormat for u32 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32_UINT; }
-impl BaseTypeFormat for u64 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64_UINT; }
-impl BaseTypeFormat for i8 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8_SINT; }
-impl BaseTypeFormat for i16 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16_SINT; }
-impl BaseTypeFormat for i32 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32_SINT; }
-impl BaseTypeFormat for i64 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64_SINT; }
-impl BaseTypeFormat for f32 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32_SFLOAT; }
-impl BaseTypeFormat for f64 { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64_SFLOAT; }
-impl BaseTypeFormat for Vec2<u8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8_UINT; }
-impl BaseTypeFormat for Vec2<u16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16_UINT; }
-impl BaseTypeFormat for Vec2<u32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32_UINT; }
-impl BaseTypeFormat for Vec2<u64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64_UINT; }
-impl BaseTypeFormat for Vec2<i8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8_SINT; }
-impl BaseTypeFormat for Vec2<i16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16_SINT; }
-impl BaseTypeFormat for Vec2<i32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32_SINT; }
-impl BaseTypeFormat for Vec2<i64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64_SINT; }
-impl BaseTypeFormat for Vec2<f32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32_SFLOAT; }
-impl BaseTypeFormat for Vec2<f64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64_SFLOAT; }
-impl BaseTypeFormat for Vec3<u8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8B8_UINT; }
-impl BaseTypeFormat for Vec3<u16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16B16_UINT; }
-impl BaseTypeFormat for Vec3<u32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32_UINT; }
-impl BaseTypeFormat for Vec3<u64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64_UINT; }
-impl BaseTypeFormat for Vec3<i8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8B8_SINT; }
-impl BaseTypeFormat for Vec3<i16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16B16_SINT; }
-impl BaseTypeFormat for Vec3<i32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32_SINT; }
-impl BaseTypeFormat for Vec3<i64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64_SINT; }
-impl BaseTypeFormat for Vec3<f32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32_SFLOAT; }
-impl BaseTypeFormat for Vec3<f64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64_SFLOAT; }
-impl BaseTypeFormat for Vec4<u8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8B8A8_UINT; }
-impl BaseTypeFormat for Vec4<u16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16B16A16_UINT; }
-impl BaseTypeFormat for Vec4<u32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32A32_UINT; }
-impl BaseTypeFormat for Vec4<u64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64A64_UINT; }
-impl BaseTypeFormat for Vec4<i8> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R8G8B8A8_SINT; }
-impl BaseTypeFormat for Vec4<i16> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R16G16B16A16_SINT; }
-impl BaseTypeFormat for Vec4<i32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32A32_SINT; }
-impl BaseTypeFormat for Vec4<i64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64A64_SINT; }
-impl BaseTypeFormat for Vec4<f32> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R32G32B32A32_SFLOAT; }
-impl BaseTypeFormat for Vec4<f64> { const FORMAT: sys::VkFormat = sys::VK_FORMAT_R64G64B64A64_SFLOAT; }
-
 // Supplemental fields for System
 #[derive(Debug)]
 pub(crate) struct GpuSystem {

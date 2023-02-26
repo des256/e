@@ -17,6 +17,7 @@ use {
     },
 };
 
+
 #[derive(Debug)]
 pub struct GraphicsPipeline {
     pub(crate) system: Rc<System>,
@@ -57,7 +58,7 @@ impl GraphicsPipeline {
         blend_constant: Vec4<f32>,
     ) -> Result<GraphicsPipeline,String> {
 
-        let vertex_base_fields = T::get_fields();
+        let vertex_struct = T::ast();
 
         let shaders = [
             sys::VkPipelineShaderStageCreateInfo {
@@ -83,15 +84,15 @@ impl GraphicsPipeline {
         let mut location = 0u32;
         let mut stride = 0u32;
         let mut attribute_descriptions: Vec<sys::VkVertexInputAttributeDescription> = Vec::new();
-        for (_,ty) in &vertex_base_fields {
+        for field in vertex_struct.fields.iter() {
             attribute_descriptions.push(sys::VkVertexInputAttributeDescription {
                 location,
                 binding: 0,
-                format: base_type_format(ty),
+                format: type_to_vk_format(&field.1)?,
                 offset: stride,
             });
             location += 1;
-            stride += ty.size() as u32;
+            stride += type_to_size(&field.1)? as u32;
         }
 
         let input = sys::VkPipelineVertexInputStateCreateInfo {

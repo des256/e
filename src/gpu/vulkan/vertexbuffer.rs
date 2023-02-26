@@ -23,10 +23,10 @@ impl VertexBuffer {
     pub fn new<T: Vertex>(system: &Rc<System>,vertices: &Vec<T>) -> Result<VertexBuffer,String> {
 
         // obtain vertex info
-        let vertex_base_fields = T::get_fields();
+        let vertex_struct = T::ast();
         let mut vertex_stride = 0usize;
-        for (_,ty) in &vertex_base_fields {
-            vertex_stride += ty.size();
+        for field in vertex_struct.fields.iter() {
+            vertex_stride += type_to_size(&field.1)?;
         }
 
         // create vertex buffer

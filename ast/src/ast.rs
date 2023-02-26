@@ -9,6 +9,7 @@ pub enum Type {
     AnonTuple(Vec<Type>),
     Array(Box<Type>,Box<Expr>),
     UnknownIdent(String),
+    Generic(String,Vec<Type>),
 }
 
 #[derive(Clone)]

@@ -337,7 +337,7 @@ impl GpuWindow {
         })
     }
 
-    pub fn update_swapchain(&self,r: Rect<f32>) {
+    pub fn update_swapchain(&mut self,r: Rect<f32>) {
         if let Ok(swapchain) = Swapchain::new(&self.system,self.vk_surface,self.vk_render_pass,r) {
             self.swapchain = swapchain;
         }
