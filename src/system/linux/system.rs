@@ -2,10 +2,7 @@ use {
     crate::*,
     std::{
         rc::Rc,
-        os::raw::{
-            c_int,
-            c_void,
-        },
+        os::raw::c_int,
         ptr::null_mut,
     },
 };
@@ -45,7 +42,7 @@ fn resolve_atom_cookie(xcb_connection: *mut sys::xcb_connection_t,cookie: sys::x
 impl System {
 
     /// Open the system interface.
-    pub fn open() -> Result<Rc<System>,String> {
+    pub fn open() -> Result<System,String> {
 
         // open X connection and get first screen
         let xdisplay = unsafe { sys::XOpenDisplay(null_mut()) };
@@ -97,7 +94,7 @@ impl System {
         // initialize GPU
         let gpu_system = GpuSystem::open()?;
 
-        Ok(Rc::new(System {
+        Ok(System {
             gpu_system,
             xdisplay,
             xcb_connection,
@@ -112,7 +109,7 @@ impl System {
             wm_net_type_dropdown_menu,
             wm_net_state,
             wm_net_state_above,
-        }))
+        })
     }
 
 #[doc(hidden)]
@@ -268,109 +265,6 @@ impl System {
         //let values = [(CW_CURSOR,self.cursors[n])];
         //change_window_attributes(&self.connection,id as u32,&values);
     }*/
-
-    // create basic window, decorations are handled in the public create_frame and create_popup
-    fn create_window(self: &Rc<System>,r: Rect<f32>,_absolute: bool) -> Result<Window,String> {
-
-        // create window
-        let xcb_window = unsafe { sys::xcb_generate_id(self.xcb_connection) };
-        let values = [
-            sys::XCB_EVENT_MASK_EXPOSURE
-            | sys::XCB_EVENT_MASK_KEY_PRESS
-            | sys::XCB_EVENT_MASK_KEY_RELEASE
-            | sys::XCB_EVENT_MASK_BUTTON_PRESS
-            | sys::XCB_EVENT_MASK_BUTTON_RELEASE
-            | sys::XCB_EVENT_MASK_POINTER_MOTION
-            | sys::XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-            sys::XCB_COPY_FROM_PARENT,
-        ];
-        unsafe {
-            sys::xcb_create_window(
-                self.xcb_connection,
-                (*self.xcb_screen).root_depth,
-                xcb_window as u32,
-                (*self.xcb_screen).root,
-                r.o.x as i16,
-                r.o.y as i16,
-                r.s.x as u16,
-                r.s.y as u16,
-                0,
-                sys::XCB_WINDOW_CLASS_INPUT_OUTPUT as u16,
-                (*self.xcb_screen).root_visual,
-                sys::XCB_CW_EVENT_MASK | sys::XCB_CW_COLORMAP,
-                &values as *const u32 as *const c_void
-            );
-            sys::xcb_map_window(self.xcb_connection,xcb_window as u32);
-            sys::xcb_flush(self.xcb_connection);
-        }
-
-        // create GPU-specific portion of the window
-        let gpu_window = GpuWindow::create(&self.gpu_system,r,self.xcb_connection,xcb_window)?;
-
-        Ok(Window {
-            system: Rc::clone(&self),
-            gpu_window,
-            xcb_window,
-        })
-    }
-    
-    /// Create application frame window (with frame and title bar).
-    pub fn create_frame_window(self: &Rc<System>,r: Rect<f32>,title: &str) -> Result<Window,String> {
-        let window = self.create_window(r,false)?;
-        let protocol_set = [self.wm_delete_window];
-        let protocol_set_void = protocol_set.as_ptr() as *const std::os::raw::c_void;
-        unsafe { sys::xcb_change_property(
-            self.xcb_connection,
-            sys::XCB_PROP_MODE_REPLACE as u8,
-            window.xcb_window as u32,
-            self.wm_protocols,
-            sys::XCB_ATOM_ATOM,
-            32,
-            1,
-            protocol_set_void
-        ) };
-        unsafe { sys::xcb_change_property(
-            self.xcb_connection,
-            sys::XCB_PROP_MODE_REPLACE as u8,
-            window.xcb_window as u32,
-            sys::XCB_ATOM_WM_NAME,
-            sys::XCB_ATOM_STRING,
-            8,
-            title.len() as u32,
-            title.as_bytes().as_ptr() as *const std::os::raw::c_void
-        ) };
-        unsafe { sys::xcb_flush(self.xcb_connection) };
-        Ok(window)
-    }
-    
-    /// Create standalone popup window (no frame or title bar).
-    pub fn create_popup_window(self: &Rc<System>,r: Rect<f32>) -> Result<Window,String> {
-        let window = self.create_window(r,true)?;
-        let net_state = [self.wm_net_state_above];
-        unsafe { sys::xcb_change_property(
-            self.xcb_connection,
-            sys::XCB_PROP_MODE_REPLACE as u8,
-            window.xcb_window as u32,
-            self.wm_net_state,
-            sys::XCB_ATOM_ATOM,
-            32,
-            1,
-            net_state.as_ptr() as *const std::os::raw::c_void
-        ) };
-        let hints = [2u32,0,0,0,0];
-        unsafe { sys::xcb_change_property(
-            self.xcb_connection,
-            sys::XCB_PROP_MODE_REPLACE as u8,
-            window.xcb_window as u32,
-            self.wm_motif_hints,
-            sys::XCB_ATOM_ATOM,
-            32,
-            5,
-            hints.as_ptr() as *const std::os::raw::c_void
-        ) };
-        unsafe { sys::xcb_flush(self.xcb_connection) };
-        Ok(window)
-    }
 }
 
 impl Drop for System {

@@ -1,6 +1,9 @@
 use {
     crate::*,
-    std::rc::Rc,
+    std::{
+        rc::Rc,
+        os::raw::c_void,
+    },
 };
 
 pub const KEY_UP: u8 = 111;
@@ -16,6 +19,109 @@ pub struct Window {
 }
 
 impl Window {
+
+    // create basic window, decorations are handled in the public create_frame and create_popup
+    fn new_common(system: &Rc<System>,r: Rect<f32>,_absolute: bool) -> Result<Window,String> {
+
+        // create window
+        let xcb_window = unsafe { sys::xcb_generate_id(system.xcb_connection) };
+        let values = [
+            sys::XCB_EVENT_MASK_EXPOSURE
+            | sys::XCB_EVENT_MASK_KEY_PRESS
+            | sys::XCB_EVENT_MASK_KEY_RELEASE
+            | sys::XCB_EVENT_MASK_BUTTON_PRESS
+            | sys::XCB_EVENT_MASK_BUTTON_RELEASE
+            | sys::XCB_EVENT_MASK_POINTER_MOTION
+            | sys::XCB_EVENT_MASK_STRUCTURE_NOTIFY,
+            sys::XCB_COPY_FROM_PARENT,
+        ];
+        unsafe {
+            sys::xcb_create_window(
+                system.xcb_connection,
+                (*system.xcb_screen).root_depth,
+                xcb_window as u32,
+                (*system.xcb_screen).root,
+                r.o.x as i16,
+                r.o.y as i16,
+                r.s.x as u16,
+                r.s.y as u16,
+                0,
+                sys::XCB_WINDOW_CLASS_INPUT_OUTPUT as u16,
+                (*system.xcb_screen).root_visual,
+                sys::XCB_CW_EVENT_MASK | sys::XCB_CW_COLORMAP,
+                &values as *const u32 as *const c_void
+            );
+            sys::xcb_map_window(system.xcb_connection,xcb_window as u32);
+            sys::xcb_flush(system.xcb_connection);
+        }
+
+        // create GPU-specific portion of the window
+        let gpu_window = GpuWindow::create(system,r,system.xcb_connection,xcb_window)?;
+
+        Ok(Window {
+            system: Rc::clone(system),
+            gpu_window,
+            xcb_window,
+        })
+    }
+    
+    /// Create application frame window (with frame and title bar).
+    pub fn new_frame(system: &Rc<System>,r: Rect<f32>,title: &str) -> Result<Window,String> {
+        let window = Self::new_common(system,r,false)?;
+        let protocol_set = [system.wm_delete_window];
+        let protocol_set_void = protocol_set.as_ptr() as *const std::os::raw::c_void;
+        unsafe { sys::xcb_change_property(
+            system.xcb_connection,
+            sys::XCB_PROP_MODE_REPLACE as u8,
+            window.xcb_window as u32,
+            system.wm_protocols,
+            sys::XCB_ATOM_ATOM,
+            32,
+            1,
+            protocol_set_void
+        ) };
+        unsafe { sys::xcb_change_property(
+            system.xcb_connection,
+            sys::XCB_PROP_MODE_REPLACE as u8,
+            window.xcb_window as u32,
+            sys::XCB_ATOM_WM_NAME,
+            sys::XCB_ATOM_STRING,
+            8,
+            title.len() as u32,
+            title.as_bytes().as_ptr() as *const std::os::raw::c_void
+        ) };
+        unsafe { sys::xcb_flush(system.xcb_connection) };
+        Ok(window)
+    }
+    
+    /// Create standalone popup window (no frame or title bar).
+    pub fn new_popup(system: &Rc<System>,r: Rect<f32>) -> Result<Window,String> {
+        let window = Self::new_common(system,r,true)?;
+        let net_state = [system.wm_net_state_above];
+        unsafe { sys::xcb_change_property(
+            system.xcb_connection,
+            sys::XCB_PROP_MODE_REPLACE as u8,
+            window.xcb_window as u32,
+            system.wm_net_state,
+            sys::XCB_ATOM_ATOM,
+            32,
+            1,
+            net_state.as_ptr() as *const std::os::raw::c_void
+        ) };
+        let hints = [2u32,0,0,0,0];
+        unsafe { sys::xcb_change_property(
+            system.xcb_connection,
+            sys::XCB_PROP_MODE_REPLACE as u8,
+            window.xcb_window as u32,
+            system.wm_motif_hints,
+            sys::XCB_ATOM_ATOM,
+            32,
+            5,
+            hints.as_ptr() as *const std::os::raw::c_void
+        ) };
+        unsafe { sys::xcb_flush(system.xcb_connection) };
+        Ok(window)
+    }
 
     /// Get WindowID for this window.
     pub fn id(&self) -> u32 {

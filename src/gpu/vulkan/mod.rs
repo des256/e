@@ -7,6 +7,21 @@ pub(crate) use gpusystem::*;
 mod gpuwindow;
 pub(crate) use gpuwindow::*;
 
+mod vertexshader;
+pub use vertexshader::*;
+
+mod fragmentshader;
+pub use fragmentshader::*;
+
+mod vertexbuffer;
+pub use vertexbuffer::*;
+
+mod indexbuffer;
+pub use indexbuffer::*;
+
+mod pipelinelayout;
+pub use pipelinelayout::*;
+
 mod graphicspipeline;
 pub use graphicspipeline::*;
 
@@ -16,7 +31,8 @@ pub use computepipeline::*;
 mod commandbuffer;
 pub use commandbuffer::*;
 
-// NOTE: no need for extra as *mut, MaybeUninit actually looks cleaner...
+mod semaphore;
+pub use semaphore::*;
 
 pub(crate) fn vk_code_to_string(code: i32) -> &'static str {
     match code {
