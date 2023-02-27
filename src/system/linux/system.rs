@@ -120,12 +120,12 @@ impl System {
                 //let expose = unsafe { std::mem::transmute::<_,xcb_expose_event_t>(xcb_event) };
                 let r = Rect {
                     o: Vec2 {
-                        x: unsafe { *expose }.x as f32,
-                        y: unsafe { *expose }.y as f32,
+                        x: unsafe { *expose }.x as i32,
+                        y: unsafe { *expose }.y as i32,
                     },
                     s: Vec2 {
-                        x: unsafe { *expose }.width as f32,
-                        y: unsafe { *expose }.height as f32,
+                        x: unsafe { *expose }.width as i32,
+                        y: unsafe { *expose }.height as i32,
                     },
                 };
                 let xcb_window = unsafe { *expose }.window;
@@ -186,12 +186,12 @@ impl System {
                 let configure_notify = xcb_event as *const sys::xcb_configure_notify_event_t;
                 let r = Rect {
                     o: Vec2 {
-                        x: unsafe { *configure_notify }.x as f32,
-                        y: unsafe { *configure_notify }.y as f32,
+                        x: unsafe { *configure_notify }.x as i32,
+                        y: unsafe { *configure_notify }.y as i32,
                     },
                     s: Vec2 {
-                        x: unsafe { *configure_notify }.width as f32,
-                        y: unsafe { *configure_notify }.height as f32,
+                        x: unsafe { *configure_notify }.width as i32,
+                        y: unsafe { *configure_notify }.height as i32,
                     },
                 };
                 let xcb_window = unsafe { *configure_notify }.window;

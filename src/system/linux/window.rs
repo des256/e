@@ -21,7 +21,7 @@ pub struct Window {
 impl Window {
 
     // create basic window, decorations are handled in the public create_frame and create_popup
-    fn new_common(system: &Rc<System>,r: Rect<f32>,_absolute: bool) -> Result<Window,String> {
+    fn new_common(system: &Rc<System>,r: Rect<i32>,_absolute: bool) -> Result<Window,String> {
 
         // create window
         let xcb_window = unsafe { sys::xcb_generate_id(system.xcb_connection) };
@@ -66,7 +66,7 @@ impl Window {
     }
     
     /// Create application frame window (with frame and title bar).
-    pub fn new_frame(system: &Rc<System>,r: Rect<f32>,title: &str) -> Result<Window,String> {
+    pub fn new_frame(system: &Rc<System>,r: Rect<i32>,title: &str) -> Result<Window,String> {
         let window = Self::new_common(system,r,false)?;
         let protocol_set = [system.wm_delete_window];
         let protocol_set_void = protocol_set.as_ptr() as *const std::os::raw::c_void;
@@ -95,7 +95,7 @@ impl Window {
     }
     
     /// Create standalone popup window (no frame or title bar).
-    pub fn new_popup(system: &Rc<System>,r: Rect<f32>) -> Result<Window,String> {
+    pub fn new_popup(system: &Rc<System>,r: Rect<i32>) -> Result<Window,String> {
         let window = Self::new_common(system,r,true)?;
         let net_state = [system.wm_net_state_above];
         unsafe { sys::xcb_change_property(
@@ -126,6 +126,26 @@ impl Window {
     /// Get WindowID for this window.
     pub fn id(&self) -> u32 {
         self.xcb_window
+    }
+
+    /// Get framebuffer count for this window.
+    pub fn get_framebuffer_count(&self) -> usize {
+        self.gpu_window.get_framebuffer_count()
+    }
+
+    /// Update swapchain resources.
+    pub fn update_swapchain(&self,r: &Rect<i32>) {
+        self.gpu_window.update_swapchain(r);
+    }
+
+    /// Acquire next framebuffer.
+    pub fn acquire(&self,signal_semaphore: &Semaphore) -> Result<usize,String> {
+        self.gpu_window.acquire(signal_semaphore)
+    }
+
+    /// Present the framebuffer.
+    pub fn present(&self,index: usize,wait_semaphore: &Semaphore) {
+        self.gpu_window.present(index,wait_semaphore);
     }
 }
 

@@ -97,7 +97,7 @@ impl CommandBuffer {
         sType: sys::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             pNext: null_mut(),
             renderPass: window.gpu_window.vk_render_pass,
-            framebuffer: window.gpu_window.swapchain.vk_framebuffers[index],
+            framebuffer: window.gpu_window.swapchain.borrow().vk_framebuffers[index],
             renderArea: sys::VkRect2D {
                 offset: sys::VkOffset2D {
                     x: r.o.x as i32,

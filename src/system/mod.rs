@@ -92,8 +92,8 @@ pub enum MouseCursor {
 pub enum Event {
     Key(KeyEvent),
     Pointer(PointerEvent),
-    Configure(Rect<f32>),
-    Expose(Rect<f32>),
+    Configure(Rect<i32>),
+    Expose(Rect<i32>),
     Close,
 }
 

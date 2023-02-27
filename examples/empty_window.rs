@@ -10,8 +10,8 @@ fn main() -> Result<(),String> {
     let system = Rc::new(e::System::open()?);
     let frame_window = e::Window::new_frame(&system,
         Rect {
-            o: Vec2 { x: 10.0f32,y: 10.0f32, },
-            s: Vec2 { x: 800.0f32,y: 600.0f32, },
+            o: Vec2 { x: 10i32,y: 10i32, },
+            s: Vec2 { x: 800i32,y: 600i32, },
         },
         "Hello, World!",
     )?;

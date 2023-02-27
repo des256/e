@@ -4,6 +4,7 @@ use {
         rc::Rc,
         mem::MaybeUninit,
         ptr::null_mut,
+        cell::RefCell,
     },
 };
 
@@ -18,7 +19,7 @@ pub(crate) struct Swapchain {
 impl Swapchain {
 
     /// Create swapchain for surface, render pass and rectangle.
-    pub(crate) fn new(system: &Rc<System>,vk_surface: sys::VkSurfaceKHR,vk_render_pass: sys::VkRenderPass,r: Rect<f32>) -> Result<Swapchain,String> {
+    pub(crate) fn new(system: &Rc<System>,vk_surface: sys::VkSurfaceKHR,vk_render_pass: sys::VkRenderPass,r: &Rect<i32>) -> Result<Swapchain,String> {
 
         // get surface capabilities to calculate the extent and image count
         let mut capabilities = MaybeUninit::<sys::VkSurfaceCapabilitiesKHR>::uninit();
@@ -227,17 +228,16 @@ impl Drop for Swapchain {
     }
 }
 
-#[derive(Debug)]
 pub(crate) struct GpuWindow {
     pub system: Rc<System>,
     pub vk_surface: sys::VkSurfaceKHR,
     pub vk_render_pass: sys::VkRenderPass,
-    pub swapchain: Swapchain,
+    pub swapchain: RefCell<Swapchain>,
 }
 
 impl GpuWindow {
 
-    pub(crate) fn create(system: &Rc<System>,r: Rect<f32>,xcb_connection: *mut sys::xcb_connection_t,xcb_window: u32) -> Result<GpuWindow,String> {
+    pub(crate) fn create(system: &Rc<System>,r: Rect<i32>,xcb_connection: *mut sys::xcb_connection_t,xcb_window: u32) -> Result<GpuWindow,String> {
 
         // create surface for this window
         let info = sys::VkXcbSurfaceCreateInfoKHR {
@@ -327,7 +327,7 @@ impl GpuWindow {
         dprintln!("vk_render_pass = {:?}",vk_render_pass);
 
         // create swapchain
-        let swapchain = Swapchain::new(system,vk_surface,vk_render_pass,r)?;
+        let swapchain = RefCell::new(Swapchain::new(system,vk_surface,vk_render_pass,&r)?);
 
         Ok(GpuWindow {
             system: Rc::clone(system),
@@ -337,19 +337,19 @@ impl GpuWindow {
         })
     }
 
-    pub fn update_swapchain(&mut self,r: Rect<f32>) {
+    pub fn update_swapchain(&self,r: &Rect<i32>) {
         if let Ok(swapchain) = Swapchain::new(&self.system,self.vk_surface,self.vk_render_pass,r) {
-            self.swapchain = swapchain;
+            *(self.swapchain.borrow_mut()) = swapchain;
         }
     }
 
     pub fn get_framebuffer_count(&self) -> usize {
-        self.swapchain.vk_framebuffers.len()
+        self.swapchain.borrow().vk_framebuffers.len()
     }
 
     pub fn acquire(&self,signal_semaphore: &Semaphore) -> Result<usize,String> {
         let mut index = 0u32;
-        match unsafe { sys::vkAcquireNextImageKHR(self.system.gpu_system.vk_device,self.swapchain.vk_swapchain,0xFFFFFFFFFFFFFFFF,signal_semaphore.vk_semaphore,null_mut(),&mut index,) } {
+        match unsafe { sys::vkAcquireNextImageKHR(self.system.gpu_system.vk_device,self.swapchain.borrow().vk_swapchain,0xFFFFFFFFFFFFFFFF,signal_semaphore.vk_semaphore,null_mut(),&mut index,) } {
             sys::VK_SUCCESS => Ok(index as usize),
             code => Err(format!("Unable to acquire next image ({})",code)),
         }
@@ -363,7 +363,7 @@ impl GpuWindow {
             waitSemaphoreCount: 1,
             pWaitSemaphores: &wait_semaphore.vk_semaphore,
             swapchainCount: 0,
-            pSwapchains: &self.swapchain.vk_swapchain,
+            pSwapchains: &self.swapchain.borrow().vk_swapchain,
             pImageIndices: &image_index,
             pResults: null_mut(),
         };
