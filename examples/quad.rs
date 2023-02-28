@@ -12,6 +12,7 @@ use {
 #[derive(Vertex)]
 struct MyVertex {
     pub pos: Vec2<f32>,
+    pub color: Vec3<f32>,
 }
 
 fn main() -> Result<(),String> {
@@ -20,25 +21,25 @@ fn main() -> Result<(),String> {
         o: Vec2 { x: 10i32,y: 10i32, },
         s: Vec2 { x: 800i32,y: 600i32, },
     };
-    let frame_window = Rc::new(e::Window::new_frame(&system,r,"Single Triangle",)?);
+    let frame_window = Rc::new(e::Window::new_frame(&system,r,"Single Quad",)?);
     let count = frame_window.get_framebuffer_count();
     let mut command_buffers: Vec<CommandBuffer> = Vec::new();
     for _ in 0..count {
         command_buffers.push(CommandBuffer::new(&system)?);
     }
-    let mut f = File::open("test_triangle_vert.spv").expect("Unable to open vertex shader");
+    let mut f = File::open("assets/triangle-vs.spv").expect("Unable to open vertex shader");
     let mut code = Vec::<u8>::new();
     f.read_to_end(&mut code).expect("Unable to read vertex shader");
     let vertex_shader = Rc::new(VertexShader::new(&system,&code).expect("Unable to create vertex shader"));
-    let mut f = File::open("test_triangle_frag.spv").expect("Unable to open fragment shader");
+    let mut f = File::open("assets/triangle-fs.spv").expect("Unable to open fragment shader");
     let mut code = Vec::<u8>::new();
     f.read_to_end(&mut code).expect("Unable to read fragment shader");
     let fragment_shader = Rc::new(FragmentShader::new(&system,&code).expect("Unable to create fragment shader"));
     let mut vertices = Vec::<MyVertex>::new();
-    vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: -0.5, }, });
-    vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: -0.5, }, });
-    vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: 0.5, }, });
-    vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: 0.5, }, });
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: -0.5, }, color: Vec3::<f32> { x: 1.0,y: 0.0,z: 0.0, }, });
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: -0.5, }, color: Vec3::<f32> { x: 0.0,y: 1.0,z: 0.0, }, });
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: 0.5, }, color: Vec3::<f32> { x: 0.0,y: 0.0,z: 1.0, }, });
+    vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: 0.5, }, color: Vec3::<f32> { x: 1.0,y: 0.5,z: 0.0, }, });
     let vertex_buffer = Rc::new(VertexBuffer::new(&system,&vertices)?);
     let mut indices = Vec::<u32>::new();
     indices.push(0);
@@ -77,7 +78,6 @@ fn main() -> Result<(),String> {
     )?);
     let image_available = Semaphore::new(&system)?;
     let render_finished = Semaphore::new(&system)?;
-
     let mut close_clicked = false;
     while !close_clicked {
         system.wait();
@@ -100,30 +100,14 @@ fn main() -> Result<(),String> {
         cb.bind_vertex_buffer(&vertex_buffer);
         cb.bind_index_buffer(&index_buffer);
         cb.begin_render_pass(&frame_window,index,Rect { o: Vec2::<i32>::ZERO,s: r.s, });
-        cb.set_viewport(
-            Rect {
-                o: Vec2::<f32>::ZERO,
-                s: Vec2::<f32> {
-                    x: r.s.x as f32,
-                    y: r.s.y as f32,
-                },
-            },
-            0.0,
-            1.0, 
-        );
-        cb.set_scissor(
-            Rect {
-                o: Vec2::<f32>::ZERO,
-                s: Vec2::<f32> {
-                    x: r.s.x as f32,
-                    y: r.s.y as f32,
-                },
-            });
+        cb.set_viewport(Rect { o: Vec2::<f32>::ZERO,s: Vec2::<f32> { x: r.s.x as f32,y: r.s.y as f32, }, }, 0.0, 1.0, );
+        cb.set_scissor(Rect { o: Vec2::<f32>::ZERO,s: Vec2::<f32> { x: r.s.x as f32,y: r.s.y as f32, }, });
         cb.draw_indexed(6,1,0,0,0);
         cb.end_render_pass();
         cb.end();
         system.submit_command_buffer(cb,&image_available,&render_finished)?;
         frame_window.present(index,&render_finished);
     }
+
     Ok(())
 }

@@ -98,7 +98,7 @@ impl Swapchain {
             pNext: null_mut(),
             flags: 0,
             surface: vk_surface,
-            minImageCount: 2,
+            minImageCount: capabilities.minImageCount,
             imageFormat: sys::VK_FORMAT_B8G8R8A8_SRGB,
             imageColorSpace: sys::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
             imageExtent: sys::VkExtent2D { width: extent.x,height: extent.y, },
@@ -351,23 +351,26 @@ impl GpuWindow {
         let mut index = 0u32;
         match unsafe { sys::vkAcquireNextImageKHR(self.system.gpu_system.vk_device,self.swapchain.borrow().vk_swapchain,0xFFFFFFFFFFFFFFFF,signal_semaphore.vk_semaphore,null_mut(),&mut index,) } {
             sys::VK_SUCCESS => Ok(index as usize),
-            code => Err(format!("Unable to acquire next image ({})",code)),
+            code => Err(format!("Unable to acquire next image ({})",vk_code_to_string(code))),
         }
     }
 
-    pub fn present(&self,index: usize,wait_semaphore: &Semaphore) {
+    pub fn present(&self,index: usize,wait_semaphore: &Semaphore) -> Result<(),String> {
         let image_index = index as u32;
         let info = sys::VkPresentInfoKHR {
             sType: sys::VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             pNext: null_mut(),
             waitSemaphoreCount: 1,
             pWaitSemaphores: &wait_semaphore.vk_semaphore,
-            swapchainCount: 0,
+            swapchainCount: 1,
             pSwapchains: &self.swapchain.borrow().vk_swapchain,
             pImageIndices: &image_index,
             pResults: null_mut(),
         };
-        unsafe { sys::vkQueuePresentKHR(self.system.gpu_system.vk_queue,&info) };
+        match unsafe { sys::vkQueuePresentKHR(self.system.gpu_system.vk_queue,&info) } {
+            sys::VK_SUCCESS => Ok(()),
+            code => Err(format!("Unable to present image ({})",vk_code_to_string(code))),
+        }
     }
 }
 
