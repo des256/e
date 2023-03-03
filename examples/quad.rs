@@ -27,11 +27,11 @@ fn main() -> Result<(),String> {
     for _ in 0..count {
         command_buffers.push(CommandBuffer::new(&system)?);
     }
-    let mut f = File::open("assets/triangle-vs.spv").expect("Unable to open vertex shader");
+    let mut f = File::open("assets/quad-vs.spv").expect("Unable to open vertex shader");
     let mut code = Vec::<u8>::new();
     f.read_to_end(&mut code).expect("Unable to read vertex shader");
     let vertex_shader = Rc::new(VertexShader::new(&system,&code).expect("Unable to create vertex shader"));
-    let mut f = File::open("assets/triangle-fs.spv").expect("Unable to open fragment shader");
+    let mut f = File::open("assets/quad-fs.spv").expect("Unable to open fragment shader");
     let mut code = Vec::<u8>::new();
     f.read_to_end(&mut code).expect("Unable to read fragment shader");
     let fragment_shader = Rc::new(FragmentShader::new(&system,&code).expect("Unable to create fragment shader"));
@@ -100,14 +100,13 @@ fn main() -> Result<(),String> {
         cb.bind_vertex_buffer(&vertex_buffer);
         cb.bind_index_buffer(&index_buffer);
         cb.begin_render_pass(&frame_window,index,Rect { o: Vec2::<i32>::ZERO,s: r.s, });
-        cb.set_viewport(Rect { o: Vec2::<f32>::ZERO,s: Vec2::<f32> { x: r.s.x as f32,y: r.s.y as f32, }, }, 0.0, 1.0, );
-        cb.set_scissor(Rect { o: Vec2::<f32>::ZERO,s: Vec2::<f32> { x: r.s.x as f32,y: r.s.y as f32, }, });
+        cb.set_viewport(Rect { o: Vec2::<i32>::ZERO,s: r.s, }, 0.0, 1.0, );
+        cb.set_scissor(Rect { o: Vec2::<i32>::ZERO,s: r.s, });
         cb.draw_indexed(6,1,0,0,0);
         cb.end_render_pass();
         cb.end();
         system.submit_command_buffer(cb,&image_available,&render_finished)?;
         frame_window.present(index,&render_finished);
     }
-
     Ok(())
 }

@@ -1,7 +1,6 @@
 use {
     crate::*,
     std::{
-        rc::Rc,
         os::raw::c_int,
         ptr::null_mut,
     },
@@ -10,7 +9,6 @@ use {
 /// The system structure (linux).
 #[derive(Debug)]
 pub struct System {
-    pub(crate) gpu_system: Rc<GpuSystem>,
     pub(crate) xdisplay: *mut sys::Display,
     pub(crate) xcb_connection: *mut sys::xcb_connection_t,
     pub(crate) xcb_screen: *mut sys::xcb_screen_t,
@@ -91,11 +89,7 @@ impl System {
         let wm_net_state = resolve_atom_cookie(xcb_connection,net_state_cookie);
         let wm_net_state_above = resolve_atom_cookie(xcb_connection,net_state_above_cookie);
 
-        // initialize GPU
-        let gpu_system = GpuSystem::open()?;
-
         Ok(System {
-            gpu_system,
             xdisplay,
             xcb_connection,
             xcb_screen,

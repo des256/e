@@ -16,16 +16,6 @@ pub enum System {
     Web,
 }
 
-pub enum Gpu {
-    Vulkan,
-    Opengl,
-    Gles,
-    Directx,
-    Metal,
-    Webgl,
-    Webgpu,
-}
-
 fn main() {
 
     // make current build available to source code
@@ -33,36 +23,18 @@ fn main() {
 
     // define system and gpu configurations
 #[cfg(target_os="linux")]
-    let (system,gpu) = (System::Linux,Gpu::Vulkan);  // Vulkan, Opengl, Gles
+    let (system,system_name) = (System::Linux,"linux");  // Vulkan, Opengl, Gles
 #[cfg(target_os="windows")]
-    let (system,gpu) = (System::Windows,Gpu::Vulkan);  // Vulkan, Opengl, Directx
+    let (system,system_name) = (System::Windows,"windows");  // Vulkan, Opengl, Directx
 #[cfg(target_os="macos")]
-    let (system,gpu) = (System::Macos,Gpu::Vulkan);  // Vulkan, Metal
+    let (system,system_name) = (System::Macos,"macos");  // Vulkan, Metal
 #[cfg(target_os="android")]
-    let (system,gpu) = (System::Android,Gpu::Vulkan);  // Vulkan, Gles
+    let (system,system_name) = (System::Android,"android");  // Vulkan, Gles
 #[cfg(target_os="ios")]
-    let (system,gpu) = (System::Ios,Gpu::Vulkan);  // Vulkan, Metal
+    let (system,system_name) = (System::Ios,"ios");  // Vulkan, Metal
 #[cfg(target_family="wasm")]
-    let (system,gpu) = (System::Web,Gpu::Webgl);  // Webgl, Webgpu
-    let system_name = match system {
-        System::Linux => "linux",
-        System::Windows => "windows",
-        System::Macos => "macos",
-        System::Android => "android",
-        System::Ios => "ios",
-        System::Web => "web",
-    };
-    let gpu_name = match gpu {
-        Gpu::Vulkan => "vulkan",
-        Gpu::Opengl => "opengl",
-        Gpu::Gles => "gles",
-        Gpu::Directx => "directx",
-        Gpu::Metal => "metal",
-        Gpu::Webgl => "webgl",
-        Gpu::Webgpu => "webgpu",    
-    };
+    let (system,system_name) = (System::Web,"web");  // Webgl, Webgpu
     println!("cargo:rustc-cfg=system=\"{}\"",system_name);
-    println!("cargo:rustc-cfg=gpu=\"{}\"",gpu_name);
 
     // create header files and system bindings, but not for web
     if let System::Web = system { } else {
@@ -84,32 +56,39 @@ fn main() {
                 panic!("missing include/lib for system=\"{}\"",system_name);
             },
         }
-        match gpu {
-            Gpu::Vulkan => {
-                header.push_str("#include <vulkan/vulkan.h>\n");
-                println!("cargo:rustc-link-lib=vulkan");
-                if let System::Linux = system {
-                    header.push_str("#include <vulkan/vulkan_xcb.h>\n");
-                }
-            },
-            Gpu::Opengl => {
-                println!("cargo:rustc-link-lib=GL");
-                if let System::Linux = system {
-                    header.push_str("#define GL_GLEXT_PROTOTYPES 1\n");
-                    header.push_str("#include <GL/glcorearb.h>\n");
-                    header.push_str("#define GLX_GLXEXT_PROTOTYPES 1\n");
-                    header.push_str("#include <GL/glx.h>\n");
-                    header.push_str("#include <GL/glxext.h>\n");
-                }
-                else {
-                    header.push_str("#include <GL/gl.h>\n");
-                }
-            },
-            _ => {
-                panic!("missing include/lib for gpu=\"{}\"",gpu_name);
+
+// Vulkan
+#[cfg(any(target_os="linux",target_os="windows",target_os="macos",target_os="android",target_os="ios"))]
+        {
+            header.push_str("#include <vulkan/vulkan.h>\n");
+            println!("cargo:rustc-link-lib=vulkan");
+            if let System::Linux = system {
+                header.push_str("#include <vulkan/vulkan_xcb.h>\n");
             }
         }
-        fs::write(&header_path,header).expect("Unable to write header file");
+
+// OpenGL
+#[cfg(any(target_os="linux",target_os="windows",target_os="macos"))]
+        {
+            println!("cargo:rustc-link-lib=GL");
+            if let System::Linux = system {
+                header.push_str("#define GL_GLEXT_PROTOTYPES 1\n");
+                header.push_str("#include <GL/glcorearb.h>\n");
+                header.push_str("#define GLX_GLXEXT_PROTOTYPES 1\n");
+                header.push_str("#include <GL/glx.h>\n");
+                header.push_str("#include <GL/glxext.h>\n");
+            }
+            else {
+                header.push_str("#include <GL/gl.h>\n");
+            }
+        }
+
+// OpenGL ES
+#[cfg(any(target_os="linux",target_os="windows",target_os="macos",target_os="android"))]
+        {
+        }
+
+// Metal
 
         // sys.rs: the generated bindings
         process::Command::new("bindgen")

@@ -182,16 +182,16 @@ impl CommandBuffer {
     }
 
     /// Specify current viewport transformation.
-    pub fn set_viewport(&self,r: Rect<f32>,min_depth: f32,max_depth: f32) {
+    pub fn set_viewport(&self,r: Rect<i32>,min_depth: f32,max_depth: f32) {
         unsafe { sys::vkCmdSetViewport(
             self.vk_command_buffer,
             0,
             1,
             &sys::VkViewport {
-                x: r.o.x,
-                y: r.o.y,
-                width: r.s.x,
-                height: r.s.y,
+                x: r.o.x as f32,
+                y: r.o.y as f32,
+                width: r.s.x as f32,
+                height: r.s.y as f32,
                 minDepth: min_depth,
                 maxDepth: max_depth,
             },
@@ -199,20 +199,14 @@ impl CommandBuffer {
     }
 
     /// Specify current scissor rectangle.
-    pub fn set_scissor(&self,r: Rect<f32>) {
+    pub fn set_scissor(&self,r: Rect<i32>) {
         unsafe { sys::vkCmdSetScissor(
             self.vk_command_buffer,
             0,
             1,
             &sys::VkRect2D {
-                offset: sys::VkOffset2D {
-                    x: r.o.x as i32,
-                    y: r.o.y as i32,
-                },
-                extent: sys::VkExtent2D {
-                    width: r.s.x as u32,
-                    height: r.s.y as u32,
-                },
+                offset: sys::VkOffset2D { x: r.o.x, y: r.o.y, },
+                extent: sys::VkExtent2D { width: r.s.x as u32,height: r.s.y as u32, },
             },
         ) };
     }

@@ -13,7 +13,6 @@ pub const KEY_RIGHT: u8 = 114;
 
 pub struct Window {
     pub system: Rc<System>,
-    pub(crate) gpu_window: GpuWindow,
 #[doc(hidden)]
     pub(crate) xcb_window: sys::xcb_window_t,
 }
@@ -55,12 +54,8 @@ impl Window {
             sys::xcb_flush(system.xcb_connection);
         }
 
-        // create GPU-specific portion of the window
-        let gpu_window = GpuWindow::create(system,r,system.xcb_connection,xcb_window)?;
-
         Ok(Window {
             system: Rc::clone(system),
-            gpu_window,
             xcb_window,
         })
     }
@@ -128,6 +123,7 @@ impl Window {
         self.xcb_window
     }
 
+    /*
     /// Get framebuffer count for this window.
     pub fn get_framebuffer_count(&self) -> usize {
         self.gpu_window.get_framebuffer_count()
@@ -147,6 +143,7 @@ impl Window {
     pub fn present(&self,index: usize,wait_semaphore: &Semaphore) {
         self.gpu_window.present(index,wait_semaphore);
     }
+    */
 }
 
 /*
