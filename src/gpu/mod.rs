@@ -1,6 +1,7 @@
 use {
     crate::*,
     ast::*,
+    std::rc::Rc,
 };
 
 pub trait Vertex where Self: Sized {
@@ -206,10 +207,123 @@ pub enum BlendMode {
     _Over,
 }
 
-#[cfg(gpu="vulkan")]
-mod vulkan;
-#[cfg(gpu="vulkan")]
-pub use vulkan::*;
+pub trait GraphicsPipeline {
+
+}
+
+pub trait ComputePipeline {
+
+}
+
+pub trait PipelineLayout {
+
+}
+
+pub trait VertexBuffer {
+
+}
+
+pub trait IndexBuffer {
+
+}
+
+pub trait Framebuffer {
+
+}
+
+pub trait VertexShader {
+
+}
+
+pub trait FragmentShader {
+
+}
+
+pub trait CommandBuffer {
+    type Surface : Surface;
+    type GraphicsPipeline : GraphicsPipeline;
+    type ComputePipeline : ComputePipeline;
+    type VertexBuffer : VertexBuffer;
+    type IndexBuffer : IndexBuffer;
+    fn begin(&self) -> Result<(),String>;
+    fn end(&self) -> bool;
+    fn begin_render_pass(&self,surface: &Self::Surface,index: usize,r: Rect<i32>);
+    fn end_render_pass(&self);
+    fn bind_graphics_pipeline(&self,pipeline: &Self::GraphicsPipeline);
+    fn bind_compute_pipeline(&self,pipeline: &Self::ComputePipeline);
+    fn bind_vertex_buffer(&self,vertex_buffer: &Self::VertexBuffer);
+    fn bind_index_buffer(&self,index_buffer: &Self::IndexBuffer);
+    fn draw(&self,vertex_count: usize,instance_count: usize,first_vertex: usize, first_instance: usize);
+    fn draw_indexed(&self,index_count: usize,instance_count: usize,first_index: usize,vertex_offset: isize,first_instance: usize);
+    fn set_viewport(&self,r: Rect<i32>,min_depth: f32,max_depth: f32);
+    fn set_scissor(&self,r: Rect<i32>);
+}
+
+pub trait Surface {
+    fn set_rect(&mut self,r: Rect<i32>) -> Result<(),String>;
+    fn get_swapchain_count(&self) -> usize;
+    fn acquire(&self) -> Result<usize,String>;
+    fn present(&self,index: usize) -> Result<(),String>;
+}
+
+pub trait Gpu {
+    type Surface : Surface;
+    type CommandBuffer : CommandBuffer;
+    type VertexShader : VertexShader;
+    type FragmentShader : FragmentShader;
+    type GraphicsPipeline : GraphicsPipeline;
+    type VertexBuffer : VertexBuffer;
+    type IndexBuffer : IndexBuffer;
+    type PipelineLayout : PipelineLayout;
+    fn open() -> Result<Rc<Self>,String>;
+    fn create_surface(self: &Rc<Self>,window: &Window,r: Rect<i32>) -> Result<Self::Surface,String>;
+    fn create_command_buffer(self: &Rc<Self>) -> Result<Self::CommandBuffer,String>;
+    fn submit_command_buffer(&self,command_buffer: &Self::CommandBuffer) -> Result<(),String>;
+    fn create_vertex_shader(self: &Rc<Self>,code: &[u8]) -> Result<Self::VertexShader,String>;
+    fn create_fragment_shader(self: &Rc<Self>,code: &[u8]) -> Result<Self::FragmentShader,String>;
+    fn create_graphics_pipeline<T: Vertex>(self: &Rc<Self>,
+        surface: &Self::Surface,
+        pipeline_layout: &Rc<Self::PipelineLayout>,
+        vertex_shader: &Rc<Self::VertexShader>,
+        fragment_shader: &Rc<Self::FragmentShader>,
+        topology: gpu::PrimitiveTopology,
+        restart: gpu::PrimitiveRestart,
+        patch_control_points: usize,
+        depth_clamp: gpu::DepthClamp,
+        primitive_discard: gpu::PrimitiveDiscard,
+        polygon_mode: gpu::PolygonMode,
+        cull_mode: gpu::CullMode,
+        depth_bias: gpu::DepthBias,
+        line_width: f32,
+        rasterization_samples: usize,
+        sample_shading: gpu::SampleShading,
+        alpha_to_coverage: gpu::AlphaToCoverage,
+        alpha_to_one: gpu::AlphaToOne,
+        depth_test: gpu::DepthTest,
+        depth_write_mask: bool,
+        stencil_test: gpu::StencilTest,
+        logic_op: gpu::LogicOp,
+        blend: gpu::Blend,
+        write_mask: (bool,bool,bool,bool),
+        blend_constant: Vec4<f32>,
+    ) -> Result<Rc<Self::GraphicsPipeline>,String>;
+    fn create_vertex_buffer<T: Vertex>(self: &Rc<Self>,vertices: &Vec<T>) -> Result<Self::VertexBuffer,String>;
+    fn create_index_buffer<T>(self: &Rc<Self>,indices: &Vec<T>) -> Result<Self::IndexBuffer,String>;
+    fn create_pipeline_layout(self: &Rc<Self>) -> Result<Self::PipelineLayout,String>;
+}
+
+// anything past this level requires qualifiers vulkan::, opengl::, etc.
+#[cfg(vulkan)]
+pub mod vulkan;
+
+#[cfg(opengl)]
+pub mod opengl;
+
+#[cfg(gles)]
+pub mod gles;
+
+#[cfg(metal)]
+pub mod metal;
 
 pub(crate) fn type_to_size(type_: &ast::Type) -> Result<usize,String> {
     match type_ {

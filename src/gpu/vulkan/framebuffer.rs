@@ -1,5 +1,6 @@
 use {
     crate::*,
+    crate::gpu,
     std::ptr::null_mut,
 };
 
@@ -9,7 +10,7 @@ pub struct Framebuffer {
     pub(crate) vk_framebuffer: sys::VkFramebuffer,
 }
 
-impl Framebuffer {
+impl gpu::Framebuffer for Framebuffer {
 
 }
 

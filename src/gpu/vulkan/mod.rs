@@ -1,14 +1,16 @@
 //! GPU subsystem (Vulkan implementation).
 use {
-    crate::*,
+    crate::sys,
+    crate::system::*,
+    crate::base::*,
     ast::*,
 };
 
-mod gpusystem;
-pub(crate) use gpusystem::*;
+mod gpu;
+pub use gpu::*;
 
-mod gpuwindow;
-pub(crate) use gpuwindow::*;
+mod surface;
+pub use surface::*;
 
 mod vertexshader;
 pub use vertexshader::*;
@@ -33,9 +35,6 @@ pub use computepipeline::*;
 
 mod commandbuffer;
 pub use commandbuffer::*;
-
-mod semaphore;
-pub use semaphore::*;
 
 pub(crate) fn vk_code_to_string(code: i32) -> &'static str {
     match code {

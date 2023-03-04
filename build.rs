@@ -60,8 +60,9 @@ fn main() {
 // Vulkan
 #[cfg(any(target_os="linux",target_os="windows",target_os="macos",target_os="android",target_os="ios"))]
         {
-            header.push_str("#include <vulkan/vulkan.h>\n");
+            println!("cargo:rustc-cfg=vulkan");
             println!("cargo:rustc-link-lib=vulkan");
+            header.push_str("#include <vulkan/vulkan.h>\n");
             if let System::Linux = system {
                 header.push_str("#include <vulkan/vulkan_xcb.h>\n");
             }
@@ -70,6 +71,7 @@ fn main() {
 // OpenGL
 #[cfg(any(target_os="linux",target_os="windows",target_os="macos"))]
         {
+            println!("cargo:rustc-cfg=opengl");
             println!("cargo:rustc-link-lib=GL");
             if let System::Linux = system {
                 header.push_str("#define GL_GLEXT_PROTOTYPES 1\n");
@@ -91,6 +93,7 @@ fn main() {
 // Metal
 
         // sys.rs: the generated bindings
+        fs::write(&header_path,header).expect("Unable to write header file");
         process::Command::new("bindgen")
             .args(&[
                 &format!("src/sys/sys.h"),

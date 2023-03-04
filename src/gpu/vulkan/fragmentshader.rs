@@ -1,43 +1,25 @@
 use {
-    crate::*,
+    super::*,
+    crate::gpu,
     std::{
         rc::Rc,
         ptr::null_mut,
-        mem::MaybeUninit,
     },
 };
 
 #[derive(Debug)]
 pub struct FragmentShader {
-    pub system: Rc<System>,
+    pub gpu: Rc<Gpu>,
     pub(crate) vk_shader_module: sys::VkShaderModule,
 }
 
-impl FragmentShader {
+impl gpu::FragmentShader for FragmentShader {
 
-    pub fn new(system: &Rc<System>,code: &[u8]) -> Result<FragmentShader,String> {
-
-        let create_info = sys::VkShaderModuleCreateInfo {
-            sType: sys::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            pNext: null_mut(),
-            flags: 0,
-            codeSize: code.len() as u64,
-            pCode: code.as_ptr() as *const u32,
-        };
-        let mut vk_shader_module = MaybeUninit::uninit();
-        match unsafe { sys::vkCreateShaderModule(system.gpu_system.vk_device,&create_info,null_mut(),vk_shader_module.as_mut_ptr()) } {
-            sys::VK_SUCCESS => Ok(FragmentShader {
-                system: Rc::clone(system),
-                vk_shader_module: unsafe { vk_shader_module.assume_init() },
-            }),
-            code => Err(format!("Unable to create fragment shader ({})",vk_code_to_string(code))),
-        }
-    }
 }
 
 impl Drop for FragmentShader {
 
     fn drop(&mut self) {
-        unsafe { sys::vkDestroyShaderModule(self.system.gpu_system.vk_device,self.vk_shader_module,null_mut()) };
+        unsafe { sys::vkDestroyShaderModule(self.gpu.vk_device,self.vk_shader_module,null_mut()) };
     }
 }
