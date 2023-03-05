@@ -11,8 +11,8 @@ use {
 
 #[derive(Vertex)]
 struct MyVertex {
-    pub pos: Vec2<f32>,
-    pub color: Vec3<f32>,
+    _pos: Vec2<f32>,
+    _color: Vec3<f32>,
 }
 
 struct Environment<T: Gpu> {
@@ -58,10 +58,10 @@ impl<T: Gpu> Environment<T> {
     
         // create vertex buffer
         let mut vertices = Vec::<MyVertex>::new();
-        vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: -0.5, }, color: Vec3::<f32> { x: 1.0,y: 1.0,z: 0.0, }, });
-        vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: -0.5, }, color: Vec3::<f32> { x: 0.0,y: 1.0,z: 1.0, }, });
-        vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: 0.5, }, color: Vec3::<f32> { x: 1.0,y: 0.0,z: 1.0, }, });
-        vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: 0.5, }, color: Vec3::<f32> { x: 0.0,y: 1.0,z: 0.0, }, });
+        vertices.push(MyVertex { _pos: Vec2::<f32> { x: -0.5,y: -0.5, }, _color: Vec3::<f32> { x: 0.0,y: 0.5,z: 0.5, }, });
+        vertices.push(MyVertex { _pos: Vec2::<f32> { x: 0.5,y: -0.5, }, _color: Vec3::<f32> { x: 0.5,y: 0.0,z: 0.5, }, });
+        vertices.push(MyVertex { _pos: Vec2::<f32> { x: 0.5,y: 0.5, }, _color: Vec3::<f32> { x: 0.5,y: 0.5,z: 0.0, }, });
+        vertices.push(MyVertex { _pos: Vec2::<f32> { x: -0.5,y: 0.5, }, _color: Vec3::<f32> { x: 1.0,y: 0.0,z: 0.0, }, });
         let vertex_buffer = Rc::new(gpu.create_vertex_buffer(&vertices)?);
     
         // create index buffer
@@ -149,20 +149,11 @@ fn main() -> Result<(),String> {
     // open system
     let system = Rc::new(e::System::open()?);
 
-    // define rectangles for the windows
-    let r0 = Rect {
-        o: Vec2 { x: 10i32,y: 10i32, },
-        s: Vec2 { x: 512i32,y: 384i32, },
-    };
-
-    let r1 = Rect {
-        o: Vec2 { x: 600i32,y: 10i32, },
-        s: Vec2 { x: 512i32,y: 384i32, },
-    };
-
     // create environments
-    let mut vulkan = Environment::new(&system,&vulkan::Gpu::open(&system)?,"spv","Vulkan",r0)?;
-    let mut opengl = Environment::new(&system,&opengl::Gpu::open(&system)?,"glsl","OpenGL",r1)?;
+#[cfg(any(system="linux"))]
+    let mut vulkan = Environment::new(&system,&vulkan::Gpu::open(&system)?,"spv","Vulkan",Rect::<i32> { o: Vec2::ZERO,s: Vec2 { x: 512,y: 384, }, })?;
+#[cfg(any(system="linux"))]
+    let mut opengl = Environment::new(&system,&opengl::Gpu::open(&system)?,"glsl","OpenGL",Rect::<i32> { o: Vec2::ZERO,s: Vec2 { x: 512,y: 384, }, })?;
 
     // main loop
     let mut close_clicked = false;
@@ -179,7 +170,10 @@ fn main() -> Result<(),String> {
             Ok::<(),String>(())
         })?;
 
+        // render stuff
+#[cfg(any(system="linux"))]
         vulkan.render()?;
+#[cfg(any(system="linux"))]
         opengl.render()?;
     }
     Ok(())

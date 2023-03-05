@@ -130,7 +130,10 @@ impl gpu::Gpu for Gpu {
             if glx_context.is_null() { return Err("unable to open OpenGL context".to_string()); }
             if unsafe { sys::glXIsDirect(system.xdisplay,glx_context) } == 0 { return Err("OpenGL context is not direct".to_string()); }
 
-            unsafe { sys::glXMakeCurrent(system.xdisplay,xcb_hidden_window as u64,glx_context) };
+            unsafe {
+                sys::glXMakeCurrent(system.xdisplay,xcb_hidden_window as u64,glx_context);
+                sys::glEnable(sys::GL_FRAMEBUFFER_SRGB);
+            }
 
             Ok(Rc::new(Gpu {
                 system: Rc::clone(&system),
