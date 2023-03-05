@@ -48,7 +48,7 @@ impl gpu::CommandBuffer for CommandBuffer {
     }
 
     /// Begin render pass.
-    fn begin_render_pass(&self,surface: &Self::Surface,index: usize,r: Rect<i32>) {
+    fn begin_render_pass(&self,surface: &Surface,index: usize,r: Rect<i32>) {
 
         // Configure the render pass to write to a rectangle in a surface's framebuffer.
         let clear_color = sys::VkClearValue {
@@ -83,7 +83,7 @@ impl gpu::CommandBuffer for CommandBuffer {
     }
 
     /// Specify current graphics pipeline.
-    fn bind_graphics_pipeline(&self,pipeline: &Self::GraphicsPipeline) {
+    fn bind_graphics_pipeline(&self,pipeline: &Rc<GraphicsPipeline>) {
         unsafe { sys::vkCmdBindPipeline(
             self.vk_command_buffer,
             sys::VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -92,7 +92,7 @@ impl gpu::CommandBuffer for CommandBuffer {
     }
 
     /// Specify current compute pipeline.
-    fn bind_compute_pipeline(&self,pipeline: &Self::ComputePipeline) {
+    fn bind_compute_pipeline(&self,pipeline: &Rc<ComputePipeline>) {
         unsafe { sys::vkCmdBindPipeline(
             self.vk_command_buffer,
             sys::VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -101,7 +101,7 @@ impl gpu::CommandBuffer for CommandBuffer {
     }
 
     /// Specify current vertex buffer.
-    fn bind_vertex_buffer(&self,vertex_buffer: &Self::VertexBuffer) {
+    fn bind_vertex_buffer(&self,vertex_buffer: &Rc<VertexBuffer>) {
         unsafe { sys::vkCmdBindVertexBuffers(
             self.vk_command_buffer,
             0,
@@ -112,7 +112,7 @@ impl gpu::CommandBuffer for CommandBuffer {
     }
 
     /// Specify current index buffer.
-    fn bind_index_buffer(&self,index_buffer: &Self::IndexBuffer) {
+    fn bind_index_buffer(&self,index_buffer: &Rc<IndexBuffer>) {
         unsafe { sys::vkCmdBindIndexBuffer(
             self.vk_command_buffer,
             index_buffer.vk_buffer,
@@ -133,7 +133,7 @@ impl gpu::CommandBuffer for CommandBuffer {
     }
 
     /// Emit indexed vertices.
-    fn draw_indexed(&self,index_count: usize,instance_count: usize,first_index: usize,vertex_offset: isize,first_instance: usize) {
+    fn draw_indexed(&self,index_count: usize,instance_count: usize,first_index: usize,vertex_offset: usize,first_instance: usize) {
         unsafe { sys::vkCmdDrawIndexed(
             self.vk_command_buffer,
             index_count as u32,
@@ -152,9 +152,9 @@ impl gpu::CommandBuffer for CommandBuffer {
             1,
             &sys::VkViewport {
                 x: r.o.x as f32,
-                y: r.o.y as f32,
+                y: (r.o.y + r.s.y) as f32,
                 width: r.s.x as f32,
-                height: r.s.y as f32,
+                height: -r.s.y as f32,
                 minDepth: min_depth,
                 maxDepth: max_depth,
             },

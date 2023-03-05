@@ -11,6 +11,7 @@ pub const KEY_DOWN: u8 = 116;
 pub const KEY_LEFT: u8 = 113;
 pub const KEY_RIGHT: u8 = 114;
 
+#[derive(Debug)]
 pub struct Window {
     pub system: Rc<System>,
 #[doc(hidden)]

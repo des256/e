@@ -20,11 +20,11 @@ use {
 
 #[derive(Debug)]
 pub struct GraphicsPipeline {
-    pub(crate) gpu: Rc<Gpu>,
-    pub(crate) vk_pipeline: sys::VkPipeline,
-    pub(crate) vertex_shader: Rc<VertexShader>,
-    pub(crate) fragment_shader: Rc<FragmentShader>,
-    pub(crate) pipeline_layout: Rc<PipelineLayout>,
+    pub gpu: Rc<Gpu>,
+    pub vk_pipeline: sys::VkPipeline,
+    pub vertex_shader: Rc<VertexShader>,
+    pub fragment_shader: Rc<FragmentShader>,
+    pub pipeline_layout: Rc<PipelineLayout>,
 }
 
 impl gpu::GraphicsPipeline for GraphicsPipeline {

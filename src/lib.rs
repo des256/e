@@ -82,7 +82,7 @@
 #[cfg(build="debug")]
 #[macro_export]
 macro_rules! dprintln {
-    ($($arg:tt)*) => { println!("DEBUG: {}",std::format_args!($($arg)*)) };
+    ($($arg:tt)*) => { println!("DEBUG {}:{}:{}: {}",file!(),line!(),column!(),std::format_args!($($arg)*)) };
 }
 
 #[cfg(build="release")]

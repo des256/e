@@ -1,3 +1,4 @@
+/*
 use {
     crate::*,
     std::{
@@ -5,6 +6,7 @@ use {
         io::prelude::*,
     }
 };
+*/
 
 /*
 pub mod bmp;

@@ -75,7 +75,7 @@ pub(crate) fn vk_code_to_string(code: i32) -> &'static str {
     }
 }
 
-pub(crate) fn vk_format_to_string(format: sys::VkFormat) -> &'static str {
+pub fn vk_format_to_string(format: sys::VkFormat) -> &'static str {
     match format {
         sys::VK_FORMAT_UNDEFINED => "VK_FORMAT_UNDEFINED",
         sys::VK_FORMAT_R4G4_UNORM_PACK8 => "VK_FORMAT_R4G4_UNORM_PACK8",
@@ -324,7 +324,7 @@ pub(crate) fn vk_format_to_string(format: sys::VkFormat) -> &'static str {
     }
 }
 
-pub(crate) fn vk_colorspace_to_string(colorspace: sys::VkColorSpaceKHR) -> &'static str {
+pub fn vk_colorspace_to_string(colorspace: sys::VkColorSpaceKHR) -> &'static str {
     match colorspace {
         sys::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR => "VK_COLOR_SPACE_SRGB_NONLINEAR_KHR",
         sys::VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT => "VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT",

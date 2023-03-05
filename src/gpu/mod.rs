@@ -20,6 +20,7 @@ pub trait Sample where Self: Sized {
 
 }
 
+#[derive(Debug,Clone)]
 pub enum PrimitiveTopology {
     Points,
     Lines,
@@ -34,32 +35,38 @@ pub enum PrimitiveTopology {
     Patches,
 }
 
+#[derive(Debug,Clone)]
 pub enum PrimitiveRestart {
     Disabled,
     Enabled,
 }
 
+#[derive(Debug,Clone)]
 pub enum DepthClamp {
     Disabled,
     Enabled,
 }
 
+#[derive(Debug,Clone)]
 pub enum PrimitiveDiscard {
     Disabled,
     Enabled,
 }
 
+#[derive(Debug,Clone)]
 pub enum PolygonMode {
     Fill,
     Line,
     Point,
 }
 
+#[derive(Debug,Clone)]
 pub enum FrontFace {
     CounterClockwise,
     Clockwise,
 }
 
+#[derive(Debug,Clone)]
 pub enum CullMode {
     None,
     Front(FrontFace),
@@ -67,26 +74,31 @@ pub enum CullMode {
     FrontAndBack(FrontFace),
 }
 
+#[derive(Debug,Clone)]
 pub enum DepthBias {
     Disabled,
     Enabled(f32,f32,f32),
 }
 
+#[derive(Debug,Clone)]
 pub enum SampleShading {
     Disabled,
     Enabled(f32),
 }
 
+#[derive(Debug,Clone)]
 pub enum AlphaToCoverage {
     Disabled,
     Enabled,
 }
 
+#[derive(Debug,Clone)]
 pub enum AlphaToOne {
     Disabled,
     Enabled,
 }
 
+#[derive(Debug,Clone)]
 pub enum CompareOp {
     Never,
     Less,
@@ -98,21 +110,25 @@ pub enum CompareOp {
     Always,
 }
 
+#[derive(Debug,Clone)]
 pub enum DepthBounds {
     Disabled,
     Enabled(f32,f32),
 }
 
+#[derive(Debug,Clone)]
 pub enum DepthTest {
     Disabled,
     Enabled(CompareOp,DepthBounds),
 }
 
+#[derive(Debug,Clone)]
 pub enum DepthWrite {
     Disabled,
     Enabled,
 }
 
+#[derive(Debug,Clone)]
 pub enum StencilTest {
     Disabled,
     Enabled(
@@ -121,6 +137,7 @@ pub enum StencilTest {
     ),
 }
 
+#[derive(Debug,Clone)]
 pub enum StencilOp {
     Keep,
     Zero,
@@ -132,6 +149,7 @@ pub enum StencilOp {
     DecWrap,
 }
 
+#[derive(Debug,Clone)]
 pub enum LogicOp {
     Disabled,
     Clear,
@@ -152,6 +170,7 @@ pub enum LogicOp {
     Set,
 }
 
+#[derive(Debug,Clone)]
 pub enum BlendOp {
     Add,
     Subtract,
@@ -160,6 +179,7 @@ pub enum BlendOp {
     Max,
 }
 
+#[derive(Debug,Clone)]
 pub enum BlendFactor {
     Zero,
     One,
@@ -182,18 +202,19 @@ pub enum BlendFactor {
     OneMinusSrc1Alpha,
 }
 
+#[derive(Debug,Clone)]
 pub enum Blend {
     Disabled,
     Enabled((BlendOp,BlendFactor,BlendFactor),(BlendOp,BlendFactor,BlendFactor)),
 }
 
-#[derive(Clone,Copy)]
+#[derive(Debug,Clone,Copy)]
 pub enum TextureFilter {
     Nearest,
     Linear,
 }
 
-#[derive(Clone,Copy)]
+#[derive(Debug,Clone,Copy)]
 pub enum TextureWrap {
     Black,
     Edge,
@@ -201,7 +222,7 @@ pub enum TextureWrap {
     Mirror,
 }
 
-#[derive(Clone,Copy)]
+#[derive(Debug,Clone,Copy)]
 pub enum BlendMode {
     _Replace,
     _Over,
@@ -249,12 +270,12 @@ pub trait CommandBuffer {
     fn end(&self) -> bool;
     fn begin_render_pass(&self,surface: &Self::Surface,index: usize,r: Rect<i32>);
     fn end_render_pass(&self);
-    fn bind_graphics_pipeline(&self,pipeline: &Self::GraphicsPipeline);
-    fn bind_compute_pipeline(&self,pipeline: &Self::ComputePipeline);
-    fn bind_vertex_buffer(&self,vertex_buffer: &Self::VertexBuffer);
-    fn bind_index_buffer(&self,index_buffer: &Self::IndexBuffer);
+    fn bind_graphics_pipeline(&self,pipeline: &Rc<Self::GraphicsPipeline>);
+    fn bind_compute_pipeline(&self,pipeline: &Rc<Self::ComputePipeline>);
+    fn bind_vertex_buffer(&self,vertex_buffer: &Rc<Self::VertexBuffer>);
+    fn bind_index_buffer(&self,index_buffer: &Rc<Self::IndexBuffer>);
     fn draw(&self,vertex_count: usize,instance_count: usize,first_vertex: usize, first_instance: usize);
-    fn draw_indexed(&self,index_count: usize,instance_count: usize,first_index: usize,vertex_offset: isize,first_instance: usize);
+    fn draw_indexed(&self,index_count: usize,instance_count: usize,first_index: usize,vertex_offset: usize,first_instance: usize);
     fn set_viewport(&self,r: Rect<i32>,min_depth: f32,max_depth: f32);
     fn set_scissor(&self,r: Rect<i32>);
 }
@@ -267,22 +288,18 @@ pub trait Surface {
 }
 
 pub trait Gpu {
-    type Surface : Surface;
     type CommandBuffer : CommandBuffer;
     type VertexShader : VertexShader;
     type FragmentShader : FragmentShader;
-    type GraphicsPipeline : GraphicsPipeline;
-    type VertexBuffer : VertexBuffer;
-    type IndexBuffer : IndexBuffer;
     type PipelineLayout : PipelineLayout;
-    fn open() -> Result<Rc<Self>,String>;
-    fn create_surface(self: &Rc<Self>,window: &Window,r: Rect<i32>) -> Result<Self::Surface,String>;
+    fn open(system: &Rc<System>) -> Result<Rc<Self>,String>;
+    fn create_surface(self: &Rc<Self>,window: &Rc<Window>,r: Rect<i32>) -> Result<<Self::CommandBuffer as CommandBuffer>::Surface,String>;
     fn create_command_buffer(self: &Rc<Self>) -> Result<Self::CommandBuffer,String>;
     fn submit_command_buffer(&self,command_buffer: &Self::CommandBuffer) -> Result<(),String>;
     fn create_vertex_shader(self: &Rc<Self>,code: &[u8]) -> Result<Self::VertexShader,String>;
     fn create_fragment_shader(self: &Rc<Self>,code: &[u8]) -> Result<Self::FragmentShader,String>;
     fn create_graphics_pipeline<T: Vertex>(self: &Rc<Self>,
-        surface: &Self::Surface,
+        surface: &<Self::CommandBuffer as CommandBuffer>::Surface,
         pipeline_layout: &Rc<Self::PipelineLayout>,
         vertex_shader: &Rc<Self::VertexShader>,
         fragment_shader: &Rc<Self::FragmentShader>,
@@ -306,9 +323,9 @@ pub trait Gpu {
         blend: gpu::Blend,
         write_mask: (bool,bool,bool,bool),
         blend_constant: Vec4<f32>,
-    ) -> Result<Rc<Self::GraphicsPipeline>,String>;
-    fn create_vertex_buffer<T: Vertex>(self: &Rc<Self>,vertices: &Vec<T>) -> Result<Self::VertexBuffer,String>;
-    fn create_index_buffer<T>(self: &Rc<Self>,indices: &Vec<T>) -> Result<Self::IndexBuffer,String>;
+    ) -> Result<<Self::CommandBuffer as CommandBuffer>::GraphicsPipeline,String>;
+    fn create_vertex_buffer<T: Vertex>(self: &Rc<Self>,vertices: &Vec<T>) -> Result<<Self::CommandBuffer as CommandBuffer>::VertexBuffer,String>;
+    fn create_index_buffer<T>(self: &Rc<Self>,indices: &Vec<T>) -> Result<<Self::CommandBuffer as CommandBuffer>::IndexBuffer,String>;
     fn create_pipeline_layout(self: &Rc<Self>) -> Result<Self::PipelineLayout,String>;
 }
 

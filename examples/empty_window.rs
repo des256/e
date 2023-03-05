@@ -8,7 +8,7 @@ use {
 
 fn main() -> Result<(),String> {
     let system = Rc::new(e::System::open()?);
-    let frame_window = e::Window::new_frame(&system,
+    let _frame_window = e::Window::new_frame(&system,
         Rect {
             o: Vec2 { x: 10i32,y: 10i32, },
             s: Vec2 { x: 800i32,y: 600i32, },

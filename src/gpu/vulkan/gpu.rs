@@ -16,6 +16,7 @@ use {
 // Supplemental fields for System
 #[derive(Debug)]
 pub struct Gpu {
+    pub system: Rc<System>,
     pub vk_instance: sys::VkInstance,
     pub vk_physical_device: sys::VkPhysicalDevice,
     pub vk_device: sys::VkDevice,
@@ -26,16 +27,12 @@ pub struct Gpu {
 
 impl gpu::Gpu for Gpu {
 
-    type Surface = Surface;
     type CommandBuffer = CommandBuffer;
     type VertexShader = VertexShader;
     type FragmentShader = FragmentShader;
-    type GraphicsPipeline = GraphicsPipeline;
-    type VertexBuffer = VertexBuffer;
-    type IndexBuffer = IndexBuffer;
     type PipelineLayout = PipelineLayout;
 
-    fn open() -> Result<Rc<Gpu>,String> {
+    fn open(system: &Rc<System>) -> Result<Rc<Gpu>,String> {
 
         // create instance
         let extension_names = [
@@ -306,6 +303,7 @@ impl gpu::Gpu for Gpu {
         let shared_index = valid_types[0].0;
 
         Ok(Rc::new(Gpu {
+            system: Rc::clone(&system),
             vk_instance,
             vk_physical_device,
             vk_device,
@@ -315,7 +313,7 @@ impl gpu::Gpu for Gpu {
         }))
     }
 
-    fn create_surface(self: &Rc<Self>,window: &Window,r: Rect<i32>) -> Result<Self::Surface,String> {
+    fn create_surface(self: &Rc<Self>,window: &Rc<Window>,r: Rect<i32>) -> Result<Surface,String> {
         // create surface for this window
 #[cfg(system="linux")]
         let vk_surface = {
@@ -404,13 +402,13 @@ impl gpu::Gpu for Gpu {
             }
         }
         let vk_render_pass = unsafe { vk_render_pass.assume_init() };
-        dprintln!("vk_render_pass = {:?}",vk_render_pass);
 
         let (vk_swapchain,vk_image_views,vk_framebuffers) = Surface::build_swapchain_resources(&self,vk_surface,vk_render_pass,r)?;
 
         // create surface
         let mut surface = Surface {
             gpu: Rc::clone(&self),
+            window: Rc::clone(&window),
             vk_surface,
             vk_render_pass,
             vk_swapchain,
@@ -529,7 +527,7 @@ impl gpu::Gpu for Gpu {
         blend: gpu::Blend,
         write_mask: (bool,bool,bool,bool),
         blend_constant: Vec4<f32>,
-    ) -> Result<Rc<GraphicsPipeline>,String> {
+    ) -> Result<GraphicsPipeline,String> {
 
         let vertex_struct = T::ast();
 
@@ -713,16 +711,7 @@ impl gpu::Gpu for Gpu {
             gpu::DepthTest::Disabled => (sys::VK_FALSE,sys::VK_COMPARE_OP_ALWAYS,(sys::VK_FALSE,0.0,0.0)),
             gpu::DepthTest::Enabled(depth_compare,depth_bounds) => (
                 sys::VK_TRUE,
-                match depth_compare {
-                    gpu::CompareOp::Never => sys::VK_COMPARE_OP_NEVER,
-                    gpu::CompareOp::Less => sys::VK_COMPARE_OP_LESS,
-                    gpu::CompareOp::Equal => sys::VK_COMPARE_OP_EQUAL,
-                    gpu::CompareOp::LessOrEqual => sys::VK_COMPARE_OP_LESS_OR_EQUAL,
-                    gpu::CompareOp::Greater => sys::VK_COMPARE_OP_GREATER,
-                    gpu::CompareOp::NotEqual => sys::VK_COMPARE_OP_NOT_EQUAL,
-                    gpu::CompareOp::GreaterOrEqual => sys::VK_COMPARE_OP_GREATER_OR_EQUAL,
-                    gpu::CompareOp::Always => sys::VK_COMPARE_OP_ALWAYS,
-                },
+                compare_op_to_vk_compare_op(depth_compare),
                 match depth_bounds {
                     gpu::DepthBounds::Disabled => (sys::VK_FALSE,0.0,0.0),
                     gpu::DepthBounds::Enabled(min,max) => (sys::VK_TRUE,min,max),
@@ -746,91 +735,19 @@ impl gpu::Gpu for Gpu {
             ) => (
                 sys::VK_TRUE,
                 (
-                    match front_fail {
-                        gpu::StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
-                        gpu::StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
-                        gpu::StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
-                        gpu::StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
-                        gpu::StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
-                        gpu::StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
-                        gpu::StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
-                        gpu::StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
-                    },
-                    match front_pass {
-                        gpu::StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
-                        gpu::StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
-                        gpu::StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
-                        gpu::StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
-                        gpu::StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
-                        gpu::StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
-                        gpu::StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
-                        gpu::StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
-                    },
-                    match front_depth_fail {
-                        gpu::StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
-                        gpu::StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
-                        gpu::StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
-                        gpu::StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
-                        gpu::StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
-                        gpu::StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
-                        gpu::StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
-                        gpu::StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
-                    },
-                    match front_compare {
-                        gpu::CompareOp::Never => sys::VK_COMPARE_OP_NEVER,
-                        gpu::CompareOp::Less => sys::VK_COMPARE_OP_LESS,
-                        gpu::CompareOp::Equal => sys::VK_COMPARE_OP_EQUAL,
-                        gpu::CompareOp::LessOrEqual => sys::VK_COMPARE_OP_LESS_OR_EQUAL,
-                        gpu::CompareOp::Greater => sys::VK_COMPARE_OP_GREATER,
-                        gpu::CompareOp::NotEqual => sys::VK_COMPARE_OP_NOT_EQUAL,
-                        gpu::CompareOp::GreaterOrEqual => sys::VK_COMPARE_OP_GREATER_OR_EQUAL,
-                        gpu::CompareOp::Always => sys::VK_COMPARE_OP_ALWAYS,    
-                    },
+                    stencil_op_to_vk_stencil_op(front_fail),
+                    stencil_op_to_vk_stencil_op(front_pass),
+                    stencil_op_to_vk_stencil_op(front_depth_fail),
+                    compare_op_to_vk_compare_op(front_compare),
                     front_compare_mask,
                     front_write_mask,
                     front_reference,
                 ),
                 (
-                    match back_fail {
-                        gpu::StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
-                        gpu::StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
-                        gpu::StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
-                        gpu::StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
-                        gpu::StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
-                        gpu::StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
-                        gpu::StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
-                        gpu::StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
-                    },
-                    match back_pass {
-                        gpu::StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
-                        gpu::StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
-                        gpu::StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
-                        gpu::StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
-                        gpu::StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
-                        gpu::StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
-                        gpu::StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
-                        gpu::StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
-                    },
-                    match back_depth_fail {
-                        gpu::StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
-                        gpu::StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
-                        gpu::StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
-                        gpu::StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
-                        gpu::StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
-                        gpu::StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
-                        gpu::StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
-                        gpu::StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
-                    },
-                    match back_compare {
-                        gpu::CompareOp::Never => sys::VK_COMPARE_OP_NEVER,
-                        gpu::CompareOp::Less => sys::VK_COMPARE_OP_LESS,
-                        gpu::CompareOp::Equal => sys::VK_COMPARE_OP_EQUAL,
-                        gpu::CompareOp::LessOrEqual => sys::VK_COMPARE_OP_LESS_OR_EQUAL,
-                        gpu::CompareOp::Greater => sys::VK_COMPARE_OP_GREATER,
-                        gpu::CompareOp::NotEqual => sys::VK_COMPARE_OP_NOT_EQUAL,
-                        gpu::CompareOp::GreaterOrEqual => sys::VK_COMPARE_OP_GREATER_OR_EQUAL,
-                        gpu::CompareOp::Always => sys::VK_COMPARE_OP_ALWAYS,    
-                    },
+                    stencil_op_to_vk_stencil_op(back_fail),
+                    stencil_op_to_vk_stencil_op(back_pass),
+                    stencil_op_to_vk_stencil_op(back_depth_fail),
+                    compare_op_to_vk_compare_op(back_compare),
                     back_compare_mask,
                     back_write_mask,
                     back_reference,
@@ -868,25 +785,7 @@ impl gpu::Gpu for Gpu {
             maxDepthBounds: max_depth_bounds,
         };
 
-        let (logic_op_enable,logic_op) = match logic_op {
-            gpu::LogicOp::Disabled => (sys::VK_FALSE,sys::VK_LOGIC_OP_COPY),
-            gpu::LogicOp::Clear => (sys::VK_TRUE,sys::VK_LOGIC_OP_CLEAR),
-            gpu::LogicOp::And => (sys::VK_TRUE,sys::VK_LOGIC_OP_AND),
-            gpu::LogicOp::AndReverse => (sys::VK_TRUE,sys::VK_LOGIC_OP_AND_REVERSE),
-            gpu::LogicOp::Copy => (sys::VK_TRUE,sys::VK_LOGIC_OP_COPY),
-            gpu::LogicOp::AndInverted => (sys::VK_TRUE,sys::VK_LOGIC_OP_AND_INVERTED),
-            gpu::LogicOp::NoOp => (sys::VK_TRUE,sys::VK_LOGIC_OP_NO_OP),
-            gpu::LogicOp::Xor => (sys::VK_TRUE,sys::VK_LOGIC_OP_XOR),
-            gpu::LogicOp::Or => (sys::VK_TRUE,sys::VK_LOGIC_OP_OR),
-            gpu::LogicOp::Nor => (sys::VK_TRUE,sys::VK_LOGIC_OP_NOR),
-            gpu::LogicOp::Equivalent => (sys::VK_TRUE,sys::VK_LOGIC_OP_EQUIVALENT),
-            gpu::LogicOp::Invert => (sys::VK_TRUE,sys::VK_LOGIC_OP_INVERT),
-            gpu::LogicOp::OrReverse => (sys::VK_TRUE,sys::VK_LOGIC_OP_OR_REVERSE),
-            gpu::LogicOp::CopyInverted => (sys::VK_TRUE,sys::VK_LOGIC_OP_COPY_INVERTED),
-            gpu::LogicOp::OrInverted => (sys::VK_TRUE,sys::VK_LOGIC_OP_OR_INVERTED),
-            gpu::LogicOp::Nand => (sys::VK_TRUE,sys::VK_LOGIC_OP_NAND),
-            gpu::LogicOp::Set => (sys::VK_TRUE,sys::VK_LOGIC_OP_SET),
-        };
+        let (logic_op_enable,logic_op) = logic_op_to_vk_logic_op(logic_op);
         let (
             blend,
             (color_op,src_color,dst_color),
@@ -900,106 +799,14 @@ impl gpu::Gpu for Gpu {
             gpu::Blend::Enabled((color_op,src_color,dst_color),(alpha_op,src_alpha,dst_alpha)) => (
                 sys::VK_TRUE,
                 (
-                    match color_op {
-                        gpu::BlendOp::Add => sys::VK_BLEND_OP_ADD,
-                        gpu::BlendOp::Subtract => sys::VK_BLEND_OP_SUBTRACT,
-                        gpu::BlendOp::ReverseSubtract => sys::VK_BLEND_OP_REVERSE_SUBTRACT,
-                        gpu::BlendOp::Min => sys::VK_BLEND_OP_MIN,
-                        gpu::BlendOp::Max => sys::VK_BLEND_OP_MAX,
-                    },
-                    match src_color {
-                        gpu::BlendFactor::Zero => sys::VK_BLEND_FACTOR_ZERO,
-                        gpu::BlendFactor::One => sys::VK_BLEND_FACTOR_ONE,
-                        gpu::BlendFactor::SrcColor => sys::VK_BLEND_FACTOR_SRC_COLOR,
-                        gpu::BlendFactor::OneMinusSrcColor => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
-                        gpu::BlendFactor::DstColor => sys::VK_BLEND_FACTOR_DST_COLOR,
-                        gpu::BlendFactor::OneMinusDstColor => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
-                        gpu::BlendFactor::SrcAlpha => sys::VK_BLEND_FACTOR_SRC_ALPHA,
-                        gpu::BlendFactor::OneMinusSrcAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                        gpu::BlendFactor::DstAlpha => sys::VK_BLEND_FACTOR_DST_ALPHA,
-                        gpu::BlendFactor::OneMinusDstAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
-                        gpu::BlendFactor::ConstantColor => sys::VK_BLEND_FACTOR_CONSTANT_COLOR,
-                        gpu::BlendFactor::OneMinusConstantColor => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR,
-                        gpu::BlendFactor::ConstantAlpha => sys::VK_BLEND_FACTOR_CONSTANT_ALPHA,
-                        gpu::BlendFactor::OneMinusConstantAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA,
-                        gpu::BlendFactor::SrcAlphaSaturate => sys::VK_BLEND_FACTOR_SRC_ALPHA_SATURATE,
-                        gpu::BlendFactor::Src1Color => sys::VK_BLEND_FACTOR_SRC1_COLOR,
-                        gpu::BlendFactor::OneMinusSrc1Color => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR,
-                        gpu::BlendFactor::Src1Alpha => sys::VK_BLEND_FACTOR_SRC1_ALPHA,
-                        gpu::BlendFactor::OneMinusSrc1Alpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA,
-                    },
-                    match dst_color {
-                        gpu::BlendFactor::Zero => sys::VK_BLEND_FACTOR_ZERO,
-                        gpu::BlendFactor::One => sys::VK_BLEND_FACTOR_ONE,
-                        gpu::BlendFactor::SrcColor => sys::VK_BLEND_FACTOR_SRC_COLOR,
-                        gpu::BlendFactor::OneMinusSrcColor => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
-                        gpu::BlendFactor::DstColor => sys::VK_BLEND_FACTOR_DST_COLOR,
-                        gpu::BlendFactor::OneMinusDstColor => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
-                        gpu::BlendFactor::SrcAlpha => sys::VK_BLEND_FACTOR_SRC_ALPHA,
-                        gpu::BlendFactor::OneMinusSrcAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                        gpu::BlendFactor::DstAlpha => sys::VK_BLEND_FACTOR_DST_ALPHA,
-                        gpu::BlendFactor::OneMinusDstAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
-                        gpu::BlendFactor::ConstantColor => sys::VK_BLEND_FACTOR_CONSTANT_COLOR,
-                        gpu::BlendFactor::OneMinusConstantColor => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR,
-                        gpu::BlendFactor::ConstantAlpha => sys::VK_BLEND_FACTOR_CONSTANT_ALPHA,
-                        gpu::BlendFactor::OneMinusConstantAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA,
-                        gpu::BlendFactor::SrcAlphaSaturate => sys::VK_BLEND_FACTOR_SRC_ALPHA_SATURATE,
-                        gpu::BlendFactor::Src1Color => sys::VK_BLEND_FACTOR_SRC1_COLOR,
-                        gpu::BlendFactor::OneMinusSrc1Color => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR,
-                        gpu::BlendFactor::Src1Alpha => sys::VK_BLEND_FACTOR_SRC1_ALPHA,
-                        gpu::BlendFactor::OneMinusSrc1Alpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA,
-                    },
+                    blend_op_to_vk_blend_op(color_op),
+                    blend_factor_to_vk_blend_factor(src_color),
+                    blend_factor_to_vk_blend_factor(dst_color),
                 ),
                 (
-                    match alpha_op {
-                        gpu::BlendOp::Add => sys::VK_BLEND_OP_ADD,
-                        gpu::BlendOp::Subtract => sys::VK_BLEND_OP_SUBTRACT,
-                        gpu::BlendOp::ReverseSubtract => sys::VK_BLEND_OP_REVERSE_SUBTRACT,
-                        gpu::BlendOp::Min => sys::VK_BLEND_OP_MIN,
-                        gpu::BlendOp::Max => sys::VK_BLEND_OP_MAX,
-                    },
-                    match src_alpha {
-                        gpu::BlendFactor::Zero => sys::VK_BLEND_FACTOR_ZERO,
-                        gpu::BlendFactor::One => sys::VK_BLEND_FACTOR_ONE,
-                        gpu::BlendFactor::SrcColor => sys::VK_BLEND_FACTOR_SRC_COLOR,
-                        gpu::BlendFactor::OneMinusSrcColor => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
-                        gpu::BlendFactor::DstColor => sys::VK_BLEND_FACTOR_DST_COLOR,
-                        gpu::BlendFactor::OneMinusDstColor => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
-                        gpu::BlendFactor::SrcAlpha => sys::VK_BLEND_FACTOR_SRC_ALPHA,
-                        gpu::BlendFactor::OneMinusSrcAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                        gpu::BlendFactor::DstAlpha => sys::VK_BLEND_FACTOR_DST_ALPHA,
-                        gpu::BlendFactor::OneMinusDstAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
-                        gpu::BlendFactor::ConstantColor => sys::VK_BLEND_FACTOR_CONSTANT_COLOR,
-                        gpu::BlendFactor::OneMinusConstantColor => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR,
-                        gpu::BlendFactor::ConstantAlpha => sys::VK_BLEND_FACTOR_CONSTANT_ALPHA,
-                        gpu::BlendFactor::OneMinusConstantAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA,
-                        gpu::BlendFactor::SrcAlphaSaturate => sys::VK_BLEND_FACTOR_SRC_ALPHA_SATURATE,
-                        gpu::BlendFactor::Src1Color => sys::VK_BLEND_FACTOR_SRC1_COLOR,
-                        gpu::BlendFactor::OneMinusSrc1Color => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR,
-                        gpu::BlendFactor::Src1Alpha => sys::VK_BLEND_FACTOR_SRC1_ALPHA,
-                        gpu::BlendFactor::OneMinusSrc1Alpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA,
-                    },
-                    match dst_alpha {
-                        gpu::BlendFactor::Zero => sys::VK_BLEND_FACTOR_ZERO,
-                        gpu::BlendFactor::One => sys::VK_BLEND_FACTOR_ONE,
-                        gpu::BlendFactor::SrcColor => sys::VK_BLEND_FACTOR_SRC_COLOR,
-                        gpu::BlendFactor::OneMinusSrcColor => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
-                        gpu::BlendFactor::DstColor => sys::VK_BLEND_FACTOR_DST_COLOR,
-                        gpu::BlendFactor::OneMinusDstColor => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
-                        gpu::BlendFactor::SrcAlpha => sys::VK_BLEND_FACTOR_SRC_ALPHA,
-                        gpu::BlendFactor::OneMinusSrcAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                        gpu::BlendFactor::DstAlpha => sys::VK_BLEND_FACTOR_DST_ALPHA,
-                        gpu::BlendFactor::OneMinusDstAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
-                        gpu::BlendFactor::ConstantColor => sys::VK_BLEND_FACTOR_CONSTANT_COLOR,
-                        gpu::BlendFactor::OneMinusConstantColor => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR,
-                        gpu::BlendFactor::ConstantAlpha => sys::VK_BLEND_FACTOR_CONSTANT_ALPHA,
-                        gpu::BlendFactor::OneMinusConstantAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA,
-                        gpu::BlendFactor::SrcAlphaSaturate => sys::VK_BLEND_FACTOR_SRC_ALPHA_SATURATE,
-                        gpu::BlendFactor::Src1Color => sys::VK_BLEND_FACTOR_SRC1_COLOR,
-                        gpu::BlendFactor::OneMinusSrc1Color => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR,
-                        gpu::BlendFactor::Src1Alpha => sys::VK_BLEND_FACTOR_SRC1_ALPHA,
-                        gpu::BlendFactor::OneMinusSrc1Alpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA,
-                    },
+                    blend_op_to_vk_blend_op(alpha_op),
+                    blend_factor_to_vk_blend_factor(src_alpha),
+                    blend_factor_to_vk_blend_factor(dst_alpha),
                 ),
             ),
         };
@@ -1059,13 +866,13 @@ impl gpu::Gpu for Gpu {
 
         let mut vk_pipeline = MaybeUninit::uninit();
         match unsafe { sys::vkCreateGraphicsPipelines(self.vk_device,null_mut(),1,&create_info,null_mut(),vk_pipeline.as_mut_ptr()) } {
-            sys::VK_SUCCESS => Ok(Rc::new(GraphicsPipeline {
+            sys::VK_SUCCESS => Ok(GraphicsPipeline {
                 gpu: Rc::clone(&self),
                 vk_pipeline: unsafe { vk_pipeline.assume_init() },
                 vertex_shader: Rc::clone(vertex_shader),
                 fragment_shader: Rc::clone(fragment_shader),
                 pipeline_layout: Rc::clone(pipeline_layout),
-            })),
+            }),
             code => Err(format!("Unable to create graphics pipeline ({})",code)),
         }
     }
@@ -1227,5 +1034,87 @@ impl gpu::Gpu for Gpu {
             }),
             code => Err(format!("Unable to create pipeline layout ({})",vk_code_to_string(code))),
         }
+    }
+}
+
+fn compare_op_to_vk_compare_op(compare_op: gpu::CompareOp) -> sys::VkCompareOp {
+    match compare_op {
+        gpu::CompareOp::Never => sys::VK_COMPARE_OP_NEVER,
+        gpu::CompareOp::Less => sys::VK_COMPARE_OP_LESS,
+        gpu::CompareOp::Equal => sys::VK_COMPARE_OP_EQUAL,
+        gpu::CompareOp::LessOrEqual => sys::VK_COMPARE_OP_LESS_OR_EQUAL,
+        gpu::CompareOp::Greater => sys::VK_COMPARE_OP_GREATER,
+        gpu::CompareOp::NotEqual => sys::VK_COMPARE_OP_NOT_EQUAL,
+        gpu::CompareOp::GreaterOrEqual => sys::VK_COMPARE_OP_GREATER_OR_EQUAL,
+        gpu::CompareOp::Always => sys::VK_COMPARE_OP_ALWAYS,
+    }
+}
+
+fn stencil_op_to_vk_stencil_op(stencil_op: gpu::StencilOp) -> sys::VkStencilOp {
+    match stencil_op {
+        gpu::StencilOp::Keep => sys::VK_STENCIL_OP_KEEP,
+        gpu::StencilOp::Zero => sys::VK_STENCIL_OP_ZERO,
+        gpu::StencilOp::Replace => sys::VK_STENCIL_OP_REPLACE,
+        gpu::StencilOp::IncClamp => sys::VK_STENCIL_OP_INCREMENT_AND_CLAMP,
+        gpu::StencilOp::DecClamp => sys::VK_STENCIL_OP_DECREMENT_AND_CLAMP,
+        gpu::StencilOp::Invert => sys::VK_STENCIL_OP_INVERT,
+        gpu::StencilOp::IncWrap => sys::VK_STENCIL_OP_INCREMENT_AND_WRAP,
+        gpu::StencilOp::DecWrap => sys::VK_STENCIL_OP_DECREMENT_AND_WRAP,    
+    }
+}
+
+fn logic_op_to_vk_logic_op(logic_op: gpu::LogicOp) -> (u32,sys::VkLogicOp) {
+    match logic_op {
+        gpu::LogicOp::Disabled => (sys::VK_FALSE,sys::VK_LOGIC_OP_COPY),
+        gpu::LogicOp::Clear => (sys::VK_TRUE,sys::VK_LOGIC_OP_CLEAR),
+        gpu::LogicOp::And => (sys::VK_TRUE,sys::VK_LOGIC_OP_AND),
+        gpu::LogicOp::AndReverse => (sys::VK_TRUE,sys::VK_LOGIC_OP_AND_REVERSE),
+        gpu::LogicOp::Copy => (sys::VK_TRUE,sys::VK_LOGIC_OP_COPY),
+        gpu::LogicOp::AndInverted => (sys::VK_TRUE,sys::VK_LOGIC_OP_AND_INVERTED),
+        gpu::LogicOp::NoOp => (sys::VK_TRUE,sys::VK_LOGIC_OP_NO_OP),
+        gpu::LogicOp::Xor => (sys::VK_TRUE,sys::VK_LOGIC_OP_XOR),
+        gpu::LogicOp::Or => (sys::VK_TRUE,sys::VK_LOGIC_OP_OR),
+        gpu::LogicOp::Nor => (sys::VK_TRUE,sys::VK_LOGIC_OP_NOR),
+        gpu::LogicOp::Equivalent => (sys::VK_TRUE,sys::VK_LOGIC_OP_EQUIVALENT),
+        gpu::LogicOp::Invert => (sys::VK_TRUE,sys::VK_LOGIC_OP_INVERT),
+        gpu::LogicOp::OrReverse => (sys::VK_TRUE,sys::VK_LOGIC_OP_OR_REVERSE),
+        gpu::LogicOp::CopyInverted => (sys::VK_TRUE,sys::VK_LOGIC_OP_COPY_INVERTED),
+        gpu::LogicOp::OrInverted => (sys::VK_TRUE,sys::VK_LOGIC_OP_OR_INVERTED),
+        gpu::LogicOp::Nand => (sys::VK_TRUE,sys::VK_LOGIC_OP_NAND),
+        gpu::LogicOp::Set => (sys::VK_TRUE,sys::VK_LOGIC_OP_SET),
+    }
+}
+
+fn blend_op_to_vk_blend_op(blend_op: gpu::BlendOp) -> sys::VkBlendOp {
+    match blend_op {
+        gpu::BlendOp::Add => sys::VK_BLEND_OP_ADD,
+        gpu::BlendOp::Subtract => sys::VK_BLEND_OP_SUBTRACT,
+        gpu::BlendOp::ReverseSubtract => sys::VK_BLEND_OP_REVERSE_SUBTRACT,
+        gpu::BlendOp::Min => sys::VK_BLEND_OP_MIN,
+        gpu::BlendOp::Max => sys::VK_BLEND_OP_MAX,
+    }
+}
+
+fn blend_factor_to_vk_blend_factor(blend_factor: gpu::BlendFactor) -> sys::VkBlendFactor {
+    match blend_factor {
+        gpu::BlendFactor::Zero => sys::VK_BLEND_FACTOR_ZERO,
+        gpu::BlendFactor::One => sys::VK_BLEND_FACTOR_ONE,
+        gpu::BlendFactor::SrcColor => sys::VK_BLEND_FACTOR_SRC_COLOR,
+        gpu::BlendFactor::OneMinusSrcColor => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
+        gpu::BlendFactor::DstColor => sys::VK_BLEND_FACTOR_DST_COLOR,
+        gpu::BlendFactor::OneMinusDstColor => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
+        gpu::BlendFactor::SrcAlpha => sys::VK_BLEND_FACTOR_SRC_ALPHA,
+        gpu::BlendFactor::OneMinusSrcAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        gpu::BlendFactor::DstAlpha => sys::VK_BLEND_FACTOR_DST_ALPHA,
+        gpu::BlendFactor::OneMinusDstAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
+        gpu::BlendFactor::ConstantColor => sys::VK_BLEND_FACTOR_CONSTANT_COLOR,
+        gpu::BlendFactor::OneMinusConstantColor => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR,
+        gpu::BlendFactor::ConstantAlpha => sys::VK_BLEND_FACTOR_CONSTANT_ALPHA,
+        gpu::BlendFactor::OneMinusConstantAlpha => sys::VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA,
+        gpu::BlendFactor::SrcAlphaSaturate => sys::VK_BLEND_FACTOR_SRC_ALPHA_SATURATE,
+        gpu::BlendFactor::Src1Color => sys::VK_BLEND_FACTOR_SRC1_COLOR,
+        gpu::BlendFactor::OneMinusSrc1Color => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR,
+        gpu::BlendFactor::Src1Alpha => sys::VK_BLEND_FACTOR_SRC1_ALPHA,
+        gpu::BlendFactor::OneMinusSrc1Alpha => sys::VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA,
     }
 }

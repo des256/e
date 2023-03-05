@@ -11,6 +11,7 @@ use {
 #[derive(Debug)]
 pub struct Surface {
     pub gpu: Rc<Gpu>,
+    pub window: Rc<Window>,
     pub vk_surface: sys::VkSurfaceKHR,
     pub vk_render_pass: sys::VkRenderPass,
     pub vk_swapchain: sys::VkSwapchainKHR,

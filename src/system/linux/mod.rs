@@ -6,7 +6,7 @@ pub use system::*;
 mod window;
 pub use window::*;
 
-pub(crate) fn xcb_code_to_string(code: u8) -> &'static str {
+pub fn xcb_code_to_string(code: u8) -> &'static str {
     match code as u32 {
         sys::XCB_REQUEST => "bad request",
         sys::XCB_VALUE => "bad value",
@@ -29,7 +29,7 @@ pub(crate) fn xcb_code_to_string(code: u8) -> &'static str {
     }
 }
 
-pub(crate) fn xcb_major_to_string(major: u8) -> &'static str {
+pub fn xcb_major_to_string(major: u8) -> &'static str {
     match major as u32 {
         sys::XCB_CREATE_WINDOW => "xcb_create_window",
         sys::XCB_CHANGE_WINDOW_ATTRIBUTES => "xcb_change_window_attributes",
