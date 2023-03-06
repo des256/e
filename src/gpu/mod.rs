@@ -342,6 +342,15 @@ pub mod gles;
 #[cfg(metal)]
 pub mod metal;
 
+#[cfg(directx)]
+pub mod directx;
+
+#[cfg(webgl)]
+pub mod webgl;
+
+#[cfg(webgpu)]
+pub mod webgpu;
+
 pub(crate) fn type_to_size(type_: &ast::Type) -> Result<usize,String> {
     match type_ {
         Type::Inferred | Type::Void | Type::Integer | Type::Float | Type::USize | Type::ISize => Err(format!("Vertex field cannot be {}",type_)),

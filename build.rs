@@ -7,6 +7,7 @@ use {
     },
 };
 
+// define the possible main configuration branches of the code
 pub enum System {
     Linux,
     Windows,
@@ -21,7 +22,7 @@ fn main() {
     // make current build available to source code
     println!("cargo:rustc-cfg=build={:?}",env::var("PROFILE").unwrap());
 
-    // define system and gpu configurations
+    // select which main branch to compile
 #[cfg(target_os="linux")]
     let (system,system_name) = (System::Linux,"linux");  // Vulkan, Opengl, Gles
 #[cfg(target_os="windows")]
@@ -34,66 +35,129 @@ fn main() {
     let (system,system_name) = (System::Ios,"ios");  // Vulkan, Metal
 #[cfg(target_family="wasm")]
     let (system,system_name) = (System::Web,"web");  // Webgl, Webgpu
+
+    // this enables #[cfg(system="...")] conditional compilation in the entire source code
     println!("cargo:rustc-cfg=system=\"{}\"",system_name);
 
-    // create header files and system bindings, but not for web
-    if let System::Web = system { } else {
+    if let System::Web = system {
 
-        // sys.h: the needed includes
-        let header_path = path::Path::new("src/sys/sys.h");
+        // TBD: Web doesn't use FFI
+    }
+    
+    else {
+
+        // create header file that contain the includes to generate FFI bindings for
+        // and print any cargo link settings to stdout
         let mut header = String::new();
+
         match system {
+
             System::Linux => {
+
                 header.push_str("#include <sys/epoll.h>\n");
                 header.push_str("#include <X11/Xlib.h>\n");
                 header.push_str("#include <X11/Xlib-xcb.h>\n");
-                header.push_str("#include <xcb/xcb.h>\n");    
+                header.push_str("#include <xcb/xcb.h>\n");
                 println!("cargo:rustc-link-lib=X11");
                 println!("cargo:rustc-link-lib=X11-xcb");
                 println!("cargo:rustc-link-lib=xcb");
-            },
-            _ => {
-                panic!("missing include/lib for system=\"{}\"",system_name);
-            },
-        }
 
-// Vulkan
-#[cfg(any(target_os="linux",target_os="windows",target_os="macos",target_os="android",target_os="ios"))]
-        {
-            println!("cargo:rustc-cfg=vulkan");
-            println!("cargo:rustc-link-lib=vulkan");
-            header.push_str("#include <vulkan/vulkan.h>\n");
-            if let System::Linux = system {
+                // Vulkan
+                println!("cargo:rustc-cfg=vulkan");
+                header.push_str("#include <vulkan/vulkan.h>\n");
                 header.push_str("#include <vulkan/vulkan_xcb.h>\n");
-            }
-        }
+                println!("cargo:rustc-link-lib=vulkan");
 
-// OpenGL
-#[cfg(any(target_os="linux",target_os="windows",target_os="macos"))]
-        {
-            println!("cargo:rustc-cfg=opengl");
-            println!("cargo:rustc-link-lib=GL");
-            if let System::Linux = system {
+                // OpenGL
+                println!("cargo:rustc-cfg=opengl");
                 header.push_str("#define GL_GLEXT_PROTOTYPES 1\n");
                 header.push_str("#include <GL/glcorearb.h>\n");
                 header.push_str("#define GLX_GLXEXT_PROTOTYPES 1\n");
                 header.push_str("#include <GL/glx.h>\n");
                 header.push_str("#include <GL/glxext.h>\n");
-            }
-            else {
-                header.push_str("#include <GL/gl.h>\n");
-            }
+                println!("cargo:rustc-link-lib=GL");    
+            },
+
+            System::Windows => {
+
+                // Vulkan
+                println!("cargo:rustc-cfg=vulkan");
+                header.push_str("#include <vulkan/vulkan.h>\n");
+                header.push_str("#include <vulkan/vulkan_win32.h>\n");
+                println!("cargo:rustc-link-lib=vulkan");
+
+                // OpenGL
+                println!("cargo:rustc-cfg=opengl");
+                header.push_str("#define GL_GLEXT_PROTOTYPES 1\n");
+                header.push_str("#include <GL/glcorearb.h>\n");
+                header.push_str("#define GLX_GLXEXT_PROTOTYPES 1\n");
+                header.push_str("#include <GL/glx.h>\n");
+                header.push_str("#include <GL/glxext.h>\n");
+                println!("cargo:rustc-link-lib=GL");    
+            },
+
+            System::Macos => {
+
+                // Vulkan
+                println!("cargo:rustc-cfg=vulkan");
+                header.push_str("#include <vulkan/vulkan.h>\n");
+                header.push_str("#include <vulkan/vulkan_macos.h>\n");
+                println!("cargo:rustc-link-lib=vulkan");
+
+                // OpenGL
+                println!("cargo:rustc-cfg=opengl");
+                header.push_str("#define GL_GLEXT_PROTOTYPES 1\n");
+                header.push_str("#include <GL/glcorearb.h>\n");
+                header.push_str("#define GLX_GLXEXT_PROTOTYPES 1\n");
+                header.push_str("#include <GL/glx.h>\n");
+                header.push_str("#include <GL/glxext.h>\n");
+                println!("cargo:rustc-link-lib=GL");
+
+                // Metal
+            },
+
+            System::Android => {
+
+                // Vulkan
+                println!("cargo:rustc-cfg=vulkan");
+                header.push_str("#include <vulkan/vulkan.h>\n");
+                header.push_str("#include <vulkan/vulkan_android.h>\n");
+                println!("cargo:rustc-link-lib=vulkan");
+
+                // OpenGL ES
+                println!("cargo:Rustc-cfg=gles");
+                header.push_str("#include <GLES/gl.h>\n");
+                header.push_str("#Include <GLES/glext.h>\n");
+                println!("cargo:rustc-link-lib=EGL");
+            },
+
+            System::Ios => {
+
+                // Vulkan
+                println!("cargo:rustc-cfg=vulkan");
+                header.push_str("#include <vulkan/vulkan.h>\n");
+                header.push_str("#include <vulkan/vulkan_ios.h>\n");
+                println!("cargo:rustc-link-lib=vulkan");
+
+                // OpenGL ES
+                println!("cargo:Rustc-cfg=gles");
+                header.push_str("#include <GLES/gl.h>\n");
+                header.push_str("#Include <GLES/glext.h>\n");
+                println!("cargo:rustc-link-lib=EGL");
+
+                // Metal
+            },
+
+            System::Web => {
+
+            },
         }
 
-// OpenGL ES
-#[cfg(any(target_os="linux",target_os="windows",target_os="macos",target_os="android"))]
-        {
-        }
-
-// Metal
-
-        // sys.rs: the generated bindings
+        // write the header file to sys.h
+        let header_path = path::Path::new("src/sys/sys.h");
         fs::write(&header_path,header).expect("Unable to write header file");
+
+        // generate sys.rs FFI bindings from the includes
         process::Command::new("bindgen")
             .args(&[
                 &format!("src/sys/sys.h"),
@@ -105,14 +169,15 @@ fn main() {
             .status()
             .expect("unable to generate system FFI bindings");
 
-        // mod.rs: the sys module
-        let sysmod_path = path::Path::new("src/sys/mod.rs");
+        // create mod.rs to complete the sys module with FFI bindings
         let mut sysmod = String::new();
         sysmod.push_str("#![allow(non_camel_case_types)]\n");
         sysmod.push_str("#![allow(non_upper_case_globals)]\n");
         sysmod.push_str("#![allow(non_snake_case)]\n");
         sysmod.push_str("#![allow(dead_code)]\n\n");
         sysmod.push_str("include!(\"sys.rs\");\n");
+
+        let sysmod_path = path::Path::new("src/sys/mod.rs");
         fs::write(&sysmod_path,sysmod).expect("Unable to write module file");
     }
 
