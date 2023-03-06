@@ -9,33 +9,33 @@ use {
     },
 };
 
+// the vertex format
 #[derive(Vertex)]
 struct MyVertex {
     pos: Vec2<f32>,
-    color: Vec3<f32>,
 }
 
 #[vertex_shader]
-mod quad_vs {
-    fn main(vertex: MyVertex) -> (Vec4<f32>,Vec3<f32>) {
-        (vertex.pos,vertex.color)
+mod triangle_vs {
+    fn main(vertex: MyVertex) -> Vec4<f32> {
+        vertex.pos
     }
 }
 
 #[fragment_shader]
-mod quad_fs {
-    fn main(color: Vec3<f32>) -> Vec4<f32> {
-        Vec4 { x: color.x,y: color.y,z: color.z,w: 1.0, }
+mod triangle_fs {
+    fn main() -> Vec4<f32> {
+        Vec4 { x: 1.0,y: 0.5,z: 0.0,w: 1.0, }
     }
 }
 
+// environment template that fits on an arbitrary GPU
 struct Environment<T: Gpu> {
     gpu: Rc<T>,
     r: Rect<i32>,
     surface: <T::CommandBuffer as CommandBuffer>::Surface,
     command_buffers: Vec<T::CommandBuffer>,
     vertex_buffer: Rc<<T::CommandBuffer as CommandBuffer>::VertexBuffer>,
-    index_buffer: Rc<<T::CommandBuffer as CommandBuffer>::IndexBuffer>,
     graphics_pipeline: Rc<<T::CommandBuffer as CommandBuffer>::GraphicsPipeline>,
 }
 
@@ -44,7 +44,7 @@ impl<T: Gpu> Environment<T> {
     fn new(system: &Rc<System>,gpu: &Rc<T>,ext: &'static str,title: &'static str,r: Rect<i32>) -> Result<Environment<T>,String> {
     
         // open frame window
-        let window = Rc::new(e::Window::new_frame(&system,r,&format!("Single Quad ({})",title),)?);
+        let window = Rc::new(e::Window::new_frame(&system,r,&format!("Triangle ({})",title),)?);
     
         // create surface for the window
         let surface = gpu.create_surface(&window,r)?;
@@ -59,34 +59,23 @@ impl<T: Gpu> Environment<T> {
         }
     
         // load and create vertex shader
-        let mut f = File::open(format!("assets/quad-vs.{}",ext)).expect("Unable to open vertex shader");
+        let mut f = File::open(format!("assets/triangle-vs.{}",ext)).expect("Unable to open vertex shader");
         let mut code = Vec::<u8>::new();
         f.read_to_end(&mut code).expect("Unable to read vertex shader");
-        let vertex_shader = Rc::new(gpu.create_vertex_shader(&quad_vs::ast())?);
+        let vertex_shader = Rc::new(gpu.create_vertex_shader(&triangle_vs::ast())?);
     
         // load and create fragment shader
-        let mut f = File::open(format!("assets/quad-fs.{}",ext)).expect("Unable to open fragment shader");
+        let mut f = File::open(format!("assets/triangle-fs.{}",ext)).expect("Unable to open fragment shader");
         let mut code = Vec::<u8>::new();
         f.read_to_end(&mut code).expect("Unable to read fragment shader");
-        let fragment_shader = Rc::new(gpu.create_fragment_shader(&quad_fs::ast())?);
+        let fragment_shader = Rc::new(gpu.create_fragment_shader(&triangle_fs::ast())?);
     
         // create vertex buffer
         let mut vertices = Vec::<MyVertex>::new();
-        vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: -0.5, }, color: Vec3::<f32> { x: 0.0,y: 0.5,z: 0.5, }, });
-        vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: -0.5, }, color: Vec3::<f32> { x: 0.5,y: 0.0,z: 0.5, }, });
-        vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: 0.5, }, color: Vec3::<f32> { x: 0.5,y: 0.5,z: 0.0, }, });
-        vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: 0.5, }, color: Vec3::<f32> { x: 1.0,y: 0.0,z: 0.0, }, });
+        vertices.push(MyVertex { pos: Vec2::<f32> { x: -0.5,y: -0.3, }, });
+        vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.0,y: 0.8, }, });
+        vertices.push(MyVertex { pos: Vec2::<f32> { x: 0.5,y: -0.3, }, });
         let vertex_buffer = Rc::new(gpu.create_vertex_buffer(&vertices)?);
-    
-        // create index buffer
-        let mut indices = Vec::<u32>::new();
-        indices.push(0);
-        indices.push(1);
-        indices.push(2);
-        indices.push(0);
-        indices.push(2);
-        indices.push(3);
-        let index_buffer = Rc::new(gpu.create_index_buffer(&indices)?);
     
         // create pipeline layout
         let pipeline_layout = Rc::new(gpu.create_pipeline_layout()?);
@@ -125,11 +114,10 @@ impl<T: Gpu> Environment<T> {
             surface,
             command_buffers,
             vertex_buffer,
-            index_buffer,
             graphics_pipeline,
         })
     }
-
+    
     fn render(&mut self) -> Result<(),String> {
 
         // get index of next available swapchain buffer
@@ -140,11 +128,10 @@ impl<T: Gpu> Environment<T> {
         cb.begin()?;
         cb.bind_graphics_pipeline(&self.graphics_pipeline);
         cb.bind_vertex_buffer(&self.vertex_buffer);
-        cb.bind_index_buffer(&self.index_buffer);
         cb.begin_render_pass(&self.surface,index,Rect { o: Vec2::<i32>::ZERO,s: self.r.s, });
         cb.set_viewport(Rect { o: Vec2::<i32>::ZERO,s: self.r.s, }, 0.0, 1.0, );
         cb.set_scissor(Rect { o: Vec2::<i32>::ZERO,s: self.r.s, });
-        cb.draw_indexed(6,1,0,0,0);
+        cb.draw(3,1,0,0);
         cb.end_render_pass();
         cb.end();
 

@@ -52,11 +52,14 @@ impl gpu::Gpu for Gpu {
                 return Err(format!("glX version {}.{} needs to be at least 1.3",glxmaj,glxmin));
             }
 
-            let vendor_cstr = unsafe { CStr::from_ptr(sys::glXGetClientString(system.xdisplay,sys::GLX_VENDOR as c_int)) };
-            let version_cstr = unsafe { CStr::from_ptr(sys::glXGetClientString(system.xdisplay,sys::GLX_VERSION as c_int)) };
-            dprintln!("OpenGL glX vendor: {}",vendor_cstr.to_str().unwrap());
-            dprintln!("OpenGL glX version: {}",version_cstr.to_str().unwrap());
-
+#[cfg(build="debug")]
+            {
+                let vendor_cstr = unsafe { CStr::from_ptr(sys::glXGetClientString(system.xdisplay,sys::GLX_VENDOR as c_int)) };
+                let version_cstr = unsafe { CStr::from_ptr(sys::glXGetClientString(system.xdisplay,sys::GLX_VERSION as c_int)) };
+                dprintln!("OpenGL glX vendor: {}",vendor_cstr.to_str().unwrap());
+                dprintln!("OpenGL glX version: {}",version_cstr.to_str().unwrap());
+            }
+            
             // choose appropriate framebuffer configuration
             let attribs = [
                 sys::GLX_X_RENDERABLE,   1,
@@ -165,7 +168,8 @@ impl gpu::Gpu for Gpu {
         Ok(())
     }
 
-    fn create_vertex_shader(self: &Rc<Self>,code: &[u8]) -> Result<VertexShader,String> {
+    fn create_vertex_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<VertexShader,String> {
+        /*
         let vs = unsafe { checkgl!(sys::glCreateShader(sys::GL_VERTEX_SHADER)) };
         unsafe {
             checkgl!(sys::glShaderSource(vs,1,&code.as_ptr() as *const *const u8 as *const *const i8,null_mut()));
@@ -186,9 +190,12 @@ impl gpu::Gpu for Gpu {
             gpu: Rc::clone(&self),
             vs,
         })
+        */
+        Err("TODO: GLSL compiler".to_string())
     }
 
-    fn create_fragment_shader(self: &Rc<Self>,code: &[u8]) -> Result<FragmentShader,String> {
+    fn create_fragment_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<FragmentShader,String> {
+        /*
         let fs = unsafe { checkgl!(sys::glCreateShader(sys::GL_FRAGMENT_SHADER)) };
         unsafe {
             checkgl!(sys::glShaderSource(fs,1,&code.as_ptr() as *const *const u8 as *const *const i8,null_mut()));
@@ -209,6 +216,8 @@ impl gpu::Gpu for Gpu {
             gpu: Rc::clone(&self),
             fs,
         })
+        */
+        Err("TODO: GLSL compiler".to_string())
     }
 
     fn create_graphics_pipeline<T: gpu::Vertex>(self: &Rc<Self>,

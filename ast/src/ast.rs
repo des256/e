@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Clone)]
 pub enum Type {
     Inferred,
@@ -162,10 +164,11 @@ pub struct Alias {
 
 pub struct Module {
     pub ident: String,
-    pub tuples: Vec<Tuple>,
-    pub structs: Vec<Struct>,
-    pub enums: Vec<Enum>,
-    pub aliases: Vec<Alias>,
-    pub consts: Vec<Const>,
-    pub functions: Vec<Function>,
+    pub tuples: HashMap<String,Tuple>,
+    pub structs: HashMap<String,Struct>,
+    pub extern_structs: HashMap<String,Struct>,
+    pub enums: HashMap<String,Enum>,
+    pub aliases: HashMap<String,Alias>,
+    pub consts: HashMap<String,Const>,
+    pub functions: HashMap<String,Function>,
 }

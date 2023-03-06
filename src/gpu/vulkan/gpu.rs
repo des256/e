@@ -464,7 +464,8 @@ impl gpu::Gpu for Gpu {
         }
     }
 
-    fn create_vertex_shader(self: &Rc<Self>,code: &[u8]) -> Result<VertexShader,String> {
+    fn create_vertex_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<VertexShader,String> {
+        /*
         let create_info = sys::VkShaderModuleCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             pNext: null_mut(),
@@ -480,10 +481,12 @@ impl gpu::Gpu for Gpu {
             }),
             code => Err(format!("Unable to create vertex shader ({})",vk_code_to_string(code))),
         }
+        */
+        Err("TODO: SPIR-V compiler".to_string())
     }
 
-    fn create_fragment_shader(self: &Rc<Self>,code: &[u8]) -> Result<FragmentShader,String> {
-
+    fn create_fragment_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<FragmentShader,String> {
+        /*
         let create_info = sys::VkShaderModuleCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             pNext: null_mut(),
@@ -499,6 +502,8 @@ impl gpu::Gpu for Gpu {
             }),
             code => Err(format!("Unable to create fragment shader ({})",vk_code_to_string(code))),
         }
+        */
+        Err("TODO: SPIR-V compiler".to_string())
     }
 
     /// Create a graphics pipeline.

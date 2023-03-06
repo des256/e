@@ -73,7 +73,7 @@ impl Parser {
     }
 
     pub(crate) fn fatal(&self,message: &str) -> ! {
-        let current = self.current.clone().unwrap();
+        let current = Option::<TokenTree>::clone(&self.current).unwrap();
         let path = current.span().source_file().path();
         let source_file = path.to_str().unwrap();
         let start = current.span().start();
@@ -272,7 +272,7 @@ impl Parser {
             parser.ident_types()
         }
         else {
-            panic!("{}","{ expected");
+            panic!("{}","{ expected (brace_ident_types)");
         }
     }
 

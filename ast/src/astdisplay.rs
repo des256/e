@@ -525,22 +525,22 @@ impl Display for Module {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"mod {} {{\n",self.ident)?;
         for tuple in self.tuples.iter() {
-            write!(f,"{};\n",tuple)?;
+            write!(f,"{};\n",tuple.1)?;
         }
         for struct_ in self.structs.iter() {
-            write!(f,"{};\n",struct_)?;
+            write!(f,"{};\n",struct_.1)?;
         }
         for enum_ in self.enums.iter() {
-            write!(f,"{};\n",enum_)?;
+            write!(f,"{};\n",enum_.1)?;
         }
         for alias in self.aliases.iter() {
-            write!(f,"{};\n",alias)?;
+            write!(f,"{};\n",alias.1)?;
         }
         for const_ in self.consts.iter() {
-            write!(f,"{};\n",const_)?;
+            write!(f,"{};\n",const_.1)?;
         }
         for function in self.functions.iter() {
-            write!(f,"{};\n",function)?;
+            write!(f,"{};\n",function.1)?;
         }
         /*
         for tuple in self.stdlib_tuples.values() {

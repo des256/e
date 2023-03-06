@@ -296,8 +296,8 @@ pub trait Gpu {
     fn create_surface(self: &Rc<Self>,window: &Rc<Window>,r: Rect<i32>) -> Result<<Self::CommandBuffer as CommandBuffer>::Surface,String>;
     fn create_command_buffer(self: &Rc<Self>) -> Result<Self::CommandBuffer,String>;
     fn submit_command_buffer(&self,command_buffer: &Self::CommandBuffer) -> Result<(),String>;
-    fn create_vertex_shader(self: &Rc<Self>,code: &[u8]) -> Result<Self::VertexShader,String>;
-    fn create_fragment_shader(self: &Rc<Self>,code: &[u8]) -> Result<Self::FragmentShader,String>;
+    fn create_vertex_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<Self::VertexShader,String>;
+    fn create_fragment_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<Self::FragmentShader,String>;
     fn create_graphics_pipeline<T: Vertex>(self: &Rc<Self>,
         surface: &<Self::CommandBuffer as CommandBuffer>::Surface,
         pipeline_layout: &Rc<Self::PipelineLayout>,

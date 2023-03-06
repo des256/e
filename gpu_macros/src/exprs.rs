@@ -387,7 +387,7 @@ impl Parser {
                 let pats = self.or_pats();
                 self.punct('=');
                 let expr = self.expr();
-                let block = self.block().expect("{ expected");
+                let block = self.block().expect("{ expected (else_expr)");
                 if self.keyword("else") {
                     let else_expr = self.else_expr().expect("if, if let, or block expected");
                     Some(Expr::IfLet(pats,Box::new(expr),block,Some(Box::new(else_expr))))
@@ -738,7 +738,7 @@ impl Parser {
                                 (expr,pat,sub_parser)
                             }
                             else {
-                                panic!("{}","{ expected");
+                                panic!("{}","{ expected (expr_brace_pat)");
                             }
                         }
                     }
@@ -760,7 +760,7 @@ impl Parser {
             }
 
             else {
-                panic!("{}","{ expected");
+                panic!("{}","{ expected (expr_brace_pat)");
             }
         }
 
@@ -772,7 +772,7 @@ impl Parser {
                 (expr,pat,parser)
             }
             else {
-                panic!("{}","{ expected");
+                panic!("{}","{ expected (expr_brace_pat)");
             }
         }
     }
@@ -802,7 +802,7 @@ impl Parser {
                         // ident { sub_ident: ...  -> UnknownStruct followed by { ... }
                         else {
                             let main_expr = parser.finish_unknown_struct(ident,sub_ident);
-                            let block = self.block().expect("{ expected");
+                            let block = self.block().expect("{ expected (expr_brace_block)");
                             (main_expr,block)
                         }
                     }
@@ -827,7 +827,7 @@ impl Parser {
 
             else {
                 let main_expr = self.finish_ident_as_expr(ident);
-                let block = self.block().expect("{ expected");
+                let block = self.block().expect("{ expected (expr_brace_block)");
                 (main_expr,block)
             }
         }
@@ -835,7 +835,7 @@ impl Parser {
         // ...
         else {
             let main_expr = self.expr();
-            let block = self.block().expect("{ expected");
+            let block = self.block().expect("{ expected (expr_brace_block)");
             (main_expr,block)
         }
     }
@@ -934,7 +934,7 @@ impl Parser {
                 let pats = self.or_pats();
                 self.punct('=');
                 let expr = self.expr();
-                let block = self.block().expect("{ expected");
+                let block = self.block().expect("{ expected (expr, while)");
                 Expr::WhileLet(pats,Box::new(expr),block)
             }
 
@@ -946,7 +946,7 @@ impl Parser {
 
         // Loop
         else if self.keyword("loop") {
-            Expr::Loop(self.block().expect("{ expected"))
+            Expr::Loop(self.block().expect("{ expected (expr, loop)"))
         }
 
         // For

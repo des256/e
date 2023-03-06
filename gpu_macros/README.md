@@ -14,34 +14,105 @@ In the Rust source code, we define a vertex format:
 #[derive(Vertex)]
 struct MyVertex {
     Vec2<f32> pos;
-    Color<f32> color;
 }
 ```
 
-And the shaders:
+And the vertex shader:
 
 ```
-#[vertex_shader]
+#[vertex_shader(MyVertex)]
 mod my_vertex_shader {
-    fn main(vertex: MyVertex) -> (Vec4<f32>,Color<f32>) {
-        (Vec4<f32> { x: vertex.pos.x,y: vertex.pos.y,z: 0.0,w: 1.0, },vertex.color)
+    fn main(vertex: MyVertex) -> Vec4<f32> {
+        Vec4<f32> { x: vertex.pos.x,y: vertex.pos.y,z: 0.0,w: 1.0, }
     }
 }
+```
 
+or smaller if there are no functions other than the main shader:
+
+```
+#[vertex_shader(MyVertex)]
+fn my_vertex_shader(vertex: MyVertex) -> Vec4<f32> {
+    Vec4<f32> { x: vertex.pos.x,y: vertex.pos.y,z: vertex.pos.z, w: 1.0, }
+}
+```
+
+And similarly for the fragment shader:
+
+```
 [fragment_shader]
 mod my_fragment_shader {
-    fn main(color: Color<f32>) -> Color<f32> {
-        color
+    fn main(color: Vec3<f32>) -> Vec4<f32> {
+        Vec4<f32> { x: color.x,y: color.y,z: color.z,w: 1.0, }
     }
+}
+```
+
+or:
+
+```
+fn my_fragment_shader(color: Vec3<f32>) -> Vec4<f32> {
+    Vec4<f32> { x: color.x,y: color.y,z: color.z,w: 1.0, }
 }
 ```
 
 To specify the vertex buffer, we can use `MyVertex` (since it supports the `Vertex` trait), and to create the shader objects:
 
 ```
-vertex_shader = VertexShader::from_code(my_vertex_shader::code());
-fragment_shader = FragmentShader::from_code(my_fragment_shader::code());
+vertex_shader = gpu.create_vertex_shader(my_vertex_shader::module());
+fragment_shader = gpu.create_fragment_shader(my_fragment_shader::module());
 ```
+
+## The Process
+
+The compiler calls the `vertex_shader` macro processor. This reads the following token stream and parses it into an AST. It then renders the AST as Rust constant that replaces the vertex shader function, like so:
+
+```
+my_vertex_shader {
+    pub fn ast() -> ast::Module {
+        {
+            use {
+                super::*,
+                std::collections::HashMap,
+            };
+            let tuples: HashMap<String,ast::Tuple> = HashMap::new();
+            let mut extern_structs: HashMap<String,ast::Struct> = HashMap::new();
+            extern_structs.insert("MyVertex".to_string(),super::MyVertex::ast());
+            let mut structs: HashMap<String,ast::Struct> = HashMap::new();
+            let enums: HashMap<String,ast::Enum> = HashMap::new();
+            let aliases: HashMap<String,ast::Alias> = HashMap::new();
+            let consts: HashMap<String,ast::Const> = HashMap::new();
+            let mut functions: HashMap<String,ast::Function> = HashMap::new();
+            functions.insert("main".to_string(),ast::Function {
+                ident: "main".to_string(),
+                params: vec![
+                    ast::Symbol {
+                        ident: "vertex".to_string(),
+                        type_: ast::Type::UnknownIdent("MyVertex".to_string()),
+                    },
+                ],
+                type_: ast::Type::Generic("Vec4".to_string(),vec![ast::Type::F32,]),
+                block: ast::Block {
+                    stats: vec![],
+                    expr: Some(Box::new(ast::Expr::Field(Box::new(ast::Expr::UnknownIdent("vertex".to_string())),"_pos".to_string()))),
+                },
+            });
+            ast::Module {
+                ident: "triangle_vs".to_string(),
+                tuples,
+                structs,
+                extern_structs,
+                enums,
+                aliases,
+                consts,
+                functions,
+            }
+        }
+    }
+}
+```
+
+Then, when the shader is needed, the implementation of `Gpu::create_vertex_shader` or `Gpu::create_fragment_shader` gets called with the shader AST. These methods first optimize the AST generically (this could also be done during compilation), and then specifically for their respective shader languages, after which they render the code to pass down to the API.
 
 ## Development Details
 
@@ -49,7 +120,7 @@ Generally, the compiler should convert Rust into one of the shading languages. T
 
 1. parse Rust into syntax tree
 2. convert Rust features into C-like equivalents
-3. render target language
+3. render into target language
 
 So there is no intermediate representation or assembly, and we're not considering optimizations at this time.
 

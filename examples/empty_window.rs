@@ -18,8 +18,8 @@ fn main() -> Result<(),String> {
     let mut close_clicked = false;
     while !close_clicked {
         system.wait();
-        system.flush().into_iter().for_each(|(id,event)| {
-            dprintln!("event {} for window {}",event,id);
+        system.flush().into_iter().for_each(|(_,event)| {
+            dprintln!("event {}",event);
             if let Event::Close = event {
                 close_clicked = true;
             }
