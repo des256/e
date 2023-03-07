@@ -14,27 +14,18 @@ impl Parser {
                 "i32" => Type::I32,
                 "u64" => Type::U64,
                 "i64" => Type::I64,
-                "usize" => Type::USize,
-                "isize" => Type::ISize,
                 "f16" => Type::F16,
                 "f32" => Type::F32,
                 "f64" => Type::F64,
                 _ => {
                     self.punct2(':',':');
                     if self.punct('<') {
-                        let mut types = Vec::<Type>::new();
-                        loop {
-                            let type_ = self.type_();
-                            types.push(type_);
-                            self.punct(',');
-                            if self.punct('>') {
-                                break;
-                            }    
-                        }
-                        Type::Generic(ident,types)
+                        let type_ = self.type_();
+                        self.punct('>');
+                        Type::Struct(format!("{}<{}>",ident,type_))
                     }
                     else {
-                        Type::UnknownIdent(ident)
+                        Type::UnknownStructTupleEnumAlias(ident)
                     }
                 }
             }

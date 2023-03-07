@@ -1,6 +1,5 @@
 use {
     crate::*,
-    ast::*,
     std::rc::Rc,
 };
 
@@ -353,52 +352,40 @@ pub mod webgpu;
 
 pub(crate) fn type_to_size(type_: &ast::Type) -> Result<usize,String> {
     match type_ {
-        Type::Inferred | Type::Void | Type::Integer | Type::Float | Type::USize | Type::ISize => Err(format!("Vertex field cannot be {}",type_)),
-        Type::Bool | Type::AnonTuple(_) | Type::Array(_,_) | Type::UnknownIdent(_) => Err(format!("TODO: Vertex field {}",type_)),
-        Type::U8 | Type::I8 => Ok(1),
-        Type::U16 | Type::I16 | Type::F16 => Ok(2),
-        Type::U32 | Type::I32 | Type::F32 => Ok(4),
-        Type::U64 | Type::I64 | Type::F64 => Ok(8),
-        Type::Generic(ident,types) => {
-            if types.len() == 1 {
-                let vc = match ident.as_str() {
-                    "Vec2" => Ok(2),
-                    "Vec3" => Ok(3),
-                    "Vec4" => Ok(4),
-                    _ => Err(format!("Vertex field cannot be a {}",ident)),
-                }?;
-                match types[0] {
-                    Type::Inferred | Type::Void | Type::Integer | Type::Float | Type::USize | Type::ISize | Type::Generic(_,_) => Err(format!("Vertex field cannot be Vec{}<{}>",vc,type_)),
-                    Type::Bool | Type::AnonTuple(_) | Type::Array(_,_) | Type::UnknownIdent(_) => Err(format!("TODO: Vertex field Vec{}<{}>",vc,type_)),
-                    Type::U8 | Type::I8 => match vc {
-                        2 => Ok(2),
-                        3 => Ok(3),
-                        4 => Ok(4),
-                        _ => Err("NOPE!".to_string()),
-                    },
-                    Type::U16 | Type::I16 | Type::F16 => match vc {
-                        2 => Ok(4),
-                        3 => Ok(6),
-                        4 => Ok(8),
-                        _ => Err("NOPE!".to_string()),
-                    },
-                    Type::U32 | Type::I32 | Type::F32 => match vc {
-                        2 => Ok(8),
-                        3 => Ok(12),
-                        4 => Ok(16),
-                        _ => Err("NOPE!".to_string()),
-                    },
-                    Type::U64 | Type::I64 | Type::F64 => match vc {
-                        2 => Ok(16),
-                        3 => Ok(24),
-                        4 => Ok(32),
-                        _ => Err("NOPE!".to_string()),
-                    },
+        ast::Type::Bool => Err("TODO: bool vertex field".to_string()),
+        ast::Type::U8 => Ok(1),
+        ast::Type::I8 => Ok(1),
+        ast::Type::U16 => Ok(2),
+        ast::Type::I16 => Ok(2),
+        ast::Type::U32 => Ok(4),
+        ast::Type::I32 => Ok(4),
+        ast::Type::U64 => Ok(8),
+        ast::Type::I64 => Ok(8),
+        ast::Type::F16 => Ok(2),
+        ast::Type::F32 => Ok(4),
+        ast::Type::F64 => Ok(8),
+        ast::Type::Struct(ident) => {
+            let parts: Vec<&str> = ident.split(&['<','>']).collect();
+            if parts.len() == 2 {
+                let ss = match parts[1] {
+                    "bool" => { return Err(format!("TODO: {} vertex field",ident)); },
+                    "u8" | "i8" => 1,
+                    "u16" | "i16" | "f16" => 2,
+                    "u32" | "i32" | "f32" => 4,
+                    "u64" | "i64" | "f64" => 8,
+                    _ => { return Err(format!("Vertex field cannot be {}",type_)) },
+                };
+                match parts[0] {
+                    "Vec2" => Ok(2 * ss),
+                    "Vec3" => Ok(3 * ss),
+                    "Vec4" => Ok(4 * ss),
+                    _ => Err(format!("Vertex field cannot be {}",type_)),
                 }
             }
             else {
                 Err(format!("Vertex field cannot be {}",type_))
             }
         },
+        _ => Err(format!("Vertex field cannot be {}",type_)),
     }
 }

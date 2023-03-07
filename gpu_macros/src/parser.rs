@@ -333,23 +333,23 @@ impl Parser {
         }
     }
 
-    pub(crate) fn brace_ident_pats(&mut self) -> Option<Vec<UnknownFieldPat>> {
-        let mut ident_pats: Vec<UnknownFieldPat> = Vec::new();
+    pub(crate) fn brace_ident_pats(&mut self) -> Option<Vec<FieldPat>> {
+        let mut ident_pats: Vec<FieldPat> = Vec::new();
         if let Some(mut parser) = self.group('{') {
             while !parser.done() {
                 let ident_pat = if let Some(ident) = parser.ident() {
                     if parser.punct(':') {
-                        UnknownFieldPat::IdentPat(ident,parser.pat())
+                        FieldPat::IdentPat(ident,parser.pat())
                     }
                     else {
-                        UnknownFieldPat::Ident(ident)
+                        FieldPat::Ident(ident)
                     }
                 }
                 else if parser.punct('_') {
-                    UnknownFieldPat::Wildcard
+                    FieldPat::Wildcard
                 }
                 else if parser.punct2('.','.') {
-                    UnknownFieldPat::Rest
+                    FieldPat::Rest
                 }
                 else {
                     panic!("identifier, _ or .. expected");

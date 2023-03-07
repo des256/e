@@ -465,6 +465,9 @@ impl gpu::Gpu for Gpu {
     }
 
     fn create_vertex_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<VertexShader,String> {
+
+        let module = resolve(ast);
+
         /*
         let create_info = sys::VkShaderModuleCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -486,6 +489,9 @@ impl gpu::Gpu for Gpu {
     }
 
     fn create_fragment_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<FragmentShader,String> {
+
+        let module = resolve(ast);
+
         /*
         let create_info = sys::VkShaderModuleCreateInfo {
             sType: sys::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,

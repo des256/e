@@ -30,36 +30,36 @@ impl Parser {
             Pat::Float(value)
         }
 
-        // UnknownIdent, UnknownTuple, UnknownStruct, UnknownVariant
+        // Ident, Tuple, Struct, Variant
         else if let Some(ident) = self.ident() {
 
-            // UnknownStruct
+            // Struct
             if let Some(ident_pats) = self.brace_ident_pats() {
-                Pat::UnknownStruct(ident,ident_pats)
+                Pat::Struct(ident,ident_pats)
             }
 
-            // UnknownTuple
+            // Tuple
             else if let Some(pats) = self.paren_pats() {
-                Pat::UnknownTuple(ident,pats)
+                Pat::Tuple(ident,pats)
             }
 
-            // UnknownVariant
+            // Variant
             else if self.punct2(':',':') {
                 let variant_ident = self.ident().expect("identifier expected");
                 if let Some(ident_pats) = self.brace_ident_pats() {
-                    Pat::UnknownVariant(ident,UnknownVariantPat::Struct(variant_ident,ident_pats))
+                    Pat::Variant(ident,variant_ident,VariantPat::Struct(ident_pats))
                 }
                 else if let Some(pats) = self.paren_pats() {
-                    Pat::UnknownVariant(ident,UnknownVariantPat::Tuple(variant_ident,pats))
+                    Pat::Variant(ident,variant_ident,VariantPat::Tuple(pats))
                 }
                 else {
-                    Pat::UnknownVariant(ident,UnknownVariantPat::Naked(variant_ident))
+                    Pat::Variant(ident,variant_ident,VariantPat::Naked)
                 }
             }
 
-            // UnknownIdent
+            // Ident
             else {
-                Pat::UnknownIdent(ident)
+                Pat::Ident(ident)
             }
         }
         

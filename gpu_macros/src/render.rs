@@ -31,36 +31,37 @@ impl Render for Type {
             Type::I32 => "Type::I32".to_string(),
             Type::U64 => "Type::U64".to_string(),
             Type::I64 => "Type::I64".to_string(),
-            Type::USize => "Type::USize".to_string(),
-            Type::ISize => "Type::ISize".to_string(),
             Type::F16 => "Type::F16".to_string(),
             Type::F32 => "Type::F32".to_string(),
             Type::F64 => "Type::F64".to_string(),
             Type::AnonTuple(types) => format!("Type::AnonTuple({})",types.render()),
             Type::Array(type_,expr) => format!("Type::Array(Box::new({}),Box::new({}))",type_.render(),expr.render()),
-            Type::UnknownIdent(ident) => format!("Type::UnknownIdent(\"{}\".to_string())",ident),
-            Type::Generic(ident,types) => format!("Type::Generic(\"{}\".to_string(),{})",ident,types.render()),
+            Type::UnknownStructTupleEnumAlias(ident) => format!("Type::UnknownStructTupleEnumAlias(\"{}\".to_string())",ident),
+            Type::Struct(ident) => format!("Type::Struct(\"{}\".to_string())",ident),
+            Type::Tuple(ident) => format!("Type::Tuple(\"{}\".to_string())",ident),
+            Type::Enum(ident) => format!("Type::Enum(\"{}\".to_string())",ident),
+            Type::Alias(ident) => format!("Type::Alias(\"{}\".to_string())",ident),
         }
     }
 }
 
-impl Render for UnknownFieldPat {
+impl Render for FieldPat {
     fn render(&self) -> String {
         match self {
-            UnknownFieldPat::Wildcard => "FieldPat::Wildcard".to_string(),
-            UnknownFieldPat::Rest => "FieldPat::Rest".to_string(),
-            UnknownFieldPat::Ident(ident) => format!("FieldPat::Ident(\"{}\".to_string())",ident),
-            UnknownFieldPat::IdentPat(ident,pat) => format!("FieldPat::IdentPat(\"{}\".to_string(),{})",ident,pat.render()),
+            FieldPat::Wildcard => "FieldPat::Wildcard".to_string(),
+            FieldPat::Rest => "FieldPat::Rest".to_string(),
+            FieldPat::Ident(ident) => format!("FieldPat::Ident(\"{}\".to_string())",ident),
+            FieldPat::IdentPat(ident,pat) => format!("FieldPat::IdentPat(\"{}\".to_string(),{})",ident,pat.render()),
         }
     }
 }
 
-impl Render for UnknownVariantPat {
+impl Render for VariantPat {
     fn render(&self) -> String {
         match self {
-            UnknownVariantPat::Naked(ident) => format!("VariantPat::Naked(\"{}\".to_string())",ident),
-            UnknownVariantPat::Tuple(ident,pats) => format!("VariantPat::Tuple(\"{}\".to_string(),{})",ident,pats.render()),
-            UnknownVariantPat::Struct(ident,identpats) => format!("VariantPat::Struct(\"{}\".to_string(),{})",ident,identpats.render()),
+            VariantPat::Naked => format!("VariantPat::Naked"),
+            VariantPat::Tuple(pats) => format!("VariantPat::Tuple({})",pats.render()),
+            VariantPat::Struct(identpats) => format!("VariantPat::Struct({})",identpats.render()),
         }
     }
 }
@@ -76,21 +77,27 @@ impl Render for Pat {
             Pat::AnonTuple(pats) => format!("Pat::AnonTuple({})",pats.render()),
             Pat::Array(pats) => format!("Pat::Array({})",pats.render()),
             Pat::Range(pat0,pat1) => format!("Pat::Range({},{})",pat0.render(),pat1.render()),
-            Pat::UnknownIdent(ident) => format!("Pat::UnknownIdent(\"{}\".to_string())",ident),
-            Pat::UnknownTuple(ident,pats) => format!("Pat::Tuple(\"{}\".to_string(),{})",ident,pats.render()),
-            Pat::UnknownStruct(ident,identpats) => format!("Pat::Struct(\"{}\".to_string(),{})",ident,identpats.render()),
-            Pat::UnknownVariant(ident,variant) => format!("Pat::Variant(\"{}\".to_string(),{})",ident,variant.render()),
+            Pat::Ident(ident) => format!("Pat::Ident(\"{}\".to_string())",ident),
+            Pat::Tuple(ident,pats) => format!("Pat::Tuple(\"{}\".to_string(),{})",ident,pats.render()),
+            Pat::Struct(ident,identpats) => format!("Pat::Struct(\"{}\".to_string(),{})",ident,identpats.render()),
+            Pat::Variant(enum_ident,variant_ident,variant) => format!("Pat::Variant(\"{}\".to_string(),\"{}\".to_string(),{})",enum_ident,variant_ident,variant.render()),
+        }
+    }
+}
+
+impl Render for VariantExpr {
+    fn render(&self) -> String {
+        match self {
+            VariantExpr::Naked => "VariantExpr::Naked".to_string(),
+            VariantExpr::Tuple(exprs) => format!("VariantExpr::Tuple({})",exprs.render()),
+            VariantExpr::Struct(fields) => format!("VariantExpr::Struct({})",fields.render()),
         }
     }
 }
 
 impl Render for Block {
     fn render(&self) -> String {
-        let mut r = "Block { stats: vec![".to_string();
-        for stat in self.stats.iter() {
-            r += &format!("{},",stat.render());
-        }
-        r += "],expr: ";
+        let mut r = format!("Block {{ stats: {},expr: ",self.stats.render());
         if let Some(expr) = &self.expr {
             r += &format!("Some(Box::new({}))",expr.render());
         }
@@ -184,16 +191,6 @@ impl Render for (String,Type) {
     }
 }
 
-impl Render for UnknownVariantExpr {
-    fn render(&self) -> String {
-        match self {
-            UnknownVariantExpr::Naked(ident) => format!("VariantExpr::Naked(\"{}\".to_string())",ident),
-            UnknownVariantExpr::Tuple(ident,exprs) => format!("VariantExpr::Tuple(\"{}\".to_string(),{})",ident,exprs.render()),
-            UnknownVariantExpr::Struct(ident,fields) => format!("VariantExpr::Struct(\"{}\".to_string(),{})",ident,fields.render()),
-        }
-    }
-}
-
 impl Render for (Vec<Pat>,Option<Box<Expr>>,Box<Expr>) {
     fn render(&self) -> String {
         format!("({},{},Box::new({}))",self.0.render(),self.1.render(),self.2.render())
@@ -218,19 +215,28 @@ impl Render for Expr {
             Expr::Return(expr) => format!("Expr::Return({})",expr.render()),
             Expr::Block(block) => format!("Expr::Block({})",block.render()),
             Expr::If(expr,block,else_expr) => format!("Expr::If(Box::new({}),{},{})",expr.render(),block.render(),else_expr.render()),
-            Expr::Loop(block) => format!("Expr::Loop({})",block.render()),
             Expr::While(expr,block) => format!("Expr::While(Box::new({}),{})",expr.render(),block.render()),
+            Expr::Loop(block) => format!("Expr::Loop({})",block.render()),
             Expr::IfLet(pats,expr,block,else_expr) => format!("Expr::IfLet({},Box::new({}),{},{})",pats.render(),expr.render(),block.render(),else_expr.render()),
             Expr::For(pats,range,block) => format!("Expr::For({},{},{})",pats.render(),range.render(),block.render()),
             Expr::WhileLet(pats,expr,block) => format!("Expr::WhileLet({},Box::new({}),{})",pats.render(),expr.render(),block.render()),
             Expr::Match(expr,arms) => format!("Expr::Match(Box::new({}),{})",expr.render(),arms.render()),
-            Expr::UnknownIdent(ident) => format!("Expr::UnknownIdent(\"{}\".to_string())",ident),
-            Expr::UnknownTupleOrCall(ident,exprs) => format!("Expr::UnknownTupleOrCall(\"{}\".to_string(),{})",ident,exprs.render()),
+            Expr::UnknownLocalConst(ident) => format!("Expr::UnknownLocalConst(\"{}\".to_string())",ident),
+            Expr::Local(ident) => format!("Expr::Local(\"{}\".to_string())",ident),
+            Expr::Const(ident) => format!("Expr::Const(\"{}\".to_string())",ident),
+            Expr::UnknownTupleFunctionCall(ident,exprs) => format!("Expr::UnknownTupleFunctionCall(\"{}\".to_string(),{})",ident,exprs.render()),
+            Expr::Tuple(ident,exprs) => format!("Expr::Tuple(\"{}\".to_string(),{})",ident,exprs.render()),
+            Expr::FunctionCall(ident,exprs) => format!("Expr::FunctionCall(\"{}\".to_string(),{})",ident,exprs.render()),
             Expr::UnknownStruct(ident,fields) => format!("Expr::UnknownStruct(\"{}\".to_string(),{})",ident,fields.render()),
-            Expr::UnknownVariant(ident,variant) => format!("Expr::UnknownVariant(\"{}\".to_string(),{})",ident,variant.render()),
-            Expr::UnknownMethod(expr,ident,exprs) => format!("Expr::UnknownMethod(Box::new({}),\"{}\".to_string(),{})",expr.render(),ident,exprs.render()),
+            Expr::Struct(ident,fields) => format!("Expr::Struct(\"{}\".to_string(),{})",ident,fields.render()),
+            Expr::UnknownVariant(enum_ident,variant_ident,variant) => format!("Expr::UnknownVariant(\"{}\".to_string(),\"{}\".to_string(),{})",enum_ident,variant_ident,variant.render()),
+            Expr::Variant(enum_ident,index,variant) => format!("Expr::Variant(\"{}\".to_string(),{},{})",enum_ident,index,variant.render()),
+            Expr::UnknownMethodCall(expr,ident,exprs) => format!("Expr::UnknownMethodCall(Box::new({}),\"{}\".to_string(),{})",expr.render(),ident,exprs.render()),
+            Expr::MethodCall(expr,ident,exprs) => format!("Expr::MethodCall(Box::new({}),\"{}\".to_string(),{})",expr.render(),ident,exprs.render()),
             Expr::UnknownField(expr,ident) => format!("Expr::UnknownField(Box::new({}),\"{}\".to_string())",expr.render(),ident),
+            Expr::Field(expr,struct_ident,index) => format!("Expr::Field(Box::new({}),\"{}\".to_string(),{})",expr.render(),struct_ident,index),
             Expr::UnknownTupleIndex(expr,index) => format!("Expr::UnknownTupleIndex(Box::new({}),{})",expr.render(),index),
+            Expr::TupleIndex(expr,tuple_ident,index) => format!("Expr::TupleIndex(Box::new({}),{},{})",expr.render(),tuple_ident,index),
         }
     }
 }
@@ -239,6 +245,7 @@ impl Render for Stat {
     fn render(&self) -> String {
         match self {
             Stat::Let(pat,type_,expr) => format!("Stat::Let(Box::new({}),Box::new({}),Box::new({}))",pat.render(),type_.render(),expr.render()),
+            Stat::Local(ident,type_,expr) => format!("Stat::Local(\"{}\".to_string(),Box::new({}),Box::new({}))",ident,type_.render(),expr.render()),
             Stat::Expr(expr) => format!("Stat::Expr(Box::new({}))",expr.render()),
         }
     }
@@ -264,16 +271,21 @@ impl Render for Tuple {
 impl Render for Variant {
     fn render(&self) -> String {
         match self {
-            Variant::Naked(ident) => format!("Variant::Naked(\"{}\".to_string())",ident),
-            Variant::Tuple(ident,types) => format!("Variant::Tuple(\"{}\".to_string(),{})",ident,types.render()),
-            Variant::Struct(ident,fields) => format!("Variant::Struct(\"{}\".to_string(),{})",ident,fields.render()),
+            Variant::Naked => format!("Variant::Naked"),
+            Variant::Tuple(types) => format!("Variant::Tuple({})",types.render()),
+            Variant::Struct(fields) => format!("Variant::Struct({})",fields.render()),
         }
     }
 }
 
 impl Render for Enum {
     fn render(&self) -> String {
-        format!("Enum {{ ident: \"{}\".to_string(),variants: {}, }}",self.ident,self.variants.render())
+        let mut r = format!("Enum {{ ident: \"{}\".to_string(),variants: vec![",self.ident);
+        for (ident,variant) in self.variants.iter() {
+            r += &format!("(\"{}\".to_string(),{})",ident,variant.render());
+        }
+        r += "], }";
+        r
     }
 }
 
@@ -304,7 +316,7 @@ impl Render for Module {
         for function in self.functions.iter() {
             if function.0 == "main" {
                 for (_,type_) in function.1.params.iter() {
-                    if let Type::UnknownIdent(ident) = type_ {
+                    if let Type::UnknownStructTupleEnumAlias(ident) = type_ {
                         extern_struct_idents.push(ident.clone());
                     }
                 }
@@ -388,7 +400,7 @@ impl Render for Module {
         else {
             r += "let functions: HashMap<String,Function> = Vec::new(); ";
         }
-        r += &format!("Module {{ ident: \"{}\".to_string(),tuples,structs,extern_structs,enums,aliases,consts,functions, }} }}",self.ident);
+        r += &format!("Module {{ ident: \"{}\".to_string(),tuples,structs,extern_structs,tuple_structs: HashMap::new(),anon_tuple_structs: HashMap::new(),enums,aliases,consts,functions, }} }}",self.ident);
         r
     }
 }

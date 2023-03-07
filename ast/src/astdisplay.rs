@@ -25,36 +25,66 @@ impl Display for Type {
             Type::I32 => write!(f,"i32"),
             Type::U64 => write!(f,"u64"),
             Type::I64 => write!(f,"i64"),
-            Type::USize => write!(f,"usize"),
-            Type::ISize => write!(f,"isize"),
             Type::F16 => write!(f,"f16"),
             Type::F32 => write!(f,"f32"),
             Type::F64 => write!(f,"f64"),
             Type::AnonTuple(types) => {
                 write!(f,"(")?;
-                let mut first = true;
-                for type_ in types.iter() {
-                    if !first {
-                        write!(f,",")?;
-                    }
+                let mut iter = types.iter();
+                if let Some(type_) = iter.next() {
                     write!(f,"{}",type_)?;
-                    first = false;
+                }
+                for type_ in iter {
+                    write!(f,",{}",type_)?;
                 }
                 write!(f,")")
             },
             Type::Array(type_,expr) => write!(f,"[{}; {}]",type_,expr),
-            Type::UnknownIdent(ident) => write!(f,"{}",ident),
-            Type::Generic(ident,types) => {
-                write!(f,"{}<",ident)?;
-                let mut first = true;
-                for type_ in types.iter() {
-                    if !first {
-                        write!(f,",")?;
+            Type::UnknownStructTupleEnumAlias(ident) => write!(f,"{}",ident),
+            Type::Struct(ident) => write!(f,"{}",ident),
+            Type::Tuple(ident) => write!(f,"{}",ident),
+            Type::Enum(ident) => write!(f,"{}",ident),
+            Type::Alias(ident) => write!(f,"{}",ident),
+        }
+    }
+}
+
+impl Display for FieldPat {
+    fn fmt(&self,f: &mut Formatter) -> Result {
+        match self {
+            FieldPat::Wildcard => write!(f,"_"),
+            FieldPat::Rest => write!(f,".."),
+            FieldPat::Ident(ident) => write!(f,"{}",ident),
+            FieldPat::IdentPat(ident,pat) => write!(f,"{}: {}",ident,pat),
+        }
+    }
+}
+
+impl Display for VariantPat {
+    fn fmt(&self,f: &mut Formatter) -> Result {
+        match self {
+            VariantPat::Naked => write!(f,""),
+            VariantPat::Tuple(pats) => {
+                write!(f,"(")?;
+                let mut iter = pats.iter();
+                if let Some(pat) = iter.next() {
+                    write!(f,"{}",pat)?;
+                    for pat in iter {
+                        write!(f,",{}",pat)?;
                     }
-                    write!(f,"{}",type_)?;
-                    first = false;
                 }
-                write!(f,">")
+                write!(f,")")
+            },
+            VariantPat::Struct(field_pats) => {
+                write!(f," {{ ")?;
+                let mut iter = field_pats.iter();
+                if let Some(field_pat) = iter.next() {
+                    write!(f,"{}",field_pat)?;
+                    for field_pat in iter {
+                        write!(f,",{}",field_pat)?;
+                    }
+                }
+                write!(f," }}")
             },
         }
     }
@@ -70,62 +100,53 @@ impl Display for Pat {
             Pat::Float(value) => write!(f,"{}",value),
             Pat::AnonTuple(pats) => {
                 write!(f,"(")?;
-                let mut first = true;
-                for pat in pats.iter() {
-                    if !first {
-                        write!(f,",")?;
-                    }
+                let mut iter = pats.iter();
+                if let Some(pat) = iter.next() {
                     write!(f,"{}",pat)?;
-                    first = false;
+                    for pat in iter {
+                        write!(f,",{}",pat)?;
+                    }
                 }
                 write!(f,")")
             },
             Pat::Array(pats) => {
                 write!(f,"[")?;
-                let mut first = true;
-                for pat in pats.iter() {
-                    if !first {
-                        write!(f,", ")?;
-                    }
+                let mut iter = pats.iter();
+                if let Some(pat) = iter.next() {
                     write!(f,"{}",pat)?;
-                    first = false;
+                    for pat in iter {
+                        write!(f,",{}",pat)?;
+                    }
                 }
                 write!(f,"]")
             },
             Pat::Range(from,to) => write!(f,"{} ..= {}",from,to),
-            Pat::UnknownIdent(ident) => write!(f,"{}",ident),
-            Pat::UnknownTuple(tuple_ident,pats) => {
+            Pat::Ident(ident) => write!(f,"{}",ident),
+            Pat::Tuple(tuple_ident,pats) => {
                 write!(f,"{}(",tuple_ident)?;
-                let mut first = true;
-                for pat in pats.iter() {
-                    if !first {
-                        write!(f,",")?;
-                    }
+                let mut iter = pats.iter();
+                if let Some(pat) = iter.next() {
                     write!(f,"{}",pat)?;
-                    first = false;
+                    for pat in iter {
+                        write!(f,",{}",pat)?;
+                    }
                 }
                 write!(f,")")
             },
-            Pat::UnknownStruct(struct_ident,index_pats) => {
+            Pat::Struct(struct_ident,field_pats) => {
                 write!(f,"{} {{ ",struct_ident)?;
-                let mut first = true;
-                for indexpat in index_pats.iter() {
-                    if !first {
-                        write!(f,", ")?;
+                let mut iter = field_pats.iter();
+                if let Some(field_pat) = iter.next() {
+                    write!(f,"{}",field_pat)?;
+                    for field_pat in iter {
+                        write!(f,",{}",field_pat)?;
                     }
-                    match indexpat {
-                        UnknownFieldPat::Wildcard => write!(f,"_")?,
-                        UnknownFieldPat::Rest => write!(f,"..")?,
-                        UnknownFieldPat::Ident(ident) => write!(f,"{}",ident)?,
-                        UnknownFieldPat::IdentPat(ident,pat) => write!(f,"{}: {}",ident,pat)?,
-                    }
-                    first = false;
                 }
                 write!(f," }}")
             },
-            Pat::UnknownVariant(_,_) => {
-                // TODO
-                write!(f,"TODO")
+            Pat::Variant(enum_ident,variant_ident,variant_pat) => {
+                write!(f,"{}::{}",enum_ident,variant_ident)?;
+                write!(f,"{}",variant_pat)
             },
         }
     }
@@ -203,6 +224,36 @@ impl Display for Range {
     }
 }
 
+impl Display for VariantExpr {
+    fn fmt(&self,f: &mut Formatter) -> Result {
+        match self {
+            VariantExpr::Naked => write!(f,""),
+            VariantExpr::Tuple(exprs) => {
+                write!(f,"(")?;
+                let mut iter = exprs.iter();
+                if let Some(expr) = iter.next() {
+                    write!(f,"{}",expr)?;
+                    for expr in iter {
+                        write!(f,",{}",expr)?;
+                    }
+                }
+                write!(f,")")
+            },
+            VariantExpr::Struct(fields) => {
+                write!(f," {{ ")?;
+                let mut iter = fields.iter();
+                if let Some(field) = iter.next() {
+                    write!(f,"{}: {}",field.0,field.1)?;
+                    for field in iter {
+                        write!(f,",{}: {}",field.0,field.1)?;
+                    }
+                }
+                write!(f," }}")
+            },
+        }
+    }
+}
+
 impl Display for Expr {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
@@ -211,28 +262,26 @@ impl Display for Expr {
             Expr::Float(value) => write!(f,"{}f64",value),
             Expr::Array(exprs) => {
                 write!(f,"[ ")?;
-                let mut first = true;
-                for expr in exprs.iter() {
-                    if !first {
-                        write!(f,", ")?;
-                    }
+                let mut iter = exprs.iter();
+                if let Some(expr) = iter.next() {
                     write!(f,"{}",expr)?;
-                    first = false;
+                    for expr in iter {
+                        write!(f,",{}",expr)?;
+                    }
                 }
                 write!(f,"]")
             },
-            Expr::Cloned(expr,expr2) => write!(f,"[ {}; {} ]",expr,expr2),
+            Expr::Cloned(expr,expr2) => write!(f,"[{}; {}]",expr,expr2),
             Expr::Index(expr,expr2) => write!(f,"{}[{}]",expr,expr2),
             Expr::Cast(expr,type_) => write!(f,"{} as {}",expr,type_),
             Expr::AnonTuple(exprs) => {
                 write!(f,"(")?;
-                let mut first = true;
-                for expr in exprs.iter() {
-                    if !first {
-                        write!(f,",")?;
-                    }
+                let mut iter = exprs.iter();
+                if let Some(expr) = iter.next() {
                     write!(f,"{}",expr)?;
-                    first = false;
+                    for expr in iter {
+                        write!(f,",{}",expr)?;
+                    }
                 }
                 write!(f,")")
             },
@@ -258,148 +307,160 @@ impl Display for Expr {
             else {
                 write!(f,"if {} {}",expr,block)
             },
-            Expr::Loop(block) => write!(f,"loop {}",block),
             Expr::While(expr,block) => write!(f,"while {} {}",expr,block),
+            Expr::Loop(block) => write!(f,"loop {}",block),
             Expr::IfLet(pats,expr,block,else_expr) => if let Some(else_expr) = else_expr {
                 write!(f,"if let ")?;
-                let mut first = true;
-                for pat in pats.iter() {
-                    if !first {
-                        write!(f,"| ")?;
+                let mut iter = pats.iter();
+                if let Some(pat) = iter.next() {
+                    write!(f,"{}",pat)?;
+                    for pat in iter {
+                        write!(f," | {}",pat)?;
                     }
-                    write!(f,"{} ",pat)?;
-                    first = false;
                 }
                 write!(f,"= {} {} else {}",expr,block,else_expr)
             }
             else {
                 write!(f,"if let ")?;
-                let mut first = true;
-                for pat in pats.iter() {
-                    if !first {
-                        write!(f,"| ")?;
+                let mut iter = pats.iter();
+                if let Some(pat) = iter.next() {
+                    write!(f,"{}",pat)?;
+                    for pat in iter {
+                        write!(f," | {}",pat)?;
                     }
-                    write!(f,"{} ",pat)?;
-                    first = false;
                 }
                 write!(f,"= {} {}",expr,block)
             },
             Expr::For(pats,range,block) => {
                 write!(f,"for ")?;
-                let mut first = true;
-                for pat in pats.iter() {
-                    if !first {
-                        write!(f,"| ")?;
+                let mut iter = pats.iter();
+                if let Some(pat) = iter.next() {
+                    write!(f,"{}",pat)?;
+                    for pat in iter {
+                        write!(f," | {}",pat)?;
                     }
-                    write!(f,"{} ",pat)?;
-                    first = false;
                 }
                 write!(f,"in {} {}",range,block)
             },
             Expr::WhileLet(pats,expr,block) => {
                 write!(f,"while let ")?;
-                let mut first = true;
-                for pat in pats.iter() {
-                    if !first {
-                        write!(f,"| ")?;
+                let mut iter = pats.iter();
+                if let Some(pat) = iter.next() {
+                    write!(f,"{}",pat)?;
+                    for pat in iter {
+                        write!(f," | {}",pat)?;
                     }
-                    write!(f,"{} ",pat)?;
-                    first = false;
                 }
                 write!(f,"= {} {}",expr,block)
             },
             Expr::Match(expr,arms) => {
                 write!(f,"match {} {{",expr)?;
-                let mut first = true;
                 for (pats,if_expr,expr) in arms.iter() {
-                    if !first {
-                        write!(f,", ")?;
-                    }
-                    let mut first_pat = true;
-                    for pat in pats.iter() {
-                        if !first_pat {
-                            write!(f,"| ")?;
+                    let mut iter = pats.iter();
+                    if let Some(pat) = iter.next() {
+                        write!(f,"{}",pat)?;
+                        for pat in iter {
+                            write!(f," | {}",pat)?;
                         }
-                        write!(f,"{} ",pat)?;
-                        first_pat = false;
                     }
                     if let Some(if_expr) = if_expr {
                         write!(f,"if {} ",if_expr)?;
                     }
-                    write!(f,"=> {}",expr)?;
-                    first = false;
+                    write!(f,"=> {},",expr)?;
                 }
                 write!(f," }}")
             },
-            Expr::UnknownIdent(ident) => write!(f,"{}",ident),
-            Expr::UnknownTupleOrCall(ident,exprs) => {
+            Expr::UnknownLocalConst(ident) => write!(f,"{}",ident),
+            Expr::Local(ident) => write!(f,"{}",ident),
+            Expr::Const(ident) => write!(f,"{}",ident),
+            Expr::UnknownTupleFunctionCall(ident,exprs) => {
                 write!(f,"{}(",ident)?;
-                let mut first = true;
-                for expr in exprs.iter() {
-                    if !first {
-                        write!(f,",")?;
-                    }
+                let mut iter = exprs.iter();
+                if let Some(expr) = iter.next() {
                     write!(f,"{}",expr)?;
-                    first = false;
+                    for expr in iter {
+                        write!(f,",{}",expr)?;
+                    }
+                }
+                write!(f,")")
+            },
+            Expr::Tuple(ident,exprs) => {
+                write!(f,"{}(",ident)?;
+                let mut iter = exprs.iter();
+                if let Some(expr) = iter.next() {
+                    write!(f,"{}",expr)?;
+                    for expr in iter {
+                        write!(f,",{}",expr)?;
+                    }
+                }
+                write!(f,")")
+            },
+            Expr::FunctionCall(ident,exprs) => {
+                write!(f,"{}(",ident)?;
+                let mut iter = exprs.iter();
+                if let Some(expr) = iter.next() {
+                    write!(f,"{}",expr)?;
+                    for expr in iter {
+                        write!(f,",{}",expr)?;
+                    }
                 }
                 write!(f,")")
             },
             Expr::UnknownStruct(struct_ident,fields) => {
                 write!(f,"{} {{ ",struct_ident)?;
-                let mut first = true;
-                for (ident,expr) in fields.iter() {
-                    if !first {
-                        write!(f,", ")?;
+                let mut iter = fields.iter();
+                if let Some(field) = iter.next() {
+                    write!(f,"{}: {}",field.0,field.1)?;
+                    for field in iter {
+                        write!(f,",{}: {}",field.0,field.1)?;
                     }
-                    write!(f,"{}: {}",ident,expr)?;
-                    first = false;
                 }
                 write!(f," }}")
             },
-            Expr::UnknownVariant(enum_ident,variant) => {
-                write!(f,"{}::",enum_ident)?;
-                match variant {
-                    UnknownVariantExpr::Naked(ident) => write!(f,"{}",ident),
-                    UnknownVariantExpr::Tuple(ident,exprs) => {
-                        write!(f,"{}(",ident)?;
-                        let mut first = true;
-                        for expr in exprs.iter() {
-                            if !first {
-                                write!(f,",")?;
-                            }
-                            write!(f,"{}",expr)?;
-                            first = false;
-                        }
-                        write!(f,")")
-                    },
-                    UnknownVariantExpr::Struct(ident,fields) => {
-                        write!(f,"{} {{ ",ident)?;
-                        let mut first = true;
-                        for (ident,expr) in fields {
-                            if !first {
-                                write!(f,",")?;
-                            }
-                            write!(f,"{}: {}",ident,expr)?;
-                            first = false;
-                        }
-                        write!(f," }}")
-                    },
-                }
-            },
-            Expr::UnknownMethod(expr,method_ident,exprs) => {
-                write!(f,"{}.{}(",expr,method_ident)?;
-                let mut first = true;
-                for expr in exprs.iter() {
-                    if !first {
+            Expr::Struct(ident,exprs) => {
+                write!(f,"{} {{ ",ident)?;
+                for i in 0..exprs.len() {
+                    if i > 0 {
                         write!(f,",")?;
                     }
+                    write!(f,"{}: {}",i,exprs[i])?;
+                }
+                write!(f," }}")
+            },
+            Expr::UnknownVariant(enum_ident,variant_ident,variant_expr) => {
+                write!(f,"{}::{}",enum_ident,variant_ident)?;
+                write!(f,"{}",variant_expr)
+            },
+            Expr::Variant(ident,index,variant_expr) => {
+                write!(f,"{}::{}",ident,*index)?;
+                write!(f,"{}",variant_expr)
+            },
+            Expr::UnknownMethodCall(expr,method_ident,exprs) => {
+                write!(f,"{}.{}(",expr,method_ident)?;
+                let mut iter = exprs.iter();
+                if let Some(expr) = iter.next() {
                     write!(f,"{}",expr)?;
-                    first = false;
+                    for expr in iter {
+                        write!(f,",{}",expr)?;
+                    }
+                }
+                write!(f,")")
+            },
+            Expr::MethodCall(expr,ident,exprs) => {
+                write!(f,"{}.{}(",expr,ident)?;
+                let mut iter = exprs.iter();
+                if let Some(expr) = iter.next() {
+                    write!(f,"{}",expr)?;
+                    for expr in iter {
+                        write!(f,",{}",expr)?;
+                    }
                 }
                 write!(f,")")
             },
             Expr::UnknownField(expr,ident) => write!(f,"{}.{}",expr,ident),
+            Expr::Field(expr,_,index) => write!(f,"{}.{}",expr,*index),
             Expr::UnknownTupleIndex(expr,index) => write!(f,"{}.{}",expr,index),
+            Expr::TupleIndex(expr,_,index) => write!(f,"{}.{}",expr,index),
         }
     }
 }
@@ -409,20 +470,34 @@ impl Display for Stat {
         match self {
             Stat::Expr(expr) => write!(f,"{};",expr),
             Stat::Let(pat,type_,expr) => write!(f,"let {}: {} = {};",pat,type_,expr),
+            Stat::Local(ident,type_,expr) => write!(f,"let {}: {} = {};",ident,type_,expr),
         }
+    }
+}
+
+impl Display for Method {
+    fn fmt(&self,f: &mut Formatter) -> Result {
+        write!(f,"fn {}(self: {}",self.ident,self.from_type)?;
+        for param in self.params.iter() {
+            write!(f,",{}: {}",param.0,param.1)?;
+        }
+        write!(f,")")?;
+        if let Type::Void = self.type_ { } else {
+            write!(f," -> {}",self.type_)?;
+        }
+        write!(f,";")
     }
 }
 
 impl Display for Function {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"fn {}(",self.ident)?;
-        let mut first = true;
-        for (ident,type_) in self.params.iter() {
-            if !first {
-                write!(f,",")?;
+        let mut iter = self.params.iter();
+        if let Some(param) = iter.next() {
+            write!(f,"{}: {}",param.0,param.1)?;
+            for param in iter {
+                write!(f,",{}: {}",param.0,param.1)?;
             }
-            write!(f,"{}: {}",ident,type_)?;
-            first = false;
         }
         write!(f,")")?;
         if let Type::Void = self.type_ { } else {
@@ -435,13 +510,12 @@ impl Display for Function {
 impl Display for Tuple {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"struct {}(",self.ident)?;
-        let mut first = true;
-        for type_ in self.types.iter() {
-            if !first {
-                write!(f,",")?;
-            }
+        let mut iter = self.types.iter();
+        if let Some(type_) = iter.next() {
             write!(f,"{}",type_)?;
-            first = false;
+            for type_ in iter {
+                write!(f,",{}",type_)?;
+            }
         }
         write!(f,")")
     }
@@ -465,28 +539,25 @@ impl Display for Struct {
 impl Display for Variant {
     fn fmt(&self,f: &mut Formatter) -> Result {
         match self {
-            Variant::Naked(ident) => write!(f,"{}",ident),
-            Variant::Tuple(ident,types) => {
-                write!(f,"{}(",ident)?;
-                let mut first = true;
-                for type_ in types.iter() {
-                    if !first {
-                        write!(f,",")?;
-                    }
+            Variant::Naked => write!(f,""),
+            Variant::Tuple(types) => {
+                let mut iter = types.iter();
+                if let Some(type_) = iter.next() {
                     write!(f,"{}",type_)?;
-                    first = false;
+                    for type_ in iter {
+                        write!(f,",{}",type_)?;
+                    }
                 }
                 write!(f,")")
             },
-            Variant::Struct(ident,fields) => {
-                write!(f,"{} {{ ",ident)?;
-                let mut first = true;
-                for (ident,type_) in fields.iter() {
-                    if !first {
-                        write!(f,",")?;
+            Variant::Struct(fields) => {
+                write!(f," {{ ")?;
+                let mut iter = fields.iter();
+                if let Some(field) = iter.next() {
+                    write!(f,"{}: {}",field.0,field.1)?;
+                    for field in iter {
+                        write!(f,",{}: {}",field.0,field.1)?;
                     }
-                    write!(f,"{}: {}",ident,type_)?;
-                    first = false;
                 }
                 write!(f," }}")
             },
@@ -497,13 +568,12 @@ impl Display for Variant {
 impl Display for Enum {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"enum {} {{ ",self.ident)?;
-        let mut first = true;
-        for variant in self.variants.iter() {
-            if !first {
-                write!(f,", ")?;
+        let mut iter = self.variants.iter();
+        if let Some(variant) = iter.next() {
+            write!(f,"{}{}",variant.0,variant.1)?;
+            for variant in iter {
+                write!(f,",{}{}",variant.0,variant.1)?;
             }
-            write!(f,"{}",variant)?;
-            first = false;
         }
         write!(f," }}")
     }
@@ -530,6 +600,15 @@ impl Display for Module {
         for struct_ in self.structs.iter() {
             write!(f,"{};\n",struct_.1)?;
         }
+        for struct_ in self.tuple_structs.iter() {
+            write!(f,"{};\n",struct_.1)?;
+        }
+        for struct_ in self.anon_tuple_structs.iter() {
+            write!(f,"{};\n",struct_.1)?;
+        }
+        for struct_ in self.extern_structs.iter() {
+            write!(f,"{};\n",struct_.1)?;
+        }
         for enum_ in self.enums.iter() {
             write!(f,"{};\n",enum_.1)?;
         }
@@ -542,33 +621,6 @@ impl Display for Module {
         for function in self.functions.iter() {
             write!(f,"{};\n",function.1)?;
         }
-        /*
-        for tuple in self.stdlib_tuples.values() {
-            write!(f,"{};\n",tuple)?;
-        }
-        for struct_ in self.stdlib_structs.values() {
-            write!(f,"{};\n",struct_)?;
-        }
-        for enum_ in self.stdlib_enums.values() {
-            write!(f,"{};\n",enum_)?;
-        }
-        for alias in self.stdlib_aliases.values() {
-            write!(f,"{};\n",alias)?;
-        }
-        for const_ in self.stdlib_consts.values() {
-            write!(f,"{};\n",const_)?;
-        }
-        for functions in self.stdlib_functions.values() {
-            for function in functions.iter() {
-                write!(f,"{};\n",function)?;
-            }
-        }
-        for methods in self.stdlib_methods.values() {
-            for method in methods.iter() {
-                write!(f,"{};\n",method)?;
-            }
-        }
-        */
         write!(f,"}}")
     }
 }

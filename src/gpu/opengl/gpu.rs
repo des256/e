@@ -2,7 +2,7 @@ use {
     super::*,
     crate::gpu,
     crate::checkgl,
-    ast,
+    ast::*,
     std::{
         result::Result,
         rc::Rc,
@@ -168,7 +168,10 @@ impl gpu::Gpu for Gpu {
         Ok(())
     }
 
-    fn create_vertex_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<VertexShader,String> {
+    fn create_vertex_shader(self: &Rc<Self>,ast: &Module) -> Result<VertexShader,String> {
+
+        let module = resolve(ast);
+
         /*
         let vs = unsafe { checkgl!(sys::glCreateShader(sys::GL_VERTEX_SHADER)) };
         unsafe {
@@ -191,10 +194,14 @@ impl gpu::Gpu for Gpu {
             vs,
         })
         */
+
         Err("TODO: GLSL compiler".to_string())
     }
 
-    fn create_fragment_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<FragmentShader,String> {
+    fn create_fragment_shader(self: &Rc<Self>,ast: &Module) -> Result<FragmentShader,String> {
+
+        let module = resolve(ast);
+
         /*
         let fs = unsafe { checkgl!(sys::glCreateShader(sys::GL_FRAGMENT_SHADER)) };
         unsafe {
@@ -355,47 +362,48 @@ impl gpu::Gpu for Gpu {
             unsafe { checkgl!(sys::glEnableVertexAttribArray(i as u32)) };
             let field = &vertex_struct.fields[i];
             match &field.1 {
-                ast::Type::Inferred | ast::Type::Void | ast::Type::Integer | ast::Type::Float | ast::Type::USize | ast::Type::ISize => { return Err(format!("Vertex field cannot be {}",field.1)); },
-                ast::Type::Bool | ast::Type::AnonTuple(_) | ast::Type::Array(_,_) | ast::Type::UnknownIdent(_) => { return Err(format!("TODO: Vertex field {}",field.1)); },
-                ast::Type::U8 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_BYTE,size as i32,offset as *const sys::GLvoid)) },
-                ast::Type::I8 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_BYTE,size as i32,offset as *const sys::GLvoid)) },
-                ast::Type::U16 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_SHORT,size as i32,offset as *const sys::GLvoid)) },
-                ast::Type::I16 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_SHORT,size as i32,offset as *const sys::GLvoid)) },
-                ast::Type::U32 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_INT,size as i32,offset as *const sys::GLvoid)) },
-                ast::Type::I32 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_INT,size as i32,offset as *const sys::GLvoid)) },
+                ast::Type::Bool => { return Err("TODO: bool vertex field".to_string()); },
+                ast::Type::U8 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_BYTE,size as i32,offset as *const sys::GLvoid)); },
+                ast::Type::I8 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_BYTE,size as i32,offset as *const sys::GLvoid)); },
+                ast::Type::U16 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_SHORT,size as i32,offset as *const sys::GLvoid)); },
+                ast::Type::I16 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_SHORT,size as i32,offset as *const sys::GLvoid)); },
+                ast::Type::U32 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_UNSIGNED_INT,size as i32,offset as *const sys::GLvoid)); },
+                ast::Type::I32 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,1,sys::GL_INT,size as i32,offset as *const sys::GLvoid)); },
                 ast::Type::U64 => { return Err("Vertex field cannot be u64 for OpenGL".to_string()); },
                 ast::Type::I64 => { return Err("Vertex field cannot be i64 for OpenGL".to_string()); },
-                ast::Type::F16 => unsafe { checkgl!(sys::glVertexAttribPointer(i as u32,1,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,size as i32,offset as *const sys::GLvoid)) },
-                ast::Type::F32 => unsafe { checkgl!(sys::glVertexAttribPointer(i as u32,1,sys::GL_FLOAT,sys::GL_FALSE as u8,size as i32,offset as *const sys::GLvoid)) },
-                ast::Type::F64 => unsafe { checkgl!(sys::glVertexAttribLPointer(i as u32,1,sys::GL_DOUBLE,size as i32,offset as *const sys::GLvoid)) },
-                ast::Type::Generic(ident,types) => {
-                    if types.len() == 1 {
-                        let vc = match ident.as_str() {
-                            "Vec2" => Ok(2),
-                            "Vec3" => Ok(3),
-                            "Vec4" => Ok(4),
-                            _ => Err(format!("Vertex field cannot be a {}",ident)),
-                        }?;
-                        match types[0] {
-                            ast::Type::Inferred | ast::Type::Void | ast::Type::Integer | ast::Type::Float | ast::Type::USize | ast::Type::ISize | ast::Type::Generic(_,_) => { return Err(format!("Vertex field cannot be Vec{}<{}>",vc,types[0])); },
-                            ast::Type::Bool | ast::Type::AnonTuple(_) | ast::Type::Array(_,_) | ast::Type::UnknownIdent(_) => { return Err(format!("TODO: Vertex field Vec{}<{}>",vc,types[0])); },
-                            ast::Type::U8 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_UNSIGNED_BYTE,size as i32,offset as *const sys::GLvoid)) },
-                            ast::Type::I8 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_BYTE,size as i32,offset as *const sys::GLvoid)) },
-                            ast::Type::U16 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_UNSIGNED_SHORT,size as i32,offset as *const sys::GLvoid)) },
-                            ast::Type::I16 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_SHORT,size as i32,offset as *const sys::GLvoid)) },
-                            ast::Type::U32 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_UNSIGNED_INT,size as i32,offset as *const sys::GLvoid)) },
-                            ast::Type::I32 => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_INT,size as i32,offset as *const sys::GLvoid)) },
-                            ast::Type::U64 => { return Err("Vertex field cannot be u64 for OpenGL".to_string()); },
-                            ast::Type::I64 => { return Err("Vertex field cannot be i64 for OpenGL".to_string()); },
-                            ast::Type::F16 => unsafe { checkgl!(sys::glVertexAttribPointer(i as u32,vc,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,size as i32,offset as *const sys::GLvoid)) },
-                            ast::Type::F32 => unsafe { checkgl!(sys::glVertexAttribPointer(i as u32,vc,sys::GL_FLOAT,sys::GL_FALSE as u8,size as i32,offset as *const sys::GLvoid)) },
-                            ast::Type::F64 => unsafe { checkgl!(sys::glVertexAttribLPointer(i as u32,vc,sys::GL_DOUBLE,size as i32,offset as *const sys::GLvoid)) },
+                ast::Type::F16 => unsafe { checkgl!(sys::glVertexAttribPointer(i as u32,1,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,size as i32,offset as *const sys::GLvoid)); },
+                ast::Type::F32 => unsafe { checkgl!(sys::glVertexAttribPointer(i as u32,1,sys::GL_FLOAT,sys::GL_FALSE as u8,size as i32,offset as *const sys::GLvoid)); },
+                ast::Type::F64 => unsafe { checkgl!(sys::glVertexAttribLPointer(i as u32,1,sys::GL_DOUBLE,size as i32,offset as *const sys::GLvoid)); },
+                ast::Type::Struct(ident) => {
+                    let parts: Vec<&str> = ident.split(&['<','>']).collect();
+                    if parts.len() == 2 {
+                        let vc = match parts[0] {
+                            "Vec2" => 2,
+                            "Vec3" => 3,
+                            "Vec4" => 4,
+                            _ => { return Err(format!("Vertex field cannot be {}",field.1)); },
+                        };
+                        match parts[1] {
+                            "bool" => { return Err("TODO: Vec2<bool> vertex field".to_string()); },
+                            "u8" => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_UNSIGNED_BYTE,size as i32,offset as *const sys::GLvoid)); },
+                            "i8" => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_BYTE,size as i32,offset as *const sys::GLvoid)); },
+                            "u16" => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_UNSIGNED_SHORT,size as i32,offset as *const sys::GLvoid)); },
+                            "i16" => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_SHORT,size as i32,offset as *const sys::GLvoid)); },
+                            "u32" => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_UNSIGNED_INT,size as i32,offset as *const sys::GLvoid)); },
+                            "i32" => unsafe { checkgl!(sys::glVertexAttribIPointer(i as u32,vc,sys::GL_INT,size as i32,offset as *const sys::GLvoid)); },
+                            "u64" => { return Err(format!("Vertex field cannot be Vec{}<u64> for OpenGL",vc)); }
+                            "i64" => { return Err(format!("Vertex field cannot be Vec{}<i64> for OpenGL",vc)); }
+                            "f16" => unsafe { checkgl!(sys::glVertexAttribPointer(i as u32,vc,sys::GL_HALF_FLOAT,sys::GL_FALSE as u8,size as i32,offset as *const sys::GLvoid)); },
+                            "f32" => unsafe { checkgl!(sys::glVertexAttribPointer(i as u32,vc,sys::GL_FLOAT,sys::GL_FALSE as u8,size as i32,offset as *const sys::GLvoid)); },
+                            "f64" => unsafe { checkgl!(sys::glVertexAttribLPointer(i as u32,vc,sys::GL_DOUBLE,size as i32,offset as *const sys::GLvoid)); },
+                            _ => { return Err(format!("Vertex field cannot be {}",field.1)); },
                         }
                     }
                     else {
                         return Err(format!("Vertex field cannot be {}",field.1));
                     }
                 },
+                _ => { return Err(format!("Vertex field cannot be {}",field.1)); },
             }
             offset += gpu::type_to_size(&field.1)?;
         }

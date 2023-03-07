@@ -5,10 +5,10 @@ impl Parser {
     pub(crate) fn module(&mut self) -> Module {
         self.keyword("mod");
         let ident = self.ident().expect("identifier expected");
-        let mut aliases: HashMap<String,Alias> = HashMap::new();
         let mut tuples: HashMap<String,Tuple> = HashMap::new();
         let mut structs: HashMap<String,Struct> = HashMap::new();
         let mut enums: HashMap<String,Enum> = HashMap::new();
+        let mut aliases: HashMap<String,Alias> = HashMap::new();
         let mut consts: HashMap<String,Const> = HashMap::new();
         let mut functions: HashMap<String,Function> = HashMap::new();
         if let Some(mut parser) = self.group('{') {
@@ -61,7 +61,7 @@ impl Parser {
                 else if parser.keyword("enum") {
                     let ident = parser.ident().expect("identifier expected");
                     if let Some(mut parser) = parser.group('{') {
-                        let mut variants: Vec<Variant> = Vec::new();
+                        let mut variants: Vec<(String,Variant)> = Vec::new();
                         while !parser.done() {
                             let ident = parser.ident().expect("identifier expected");
                             if parser.peek_group('{') {
@@ -70,14 +70,14 @@ impl Parser {
                                 for (ident,type_) in ident_types.iter() {
                                     fields.push((ident.clone(),type_.clone()));
                                 }
-                                variants.push(Variant::Struct(ident,fields));
+                                variants.push((ident,Variant::Struct(fields)));
                             }
                             else if parser.peek_group('(') {
                                 let types = parser.paren_types().unwrap();
-                                variants.push(Variant::Tuple(ident,types));
+                                variants.push((ident,Variant::Tuple(types)));
                             }
                             else {
-                                variants.push(Variant::Naked(ident));
+                                variants.push((ident,Variant::Naked));
                             }
                             parser.punct(',');
                         }
@@ -116,11 +116,13 @@ impl Parser {
 
         Module {
             ident,
-            aliases,
             tuples,
             structs,
+            tuple_structs: HashMap::new(),
             extern_structs: HashMap::new(),
+            anon_tuple_structs: HashMap::new(),
             enums,
+            aliases,
             consts,
             functions,
         }
