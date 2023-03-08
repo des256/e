@@ -5,6 +5,10 @@ use {
 
 impl Resolver {
 
+    // TODO:
+    // - anywhere where tuple reference shows up, turn it into a struct reference
+    // - anywhere where an alias reference shows up, convert it into the ultimate type being referred
+
     pub fn resolve_module(&mut self) -> Module {
 
         let module = self.module.clone();
@@ -50,23 +54,41 @@ impl Resolver {
             // no need to log, we're only touching the field types
         }
 
-        let anon_tuple_structs = module.anon_tuple_structs;
-        let extern_structs = module.extern_structs;
-        let enums = module.enums;
-        let aliases = module.aliases;
-        let consts = module.consts;
-        let functions = module.functions;
+        // TODO: resolve enums into enum_structs
+
+        // resolve function types and expressions
+        let mut functions: HashMap<String,Function> = HashMap::new();
+        for (function_ident,function) in module.functions.iter() {
+
+            self.push_context(format!("function {}",function_ident));
+
+            let return_type = self.resolve_type(&function.return_type);
+            let mut params: Vec<(String,Type)> = Vec::new();
+            for (ident,type_) in function.params.iter() {
+                let new_type = self.resolve_type(type_);
+                params.push((ident.clone(),new_type));
+            }
+            let block = self.resolve_should_block(&function.block,&return_type);
+            functions.insert(function_ident.clone(),Function {
+                ident: function_ident.clone(),
+                params,
+                return_type,
+                block,
+            });
+
+            self.pop_context();
+        }
 
         Module {
             ident: self.module.ident.clone(),
             tuples,
             structs,
             tuple_structs,
-            anon_tuple_structs,
-            extern_structs,
-            enums,
-            aliases,
-            consts,
+            anon_tuple_structs: module.anon_tuple_structs,
+            extern_structs: module.extern_structs,
+            enums: module.enums,
+            aliases: module.aliases,
+            consts: module.consts,
             functions,
         }
     }

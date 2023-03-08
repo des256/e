@@ -317,7 +317,7 @@ pub struct Method {
     pub from_type: Type,
     pub ident: String,
     pub params: Vec<(String,Type)>,
-    pub type_: Type,
+    pub return_type: Type,
 }
 
 // Function: function definition
@@ -325,7 +325,7 @@ pub struct Method {
 pub struct Function {
     pub ident: String,
     pub params: Vec<(String,Type)>,
-    pub type_: Type,
+    pub return_type: Type,
     pub block: Block,
 }
 

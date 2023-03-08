@@ -90,12 +90,12 @@ impl StandardLib {
     }
 
     // add method to a specific type
-    fn insert_method(&mut self,from_type: &Type,ident: &str,params: Vec<(String,Type)>,type_: &Type) {
+    fn insert_method(&mut self,from_type: &Type,ident: &str,params: Vec<(String,Type)>,return_type: &Type) {
         let method = Method {
             from_type: from_type.clone(),
             ident: ident.to_string(),
             params,
-            type_: type_.clone(),
+            return_type: return_type.clone(),
         };
         if self.methods.contains_key(ident) {
             self.methods.get_mut(ident).unwrap().push(method);

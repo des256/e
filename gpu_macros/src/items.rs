@@ -22,14 +22,14 @@ impl Parser {
                     for (ident,type_) in ident_types.iter() {
                         params.push((ident.clone(),type_.clone()));
                     }
-                    let type_ = if parser.punct2('-','>') {
+                    let return_type = if parser.punct2('-','>') {
                         parser.type_()
                     }
                     else {
                         Type::Void
                     };
                     let block = parser.block().expect("{ expected (module)");
-                    functions.insert(ident.clone(),Function { ident,params,type_,block, });
+                    functions.insert(ident.clone(),Function { ident,params,return_type,block, });
                 }
 
                 // struct or tuple

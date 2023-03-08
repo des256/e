@@ -303,7 +303,7 @@ impl Render for Const {
 
 impl Render for Function {
     fn render(&self) -> String {
-        format!("Function {{ ident: \"{}\".to_string(),params: {},type_: {},block: {}, }}",self.ident,self.params.render(),self.type_.render(),self.block.render())
+        format!("Function {{ ident: \"{}\".to_string(),params: {},return_type: {},block: {}, }}",self.ident,self.params.render(),self.return_type.render(),self.block.render())
     }
 }
 

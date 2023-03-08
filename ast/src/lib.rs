@@ -18,3 +18,9 @@ pub use resolve_type::*;
 
 mod resolve_expr;
 pub use resolve_expr::*;
+
+mod resolve_block;
+pub use resolve_block::*;
+
+mod resolve_stat;
+pub use resolve_stat::*;

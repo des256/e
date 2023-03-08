@@ -423,7 +423,7 @@ impl Display for Expr {
                     if i > 0 {
                         write!(f,",")?;
                     }
-                    write!(f,"{}: {}",i,exprs[i])?;
+                    write!(f,"f{}: {}",i,exprs[i])?;
                 }
                 write!(f," }}")
             },
@@ -482,8 +482,8 @@ impl Display for Method {
             write!(f,",{}: {}",param.0,param.1)?;
         }
         write!(f,")")?;
-        if let Type::Void = self.type_ { } else {
-            write!(f," -> {}",self.type_)?;
+        if let Type::Void = self.return_type { } else {
+            write!(f," -> {}",self.return_type)?;
         }
         write!(f,";")
     }
@@ -500,8 +500,8 @@ impl Display for Function {
             }
         }
         write!(f,")")?;
-        if let Type::Void = self.type_ { } else {
-            write!(f," -> {}",self.type_)?;
+        if let Type::Void = self.return_type { } else {
+            write!(f," -> {}",self.return_type)?;
         }
         write!(f," {}",self.block)
     }

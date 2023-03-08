@@ -3,9 +3,15 @@ use super::*;
 impl Resolver {
 
     fn get_anon_tuple_struct(&mut self,type_: &Type,new_types: &Vec<Type>) -> Type {
+
+        // find the matching anon_tuple_struct
         let mut found_ident: Option<String> = None;
         for (ident,struct_) in self.module.anon_tuple_structs.iter() {
+
+            // if the lengths match
             if new_types.len() == struct_.fields.len() {
+
+                // check if all types are the same                
                 let mut all_types_match = true;
                 for i in 0..new_types.len() {
                     // TODO: better PartialEq implementation on ast::Type
@@ -14,15 +20,21 @@ impl Resolver {
                         break;
                     }
                 }
+
+                // if so, we found a match
                 if all_types_match {
                     found_ident = Some(ident.clone());
                     break;
                 }
             }
         }
+
+        // if a match was found, refer to it
         if let Some(ident) = found_ident {
             Type::Struct(ident)
         }
+
+        // otherwise add a new anon_tuple_struct with these types
         else {
             let ident = format!("anon{:05}",self.module.anon_tuple_structs.len());
             let mut fields: Vec<(String,Type)> = Vec::new();
@@ -34,7 +46,7 @@ impl Resolver {
                 fields,
             });
 
-            self.log_change(format!("converted anonymous tuple {} to struct {}",type_,ident));
+            self.log_change(format!("converted anonymous tuple {} to anon_tuple_struct {}",type_,ident));
 
             Type::Struct(ident)
         }
@@ -193,6 +205,7 @@ impl Resolver {
         }
     }
 
+    // resolve type without knowledge of what's expected
     pub fn resolve_type(&mut self,type_: &Type) -> Type {
         match type_ {
              

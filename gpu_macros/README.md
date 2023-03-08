@@ -138,7 +138,6 @@ To use Vertex and Uniform structs both inside and outside the shaders, the compi
 - Macros: Let's not support this.
 - Conditional compilation: Let's not support this.
 - Referencing external crates and use declarations: Let's not support this.
-- Type aliasing: Let's not support this.
 - Static/global variables: This makes very little sense in shaders. - OR - These translate to uniforms...
 - Traits: Let's not support this.
 - Lifetimes and mutability: Even though this is important in Rust, it doesn't make much sense in shaders.
