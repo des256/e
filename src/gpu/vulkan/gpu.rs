@@ -1,5 +1,6 @@
 use {
     super::*,
+    super::super::sc::*,
     crate::gpu,
     std::{
         result::Result,
@@ -466,7 +467,9 @@ impl gpu::Gpu for Gpu {
 
     fn create_vertex_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<VertexShader,String> {
 
-        let module = resolve(ast);
+        dprintln!("Vulkan Vertex Shader AST:\n{}",ast);
+
+        //let module = resolve(ast);
 
         /*
         let create_info = sys::VkShaderModuleCreateInfo {
@@ -490,7 +493,9 @@ impl gpu::Gpu for Gpu {
 
     fn create_fragment_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<FragmentShader,String> {
 
-        let module = resolve(ast);
+        dprintln!("Vulkan Fragment Shader AST:\n{}",ast);
+
+        //let module = resolve(ast);
 
         /*
         let create_info = sys::VkShaderModuleCreateInfo {

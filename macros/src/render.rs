@@ -20,8 +20,6 @@ impl Render for Type {
         match self {
             Type::Inferred => "Type::Inferred".to_string(),
             Type::Void => "Type::Void".to_string(),
-            Type::Integer => "Type::Integer".to_string(),
-            Type::Float => "Type::Float".to_string(),
             Type::Bool => "Type::Bool".to_string(),
             Type::U8 => "Type::U8".to_string(),
             Type::I8 => "Type::I8".to_string(),
@@ -34,13 +32,63 @@ impl Render for Type {
             Type::F16 => "Type::F16".to_string(),
             Type::F32 => "Type::F32".to_string(),
             Type::F64 => "Type::F64".to_string(),
+            Type::Vec2Bool => "Type::Vec2Bool".to_string(),
+            Type::Vec2U8 => "Type::Vec2U8".to_string(),
+            Type::Vec2I8 => "Type::Vec2I8".to_string(),
+            Type::Vec2U16 => "Type::Vec2U16".to_string(),
+            Type::Vec2I16 => "Type::Vec2I16".to_string(),
+            Type::Vec2U32 => "Type::Vec2U32".to_string(),
+            Type::Vec2I32 => "Type::Vec2I32".to_string(),
+            Type::Vec2U64 => "Type::Vec2U64".to_string(),
+            Type::Vec2I64 => "Type::Vec2I64".to_string(),
+            Type::Vec2F16 => "Type::Vec2F16".to_string(),
+            Type::Vec2F32 => "Type::Vec2F32".to_string(),
+            Type::Vec2F64 => "Type::Vec2F64".to_string(),
+            Type::Vec3Bool => "Type::Vec3Bool".to_string(),
+            Type::Vec3U8 => "Type::Vec3U8".to_string(),
+            Type::Vec3I8 => "Type::Vec3I8".to_string(),
+            Type::Vec3U16 => "Type::Vec3U16".to_string(),
+            Type::Vec3I16 => "Type::Vec3I16".to_string(),
+            Type::Vec3U32 => "Type::Vec3U32".to_string(),
+            Type::Vec3I32 => "Type::Vec3I32".to_string(),
+            Type::Vec3U64 => "Type::Vec3U64".to_string(),
+            Type::Vec3I64 => "Type::Vec3I64".to_string(),
+            Type::Vec3F16 => "Type::Vec3F16".to_string(),
+            Type::Vec3F32 => "Type::Vec3F32".to_string(),
+            Type::Vec3F64 => "Type::Vec3F64".to_string(),
+            Type::Vec4Bool => "Type::Vec4Bool".to_string(),
+            Type::Vec4U8 => "Type::Vec4U8".to_string(),
+            Type::Vec4I8 => "Type::Vec4I8".to_string(),
+            Type::Vec4U16 => "Type::Vec4U16".to_string(),
+            Type::Vec4I16 => "Type::Vec4I16".to_string(),
+            Type::Vec4U32 => "Type::Vec4U32".to_string(),
+            Type::Vec4I32 => "Type::Vec4I32".to_string(),
+            Type::Vec4U64 => "Type::Vec4U64".to_string(),
+            Type::Vec4I64 => "Type::Vec4I64".to_string(),
+            Type::Vec4F16 => "Type::Vec4F16".to_string(),
+            Type::Vec4F32 => "Type::Vec4F32".to_string(),
+            Type::Vec4F64 => "Type::Vec4F64".to_string(),
+            Type::Mat2x2F32 => "Type::Mat2x2F32".to_string(),
+            Type::Mat2x2F64 => "Type::Mat2x2F64".to_string(),
+            Type::Mat2x3F32 => "Type::Mat2x3F32".to_string(),
+            Type::Mat2x3F64 => "Type::Mat2x3F64".to_string(),
+            Type::Mat2x4F32 => "Type::Mat2x4F32".to_string(),
+            Type::Mat2x4F64 => "Type::Mat2x4F64".to_string(),
+            Type::Mat3x2F32 => "Type::Mat3x2F32".to_string(),
+            Type::Mat3x2F64 => "Type::Mat3x2F64".to_string(),
+            Type::Mat3x3F32 => "Type::Mat3x3F32".to_string(),
+            Type::Mat3x3F64 => "Type::Mat3x3F64".to_string(),
+            Type::Mat3x4F32 => "Type::Mat3x4F32".to_string(),
+            Type::Mat3x4F64 => "Type::Mat3x4F64".to_string(),
+            Type::Mat4x2F32 => "Type::Mat4x2F32".to_string(),
+            Type::Mat4x2F64 => "Type::Mat4x2F64".to_string(),
+            Type::Mat4x3F32 => "Type::Mat4x3F32".to_string(),
+            Type::Mat4x3F64 => "Type::Mat4x3F64".to_string(),
+            Type::Mat4x4F32 => "Type::Mat4x4F32".to_string(),
+            Type::Mat4x4F64 => "Type::Mat4x4F64".to_string(),
             Type::AnonTuple(types) => format!("Type::AnonTuple({})",types.render()),
             Type::Array(type_,expr) => format!("Type::Array(Box::new({}),Box::new({}))",type_.render(),expr.render()),
-            Type::UnknownStructTupleEnumAlias(ident) => format!("Type::UnknownStructTupleEnumAlias(\"{}\".to_string())",ident),
-            Type::Struct(ident) => format!("Type::Struct(\"{}\".to_string())",ident),
-            Type::Tuple(ident) => format!("Type::Tuple(\"{}\".to_string())",ident),
-            Type::Enum(ident) => format!("Type::Enum(\"{}\".to_string())",ident),
-            Type::Alias(ident) => format!("Type::Alias(\"{}\".to_string())",ident),
+            Type::Ident(ident) => format!("Type::Ident(\"{}\")",ident),
         }
     }
 }
@@ -50,8 +98,8 @@ impl Render for FieldPat {
         match self {
             FieldPat::Wildcard => "FieldPat::Wildcard".to_string(),
             FieldPat::Rest => "FieldPat::Rest".to_string(),
-            FieldPat::Ident(ident) => format!("FieldPat::Ident(\"{}\".to_string())",ident),
-            FieldPat::IdentPat(ident,pat) => format!("FieldPat::IdentPat(\"{}\".to_string(),{})",ident,pat.render()),
+            FieldPat::Ident(ident) => format!("FieldPat::Ident(\"{}\")",ident),
+            FieldPat::IdentPat(ident,pat) => format!("FieldPat::IdentPat(\"{}\",{})",ident,pat.render()),
         }
     }
 }
@@ -77,10 +125,10 @@ impl Render for Pat {
             Pat::AnonTuple(pats) => format!("Pat::AnonTuple({})",pats.render()),
             Pat::Array(pats) => format!("Pat::Array({})",pats.render()),
             Pat::Range(pat0,pat1) => format!("Pat::Range({},{})",pat0.render(),pat1.render()),
-            Pat::Ident(ident) => format!("Pat::Ident(\"{}\".to_string())",ident),
-            Pat::Tuple(ident,pats) => format!("Pat::Tuple(\"{}\".to_string(),{})",ident,pats.render()),
-            Pat::Struct(ident,identpats) => format!("Pat::Struct(\"{}\".to_string(),{})",ident,identpats.render()),
-            Pat::Variant(enum_ident,variant_ident,variant) => format!("Pat::Variant(\"{}\".to_string(),\"{}\".to_string(),{})",enum_ident,variant_ident,variant.render()),
+            Pat::Ident(ident) => format!("Pat::Ident(\"{}\")",ident),
+            Pat::Tuple(ident,pats) => format!("Pat::Tuple(\"{}\",{})",ident,pats.render()),
+            Pat::Struct(ident,identpats) => format!("Pat::Struct(\"{}\",{})",ident,identpats.render()),
+            Pat::Variant(enum_ident,variant_ident,variant) => format!("Pat::Variant(\"{}\",\"{}\",{})",enum_ident,variant_ident,variant.render()),
         }
     }
 }
@@ -181,13 +229,13 @@ impl<T: Render> Render for Option<Box<T>> {
 
 impl Render for (String,Expr) {
     fn render(&self) -> String {
-        format!("(\"{}\".to_string(),{})",self.0,self.1.render())
+        format!("(\"{}\",{})",self.0,self.1.render())
     }
 }
 
 impl Render for (String,Type) {
     fn render(&self) -> String {
-        format!("(\"{}\".to_string(),{})",self.0,self.1.render())
+        format!("(\"{}\",{})",self.0,self.1.render())
     }
 }
 
@@ -221,22 +269,13 @@ impl Render for Expr {
             Expr::For(pats,range,block) => format!("Expr::For({},{},{})",pats.render(),range.render(),block.render()),
             Expr::WhileLet(pats,expr,block) => format!("Expr::WhileLet({},Box::new({}),{})",pats.render(),expr.render(),block.render()),
             Expr::Match(expr,arms) => format!("Expr::Match(Box::new({}),{})",expr.render(),arms.render()),
-            Expr::UnknownLocalConst(ident) => format!("Expr::UnknownLocalConst(\"{}\".to_string())",ident),
-            Expr::Local(ident) => format!("Expr::Local(\"{}\".to_string())",ident),
-            Expr::Const(ident) => format!("Expr::Const(\"{}\".to_string())",ident),
-            Expr::UnknownTupleFunctionCall(ident,exprs) => format!("Expr::UnknownTupleFunctionCall(\"{}\".to_string(),{})",ident,exprs.render()),
-            Expr::Tuple(ident,exprs) => format!("Expr::Tuple(\"{}\".to_string(),{})",ident,exprs.render()),
-            Expr::FunctionCall(ident,exprs) => format!("Expr::FunctionCall(\"{}\".to_string(),{})",ident,exprs.render()),
-            Expr::UnknownStruct(ident,fields) => format!("Expr::UnknownStruct(\"{}\".to_string(),{})",ident,fields.render()),
-            Expr::Struct(ident,fields) => format!("Expr::Struct(\"{}\".to_string(),{})",ident,fields.render()),
-            Expr::UnknownVariant(enum_ident,variant_ident,variant) => format!("Expr::UnknownVariant(\"{}\".to_string(),\"{}\".to_string(),{})",enum_ident,variant_ident,variant.render()),
-            Expr::Variant(enum_ident,index,variant) => format!("Expr::Variant(\"{}\".to_string(),{},{})",enum_ident,index,variant.render()),
-            Expr::UnknownMethodCall(expr,ident,exprs) => format!("Expr::UnknownMethodCall(Box::new({}),\"{}\".to_string(),{})",expr.render(),ident,exprs.render()),
-            Expr::MethodCall(expr,ident,exprs) => format!("Expr::MethodCall(Box::new({}),\"{}\".to_string(),{})",expr.render(),ident,exprs.render()),
-            Expr::UnknownField(expr,ident) => format!("Expr::UnknownField(Box::new({}),\"{}\".to_string())",expr.render(),ident),
-            Expr::Field(expr,struct_ident,index) => format!("Expr::Field(Box::new({}),\"{}\".to_string(),{})",expr.render(),struct_ident,index),
-            Expr::UnknownTupleIndex(expr,index) => format!("Expr::UnknownTupleIndex(Box::new({}),{})",expr.render(),index),
-            Expr::TupleIndex(expr,tuple_ident,index) => format!("Expr::TupleIndex(Box::new({}),{},{})",expr.render(),tuple_ident,index),
+            Expr::Ident(ident) => format!("Expr::Ident(\"{}\")",ident),
+            Expr::TupleOrCall(ident,exprs) => format!("Expr::TupleOrCall(\"{}\",{})",ident,exprs.render()),
+            Expr::Struct(ident,fields) => format!("Expr::Struct(\"{}\",{})",ident,fields.render()),
+            Expr::Variant(enum_ident,variant_ident,variant) => format!("Expr::Variant(\"{}\",\"{}\",{})",enum_ident,variant_ident,variant.render()),
+            Expr::Method(expr,ident,exprs) => format!("Expr::Method(Box::new({}),\"{}\",{})",expr.render(),ident,exprs.render()),
+            Expr::Field(expr,ident) => format!("Expr::Field(Box::new({}),\"{}\")",expr.render(),ident),
+            Expr::TupleIndex(expr,index) => format!("Expr::TupleIndex(Box::new({}),{})",expr.render(),index),
         }
     }
 }
@@ -245,7 +284,6 @@ impl Render for Stat {
     fn render(&self) -> String {
         match self {
             Stat::Let(pat,type_,expr) => format!("Stat::Let(Box::new({}),Box::new({}),Box::new({}))",pat.render(),type_.render(),expr.render()),
-            Stat::Local(ident,type_,expr) => format!("Stat::Local(\"{}\".to_string(),Box::new({}),Box::new({}))",ident,type_.render(),expr.render()),
             Stat::Expr(expr) => format!("Stat::Expr(Box::new({}))",expr.render()),
         }
     }
@@ -253,9 +291,9 @@ impl Render for Stat {
 
 impl Render for Struct {
     fn render(&self) -> String {
-        let mut r = format!("Struct {{ ident: \"{}\".to_string(),fields: vec![",self.ident);
+        let mut r = format!("Struct {{ ident: \"{}\",fields: vec![",self.ident);
         for (ident,type_) in self.fields.iter() {
-            r += &format!("(\"{}\".to_string(),{}),",ident,type_.render());
+            r += &format!("(\"{}\",{}),",ident,type_.render());
         }
         r += "], }";
         r
@@ -264,7 +302,7 @@ impl Render for Struct {
 
 impl Render for Tuple {
     fn render(&self) -> String {
-        format!("Tuple {{ ident: \"{}\".to_string(),types: {}, }}",self.ident,self.types.render())
+        format!("Tuple {{ ident: \"{}\",types: {}, }}",self.ident,self.types.render())
     }
 }
 
@@ -280,9 +318,9 @@ impl Render for Variant {
 
 impl Render for Enum {
     fn render(&self) -> String {
-        let mut r = format!("Enum {{ ident: \"{}\".to_string(),variants: vec![",self.ident);
+        let mut r = format!("Enum {{ ident: \"{}\",variants: vec![",self.ident);
         for (ident,variant) in self.variants.iter() {
-            r += &format!("(\"{}\".to_string(),{})",ident,variant.render());
+            r += &format!("(\"{}\",{})",ident,variant.render());
         }
         r += "], }";
         r
@@ -291,19 +329,19 @@ impl Render for Enum {
 
 impl Render for Alias {
     fn render(&self) -> String {
-        format!("Alias {{ ident: \"{}\".to_string(),type_: {}, }}",self.ident,self.type_.render())
+        format!("Alias {{ ident: \"{}\",type_: {}, }}",self.ident,self.type_.render())
     }
 }
 
 impl Render for Const {
     fn render(&self) -> String {
-        format!("Const {{ ident: \"{}\".to_string(),type_: {},expr: {}, }}",self.ident,self.type_.render(),self.expr.render())
+        format!("Const {{ ident: \"{}\",type_: {},expr: {}, }}",self.ident,self.type_.render(),self.expr.render())
     }
 }
 
 impl Render for Function {
     fn render(&self) -> String {
-        format!("Function {{ ident: \"{}\".to_string(),params: {},return_type: {},block: {}, }}",self.ident,self.params.render(),self.return_type.render(),self.block.render())
+        format!("Function {{ ident: \"{}\",params: {},return_type: {},block: {}, }}",self.ident,self.params.render(),self.return_type.render(),self.block.render())
     }
 }
 
@@ -316,7 +354,7 @@ impl Render for Module {
         for function in self.functions.iter() {
             if function.0 == "main" {
                 for (_,type_) in function.1.params.iter() {
-                    if let Type::UnknownStructTupleEnumAlias(ident) = type_ {
+                    if let Type::Ident(ident) = type_ {
                         extern_struct_idents.push(ident.clone());
                     }
                 }
@@ -331,76 +369,76 @@ impl Render for Module {
         let mut r = "{ use { super::*,std::collections::HashMap }; ".to_string();
 
         if self.tuples.len() > 0 {
-            r += &format!("let mut tuples: HashMap<String,Tuple> = HashMap::new(); ");
+            r += &format!("let mut tuples: HashMap<&str,Tuple> = HashMap::new(); ");
             for tuple in self.tuples.iter() {
-                r += &format!("tuples.insert(\"{}\".to_string(),{}); ",tuple.0,tuple.1.render());
+                r += &format!("tuples.insert(\"{}\",{}); ",tuple.0,tuple.1.render());
             }
         }
         else {
-            r += "let tuples: HashMap<String,Tuple> = HashMap::new(); ";
+            r += "let tuples: HashMap<&str,Tuple> = HashMap::new(); ";
         }
 
         if extern_struct_idents.len() > 0 {
-            r += "let mut extern_structs: HashMap<String,Struct> = HashMap::new();";
+            r += "let mut extern_structs: HashMap<&str,Struct> = HashMap::new();";
             for extern_struct_ident in extern_struct_idents.iter() {
                 // hack: if struct contains <>, it's not an external struct, but something defined in the standard library
                 // there are probably other structs as well, but for now let's assume they're not defined in the standard library
                 if !extern_struct_ident.contains('<') {
-                    r += &format!("extern_structs.insert(\"{}\".to_string(),super::{}::ast());",extern_struct_ident,extern_struct_ident);
+                    r += &format!("extern_structs.insert(\"{}\",super::{}::ast());",extern_struct_ident,extern_struct_ident);
                 }
             }
         }
         else {
-            r += "let extern_structs: HashMap<String,Struct> = HashMap::new(); ";
+            r += "let extern_structs: HashMap<&str,Struct> = HashMap::new(); ";
         }
 
         if self.structs.len() > 0 {
-            r += &format!("let mut structs: HashMap<String,Struct> = HashMap::new();");
+            r += &format!("let mut structs: HashMap<&str,Struct> = HashMap::new();");
             for struct_ in self.structs.iter() {
-                r += &format!("structs.insert(\"{}\".to_string(),{}); ",struct_.0,struct_.1.render());
+                r += &format!("structs.insert(\"{}\",{}); ",struct_.0,struct_.1.render());
             }
         }
         else {
-            r += "let mut structs: HashMap<String,Struct> = HashMap::new(); ";
+            r += "let mut structs: HashMap<&str,Struct> = HashMap::new(); ";
         }
 
         if self.enums.len() > 0 {
-            r += &format!("let mut enums: HashMap<String,Enum> = HashMap::new(); ");
+            r += &format!("let mut enums: HashMap<&str,Enum> = HashMap::new(); ");
             for enum_ in self.enums.iter() {
-                r += &format!("enums.insert(\"{}\".to_string(),{}); ",enum_.0,enum_.1.render());
+                r += &format!("enums.insert(\"{}\",{}); ",enum_.0,enum_.1.render());
             }
         }
         else {
-            r += "let enums: HashMap<String,Enum> = HashMap::new(); ";
+            r += "let enums: HashMap<&str,Enum> = HashMap::new(); ";
         }
         if self.aliases.len() > 0 {
-            r += &format!("let mut aliases: HashMap<String,Alias> = HashMap::new(); ");
+            r += &format!("let mut aliases: HashMap<&str,Alias> = HashMap::new(); ");
             for alias in self.aliases.iter() {
-                r += &format!("aliases.insert(\"{}\".to_string(),{}); ",alias.0,alias.1.render());
+                r += &format!("aliases.insert(\"{}\",{}); ",alias.0,alias.1.render());
             }
         }
         else {
-            r += "let aliases: HashMap<String,Alias> = HashMap::new(); ";
+            r += "let aliases: HashMap<&str,Alias> = HashMap::new(); ";
         }
         if self.consts.len() > 0 {
-            r += &format!("let mut consts: HashMap<String,Const> = HashMap::new(); ");
+            r += &format!("let mut consts: HashMap<&str,Const> = HashMap::new(); ");
             for const_ in self.consts.iter() {
-                r += &format!("consts.insert(\"{}\".to_string(),{}); ",const_.0,const_.1.render());
+                r += &format!("consts.insert(\"{}\",{}); ",const_.0,const_.1.render());
             }
         }
         else {
-            r += "let consts: HashMap<String,Const> = HashMap::new(); ";
+            r += "let consts: HashMap<&str,Const> = HashMap::new(); ";
         }
         if self.functions.len() > 0 {
-            r += &format!("let mut functions: HashMap<String,Function> = HashMap::new(); ");
+            r += &format!("let mut functions: HashMap<&str,Function> = HashMap::new(); ");
             for function in self.functions.iter() {
-                r += &format!("functions.insert(\"{}\".to_string(),{}); ",function.0,function.1.render());
+                r += &format!("functions.insert(\"{}\",{}); ",function.0,function.1.render());
             }
         }
         else {
-            r += "let functions: HashMap<String,Function> = Vec::new(); ";
+            r += "let functions: HashMap<&str,Function> = Vec::new(); ";
         }
-        r += &format!("Module {{ ident: \"{}\".to_string(),tuples,structs,extern_structs,tuple_structs: HashMap::new(),anon_tuple_structs: HashMap::new(),enums,aliases,consts,functions, }} }}",self.ident);
+        r += &format!("Module {{ ident: \"{}\",tuples,structs,extern_structs,enums,aliases,consts,functions, anon_tuple_structs: Vec::new(),tuple_structs: HashMap::new(), }} }}",self.ident);
         r
     }
 }

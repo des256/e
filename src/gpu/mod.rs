@@ -4,7 +4,7 @@ use {
 };
 
 pub trait Vertex where Self: Sized {
-    fn ast() -> ast::Struct;
+    fn ast() -> sc::ast::Struct;
 }
 
 pub trait Uniform where Self: Sized {
@@ -295,8 +295,8 @@ pub trait Gpu {
     fn create_surface(self: &Rc<Self>,window: &Rc<Window>,r: Rect<i32>) -> Result<<Self::CommandBuffer as CommandBuffer>::Surface,String>;
     fn create_command_buffer(self: &Rc<Self>) -> Result<Self::CommandBuffer,String>;
     fn submit_command_buffer(&self,command_buffer: &Self::CommandBuffer) -> Result<(),String>;
-    fn create_vertex_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<Self::VertexShader,String>;
-    fn create_fragment_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<Self::FragmentShader,String>;
+    fn create_vertex_shader(self: &Rc<Self>,ast: &sc::ast::Module) -> Result<Self::VertexShader,String>;
+    fn create_fragment_shader(self: &Rc<Self>,ast: &sc::ast::Module) -> Result<Self::FragmentShader,String>;
     fn create_graphics_pipeline<T: Vertex>(self: &Rc<Self>,
         surface: &<Self::CommandBuffer as CommandBuffer>::Surface,
         pipeline_layout: &Rc<Self::PipelineLayout>,
@@ -329,6 +329,8 @@ pub trait Gpu {
 }
 
 // anything past this level requires qualifiers vulkan::, opengl::, etc.
+pub mod sc;
+
 #[cfg(vulkan)]
 pub mod vulkan;
 
@@ -350,42 +352,58 @@ pub mod webgl;
 #[cfg(webgpu)]
 pub mod webgpu;
 
-pub(crate) fn type_to_size(type_: &ast::Type) -> Result<usize,String> {
+
+pub(crate) fn type_to_size(type_: &super::sc::ast::Type) -> Result<usize,String> {
+    use super::sc::ast::*;
     match type_ {
-        ast::Type::Bool => Err("TODO: bool vertex field".to_string()),
-        ast::Type::U8 => Ok(1),
-        ast::Type::I8 => Ok(1),
-        ast::Type::U16 => Ok(2),
-        ast::Type::I16 => Ok(2),
-        ast::Type::U32 => Ok(4),
-        ast::Type::I32 => Ok(4),
-        ast::Type::U64 => Ok(8),
-        ast::Type::I64 => Ok(8),
-        ast::Type::F16 => Ok(2),
-        ast::Type::F32 => Ok(4),
-        ast::Type::F64 => Ok(8),
-        ast::Type::Struct(ident) => {
-            let parts: Vec<&str> = ident.split(&['<','>']).collect();
-            if parts.len() == 2 {
-                let ss = match parts[1] {
-                    "bool" => { return Err(format!("TODO: {} vertex field",ident)); },
-                    "u8" | "i8" => 1,
-                    "u16" | "i16" | "f16" => 2,
-                    "u32" | "i32" | "f32" => 4,
-                    "u64" | "i64" | "f64" => 8,
-                    _ => { return Err(format!("Vertex field cannot be {}",type_)) },
-                };
-                match parts[0] {
-                    "Vec2" => Ok(2 * ss),
-                    "Vec3" => Ok(3 * ss),
-                    "Vec4" => Ok(4 * ss),
-                    _ => Err(format!("Vertex field cannot be {}",type_)),
-                }
-            }
-            else {
-                Err(format!("Vertex field cannot be {}",type_))
-            }
-        },
+        Type::Bool => Err("TODO: bool vertex field".to_string()),
+        Type::U8 => Ok(1),
+        Type::I8 => Ok(1),
+        Type::U16 => Ok(2),
+        Type::I16 => Ok(2),
+        Type::U32 => Ok(4),
+        Type::I32 => Ok(4),
+        Type::U64 => Ok(8),
+        Type::I64 => Ok(8),
+        Type::F16 => Ok(2),
+        Type::F32 => Ok(4),
+        Type::F64 => Ok(8),
+        Type::Vec2Bool => Err("TODO: Vec2<bool> vertex field".to_string()),
+        Type::Vec2U8 => Ok(2),
+        Type::Vec2I8 => Ok(2),
+        Type::Vec2U16 => Ok(4),
+        Type::Vec2I16 => Ok(4),
+        Type::Vec2U32 => Ok(8),
+        Type::Vec2I32 => Ok(8),
+        Type::Vec2U64 => Ok(16),
+        Type::Vec2I64 => Ok(16),
+        Type::Vec2F16 => Ok(4),
+        Type::Vec2F32 => Ok(8),
+        Type::Vec2F64 => Ok(16),
+        Type::Vec3Bool => Err("TODO: Vec3<bool> vertex field".to_string()),
+        Type::Vec3U8 => Ok(3),
+        Type::Vec3I8 => Ok(3),
+        Type::Vec3U16 => Ok(6),
+        Type::Vec3I16 => Ok(6),
+        Type::Vec3U32 => Ok(12),
+        Type::Vec3I32 => Ok(12),
+        Type::Vec3U64 => Ok(24),
+        Type::Vec3I64 => Ok(24),
+        Type::Vec3F16 => Ok(6),
+        Type::Vec3F32 => Ok(12),
+        Type::Vec3F64 => Ok(24),
+        Type::Vec4Bool => Err("TODO: Vec4<bool> vertex field".to_string()),
+        Type::Vec4U8 => Ok(4),
+        Type::Vec4I8 => Ok(4),
+        Type::Vec4U16 => Ok(8),
+        Type::Vec4I16 => Ok(8),
+        Type::Vec4U32 => Ok(16),
+        Type::Vec4I32 => Ok(16),
+        Type::Vec4U64 => Ok(32),
+        Type::Vec4I64 => Ok(32),
+        Type::Vec4F16 => Ok(8),
+        Type::Vec4F32 => Ok(16),
+        Type::Vec4F64 => Ok(32),
         _ => Err(format!("Vertex field cannot be {}",type_)),
     }
 }

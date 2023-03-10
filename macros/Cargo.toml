@@ -1,5 +1,5 @@
 [package]
-name = "gpu_macros"
+name = "macros"
 version = "0.1.0"
 authors = ["Desmond Germans <desmond@germansmedia.nl>"]
 edition = "2018"
@@ -8,4 +8,3 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
-ast = { path = "../ast" }

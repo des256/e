@@ -14,8 +14,6 @@ impl Display for Type {
         match self {
             Type::Inferred => write!(f,"_"),
             Type::Void => write!(f,"()"),
-            Type::Integer => write!(f,"{{integer}}"),
-            Type::Float => write!(f,"{{float}}"),
             Type::Bool => write!(f,"bool"),
             Type::U8 => write!(f,"u8"),
             Type::I8 => write!(f,"i8"),
@@ -28,6 +26,60 @@ impl Display for Type {
             Type::F16 => write!(f,"f16"),
             Type::F32 => write!(f,"f32"),
             Type::F64 => write!(f,"f64"),
+            Type::Vec2Bool => write!(f,"Vec2<bool>"),
+            Type::Vec2U8 => write!(f,"Vec2<u8>"),
+            Type::Vec2I8 => write!(f,"Vec2<i8>"),
+            Type::Vec2U16 => write!(f,"Vec2<u16>"),
+            Type::Vec2I16 => write!(f,"Vec2<i16>"),
+            Type::Vec2U32 => write!(f,"Vec2<u32>"),
+            Type::Vec2I32 => write!(f,"Vec2<i32>"),
+            Type::Vec2U64 => write!(f,"Vec2<u64>"),
+            Type::Vec2I64 => write!(f,"Vec2<i64>"),
+            Type::Vec2F16 => write!(f,"Vec2<f16>"),
+            Type::Vec2F32 => write!(f,"Vec2<f32>"),
+            Type::Vec2F64 => write!(f,"Vec2<f64>"),
+            Type::Vec3Bool => write!(f,"Vec3<bool>"),
+            Type::Vec3U8 => write!(f,"Vec3<u8>"),
+            Type::Vec3I8 => write!(f,"Vec3<i8>"),
+            Type::Vec3U16 => write!(f,"Vec3<u16>"),
+            Type::Vec3I16 => write!(f,"Vec3<i16>"),
+            Type::Vec3U32 => write!(f,"Vec3<u32>"),
+            Type::Vec3I32 => write!(f,"Vec3<i32>"),
+            Type::Vec3U64 => write!(f,"Vec3<u64>"),
+            Type::Vec3I64 => write!(f,"Vec3<i64>"),
+            Type::Vec3F16 => write!(f,"Vec3<f16>"),
+            Type::Vec3F32 => write!(f,"Vec3<f32>"),
+            Type::Vec3F64 => write!(f,"Vec3<f64>"),
+            Type::Vec4Bool => write!(f,"Vec3<bool>"),
+            Type::Vec4U8 => write!(f,"Vec4<u8>"),
+            Type::Vec4I8 => write!(f,"Vec4<i8>"),
+            Type::Vec4U16 => write!(f,"Vec4<u16>"),
+            Type::Vec4I16 => write!(f,"Vec4<i16>"),
+            Type::Vec4U32 => write!(f,"Vec4<u32>"),
+            Type::Vec4I32 => write!(f,"Vec4<i32>"),
+            Type::Vec4U64 => write!(f,"Vec4<u64>"),
+            Type::Vec4I64 => write!(f,"Vec4<i64>"),
+            Type::Vec4F16 => write!(f,"Vec4<f16>"),
+            Type::Vec4F32 => write!(f,"Vec4<f32>"),
+            Type::Vec4F64 => write!(f,"Vec4<f64>"),
+            Type::Mat2x2F32 => write!(f,"Mat2x2<f32>"),
+            Type::Mat2x2F64 => write!(f,"Mat2x2<f64>"),
+            Type::Mat2x3F32 => write!(f,"Mat2x3<f32>"),
+            Type::Mat2x3F64 => write!(f,"Mat2x3<f64>"),
+            Type::Mat2x4F32 => write!(f,"Mat2x4<f32>"),
+            Type::Mat2x4F64 => write!(f,"Mat2x4<f64>"),
+            Type::Mat3x2F32 => write!(f,"Mat3x2<f32>"),
+            Type::Mat3x2F64 => write!(f,"Mat3x2<f64>"),
+            Type::Mat3x3F32 => write!(f,"Mat3x3<f32>"),
+            Type::Mat3x3F64 => write!(f,"Mat3x3<f64>"),
+            Type::Mat3x4F32 => write!(f,"Mat3x4<f32>"),
+            Type::Mat3x4F64 => write!(f,"Mat3x4<f64>"),
+            Type::Mat4x2F32 => write!(f,"Mat4x2<f32>"),
+            Type::Mat4x2F64 => write!(f,"Mat4x2<f64>"),
+            Type::Mat4x3F32 => write!(f,"Mat4x3<f32>"),
+            Type::Mat4x3F64 => write!(f,"Mat4x3<f64>"),
+            Type::Mat4x4F32 => write!(f,"Mat4x4<f32>"),
+            Type::Mat4x4F64 => write!(f,"Mat4x4<f64>"),        
             Type::AnonTuple(types) => {
                 write!(f,"(")?;
                 let mut iter = types.iter();
@@ -40,11 +92,14 @@ impl Display for Type {
                 write!(f,")")
             },
             Type::Array(type_,expr) => write!(f,"[{}; {}]",type_,expr),
-            Type::UnknownStructTupleEnumAlias(ident) => write!(f,"{}",ident),
-            Type::Struct(ident) => write!(f,"{}",ident),
-            Type::Tuple(ident) => write!(f,"{}",ident),
-            Type::Enum(ident) => write!(f,"{}",ident),
-            Type::Alias(ident) => write!(f,"{}",ident),
+            Type::Ident(ident) => write!(f,"{}",ident),
+
+            Type::Integer => write!(f,"{{integer}}"),
+            Type::Float => write!(f,"{{float}}"),
+            Type::StructRef(ident) => write!(f,"{}",ident),
+            Type::TupleStructRef(ident) => write!(f,"{}",ident),
+            Type::AnonTupleStructRef(index) => write!(f,"AnonTuple{}",index),
+            Type::EnumStructRef(ident) => write!(f,"{}",ident),
         }
     }
 }
@@ -370,10 +425,8 @@ impl Display for Expr {
                 }
                 write!(f," }}")
             },
-            Expr::UnknownLocalConst(ident) => write!(f,"{}",ident),
-            Expr::Local(ident) => write!(f,"{}",ident),
-            Expr::Const(ident) => write!(f,"{}",ident),
-            Expr::UnknownTupleFunctionCall(ident,exprs) => {
+            Expr::Ident(ident) => write!(f,"{}",ident),
+            Expr::TupleOrCall(ident,exprs) => {
                 write!(f,"{}(",ident)?;
                 let mut iter = exprs.iter();
                 if let Some(expr) = iter.next() {
@@ -384,29 +437,7 @@ impl Display for Expr {
                 }
                 write!(f,")")
             },
-            Expr::Tuple(ident,exprs) => {
-                write!(f,"{}(",ident)?;
-                let mut iter = exprs.iter();
-                if let Some(expr) = iter.next() {
-                    write!(f,"{}",expr)?;
-                    for expr in iter {
-                        write!(f,",{}",expr)?;
-                    }
-                }
-                write!(f,")")
-            },
-            Expr::FunctionCall(ident,exprs) => {
-                write!(f,"{}(",ident)?;
-                let mut iter = exprs.iter();
-                if let Some(expr) = iter.next() {
-                    write!(f,"{}",expr)?;
-                    for expr in iter {
-                        write!(f,",{}",expr)?;
-                    }
-                }
-                write!(f,")")
-            },
-            Expr::UnknownStruct(struct_ident,fields) => {
+            Expr::Struct(struct_ident,fields) => {
                 write!(f,"{} {{ ",struct_ident)?;
                 let mut iter = fields.iter();
                 if let Some(field) = iter.next() {
@@ -417,25 +448,11 @@ impl Display for Expr {
                 }
                 write!(f," }}")
             },
-            Expr::Struct(ident,exprs) => {
-                write!(f,"{} {{ ",ident)?;
-                for i in 0..exprs.len() {
-                    if i > 0 {
-                        write!(f,",")?;
-                    }
-                    write!(f,"f{}: {}",i,exprs[i])?;
-                }
-                write!(f," }}")
-            },
-            Expr::UnknownVariant(enum_ident,variant_ident,variant_expr) => {
+            Expr::Variant(enum_ident,variant_ident,variant_expr) => {
                 write!(f,"{}::{}",enum_ident,variant_ident)?;
                 write!(f,"{}",variant_expr)
             },
-            Expr::Variant(ident,index,variant_expr) => {
-                write!(f,"{}::{}",ident,*index)?;
-                write!(f,"{}",variant_expr)
-            },
-            Expr::UnknownMethodCall(expr,method_ident,exprs) => {
+            Expr::Method(expr,method_ident,exprs) => {
                 write!(f,"{}.{}(",expr,method_ident)?;
                 let mut iter = exprs.iter();
                 if let Some(expr) = iter.next() {
@@ -446,21 +463,12 @@ impl Display for Expr {
                 }
                 write!(f,")")
             },
-            Expr::MethodCall(expr,ident,exprs) => {
-                write!(f,"{}.{}(",expr,ident)?;
-                let mut iter = exprs.iter();
-                if let Some(expr) = iter.next() {
-                    write!(f,"{}",expr)?;
-                    for expr in iter {
-                        write!(f,",{}",expr)?;
-                    }
-                }
-                write!(f,")")
-            },
-            Expr::UnknownField(expr,ident) => write!(f,"{}.{}",expr,ident),
-            Expr::Field(expr,_,index) => write!(f,"{}.{}",expr,*index),
-            Expr::UnknownTupleIndex(expr,index) => write!(f,"{}.{}",expr,index),
-            Expr::TupleIndex(expr,_,index) => write!(f,"{}.{}",expr,index),
+            Expr::Field(expr,ident) => write!(f,"{}.{}",expr,ident),
+            Expr::TupleIndex(expr,index) => write!(f,"{}.{}",expr,index),
+
+            Expr::Discriminant(expr,variant_index) => write!(f,"{} is ::{}",expr,variant_index),
+            Expr::DestructTuple(expr,variant_index,index) => write!(f,"{}::{}.{}",expr,variant_index,index),
+            Expr::DestructStruct(expr,variant_index,index) => write!(f,"{}::{}.{}",expr,variant_index,index),
         }
     }
 }
@@ -470,6 +478,7 @@ impl Display for Stat {
         match self {
             Stat::Expr(expr) => write!(f,"{};",expr),
             Stat::Let(pat,type_,expr) => write!(f,"let {}: {} = {};",pat,type_,expr),
+
             Stat::Local(ident,type_,expr) => write!(f,"let {}: {} = {};",ident,type_,expr),
         }
     }
@@ -598,12 +607,6 @@ impl Display for Module {
             write!(f,"{};\n",tuple.1)?;
         }
         for struct_ in self.structs.iter() {
-            write!(f,"{};\n",struct_.1)?;
-        }
-        for struct_ in self.tuple_structs.iter() {
-            write!(f,"{};\n",struct_.1)?;
-        }
-        for struct_ in self.anon_tuple_structs.iter() {
             write!(f,"{};\n",struct_.1)?;
         }
         for struct_ in self.extern_structs.iter() {

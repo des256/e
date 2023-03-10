@@ -246,11 +246,11 @@ what is left is a tree that can easily be translated into one of the target shad
 
 so TODO:
 
-- restore AST from ast crate to minimal Rust AST that matches the language being parsed in gpu_macros, everything is unknown, tuples and enums exist, patterns exist, etc.
+* restore AST from ast crate to minimal Rust AST that matches the language being parsed in gpu_macros, everything is unknown, tuples and enums exist, patterns exist, etc.
 
-- move AST definition into gpu_macros and destroy ast crate, gpu_macros is now self-contained and parses Rust shaders into utility AST constants at compile time
+* move AST definition into gpu_macros and destroy ast crate, gpu_macros is now self-contained and parses Rust shaders into utility AST constants at compile time
 
-- define utility AST, a superset of gpu_macros AST, in /gpu/sc, with Display implementations
+* define utility AST, a superset of gpu_macros AST, in /gpu/sc, with Display implementations
 
 - define TAC in /gpu/sc, with Display implementations, this TAC should be ideal for optimizations and translation into target shader languages
 

@@ -1,6 +1,6 @@
 use {
     e::*,
-    gpu_macros::*,
+    macros::*,
     std::{
         result::Result,
         rc::Rc,
@@ -152,7 +152,7 @@ fn main() -> Result<(),String> {
 
     // create environments
 #[cfg(any(system="linux"))]
-    let mut vulkan = Environment::new(&system,&vulkan::Gpu::open(&system)?,"spv","Vulkan",Rect::<i32> { o: Vec2::ZERO,s: Vec2 { x: 512,y: 384, }, })?;
+    //let mut vulkan = Environment::new(&system,&vulkan::Gpu::open(&system)?,"spv","Vulkan",Rect::<i32> { o: Vec2::ZERO,s: Vec2 { x: 512,y: 384, }, })?;
 #[cfg(any(system="linux"))]
     let mut opengl = Environment::new(&system,&opengl::Gpu::open(&system)?,"glsl","OpenGL",Rect::<i32> { o: Vec2::ZERO,s: Vec2 { x: 512,y: 384, }, })?;
 
@@ -173,7 +173,7 @@ fn main() -> Result<(),String> {
 
         // render stuff
 #[cfg(any(system="linux"))]
-        vulkan.render()?;
+        //vulkan.render()?;
 #[cfg(any(system="linux"))]
         opengl.render()?;
     }

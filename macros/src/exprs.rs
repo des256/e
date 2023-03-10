@@ -20,20 +20,20 @@ impl Parser {
             Expr::Float(value)
         }
 
-        // UnknownLocalConst, UnknownStruct, UnknownTupleFunctionCall, UnknownVariant
+        // Ident, Struct, TupleOrCall, Variant
         else if let Some(ident) = self.ident() {
 
-            // UnknownStruct
+            // Struct
             if let Some(ident_exprs) = self.brace_ident_exprs() {
-                Expr::UnknownStruct(ident,ident_exprs)
+                Expr::Struct(ident,ident_exprs)
             }
 
-            // UnknownTupleFunctionCall
+            // TupleOrCall
             else if let Some(exprs) = self.paren_exprs() {
-                Expr::UnknownTupleFunctionCall(ident,exprs)
+                Expr::TupleOrCall(ident,exprs)
             }
 
-            // UnknownVariant
+            // Variant
             else if self.punct2(':',':') {
                 if self.punct('<') {
                     // process double :: style (Vec2::<T>) as UnknownStruct
@@ -41,7 +41,7 @@ impl Parser {
                     self.punct('>');
                     let ident = format!("{}<{}>",ident,element_type);
                     if let Some(ident_exprs) = self.brace_ident_exprs() {
-                        Expr::UnknownStruct(ident,ident_exprs)
+                        Expr::Struct(ident,ident_exprs)
                     }
                     else {
                         self.fatal(&format!("struct literal expected after {}",ident));
@@ -50,20 +50,20 @@ impl Parser {
                 else {
                     let variant_ident = self.ident().expect("identifier expected");
                     if let Some(ident_exprs) = self.brace_ident_exprs() {
-                        Expr::UnknownVariant(ident,variant_ident,VariantExpr::Struct(ident_exprs))
+                        Expr::Variant(ident,variant_ident,VariantExpr::Struct(ident_exprs))
                     }
                     else if let Some(exprs) = self.paren_exprs() {
-                        Expr::UnknownVariant(ident,variant_ident,VariantExpr::Tuple(exprs))
+                        Expr::Variant(ident,variant_ident,VariantExpr::Tuple(exprs))
                     }
                     else {
-                        Expr::UnknownVariant(ident,variant_ident,VariantExpr::Naked)
+                        Expr::Variant(ident,variant_ident,VariantExpr::Naked)
                     }
                 }
             }
 
             // UnknownLocalConst
             else {
-                Expr::UnknownLocalConst(ident)
+                Expr::Ident(ident)
             }
         }
 
@@ -99,27 +99,27 @@ impl Parser {
         }
     }
 
-    // UnknownField, UnknownMethodCall, UnknownTupleIndex, Index, Cast
+    // Field, Method, TupleIndex, Index, Cast
     pub(crate) fn postfix_expr(&mut self) -> Expr {
         let mut expr = self.primary_expr();
         loop {
 
-            // UnknownField, UnknownMethodCall, UnknownTupleIndex
+            // Field, Method, TupleIndex
             if self.punct('.') {
 
-                // UnknownField, UnknownMethodCall
+                // Field, Method
                 if let Some(ident) = self.ident() {
                     if let Some(exprs) = self.paren_exprs() {
-                        expr = Expr::UnknownMethodCall(Box::new(expr),ident,exprs);
+                        expr = Expr::Method(Box::new(expr),ident,exprs);
                     }
                     else {
-                        expr = Expr::UnknownField(Box::new(expr),ident);
+                        expr = Expr::Field(Box::new(expr),ident);
                     }
                 }
 
                 // TupleIndex
                 else if let Some(value) = self.integer_literal() {
-                    expr = Expr::UnknownTupleIndex(Box::new(expr),value as usize);
+                    expr = Expr::TupleIndex(Box::new(expr),value as usize);
                 }
 
                 else {
@@ -413,14 +413,14 @@ impl Parser {
             if self.punct('.') {
                 if let Some(ident) = self.ident() {
                     if let Some(exprs) = self.paren_exprs() {
-                        expr = Expr::UnknownMethodCall(Box::new(expr),ident,exprs);
+                        expr = Expr::Method(Box::new(expr),ident,exprs);
                     }
                     else {
-                        expr = Expr::UnknownField(Box::new(expr),ident);
+                        expr = Expr::Field(Box::new(expr),ident);
                     }
                 }
                 else if let Some(value) = self.integer_literal() {
-                    expr = Expr::UnknownTupleIndex(Box::new(expr),value as usize);
+                    expr = Expr::TupleIndex(Box::new(expr),value as usize);
                 }
                 else {
                     self.fatal("field or tuple index expected");
@@ -548,7 +548,7 @@ impl Parser {
 
     pub(crate) fn finish_ident_as_expr(&mut self,ident: String) -> Expr {
         let expr = if let Some(exprs) = self.paren_exprs() {
-            Expr::UnknownTupleFunctionCall(ident,exprs)
+            Expr::TupleOrCall(ident,exprs)
         }
         else if self.punct2(':',':') {
             if self.punct('<') {
@@ -556,7 +556,7 @@ impl Parser {
                 self.punct('>');
                 let ident = format!("{}<{}>",ident,element_type);
                 if let Some(ident_exprs) = self.brace_ident_exprs() {
-                    Expr::UnknownStruct(ident,ident_exprs)
+                    Expr::Struct(ident,ident_exprs)
                 }
                 else {
                     self.fatal(&format!("struct literal expected after {}",ident));
@@ -565,18 +565,18 @@ impl Parser {
             else {
                 let variant_ident = self.ident().expect("identifier expected");
                 if let Some(ident_exprs) = self.brace_ident_exprs() {
-                    Expr::UnknownVariant(ident,variant_ident,VariantExpr::Struct(ident_exprs))
+                    Expr::Variant(ident,variant_ident,VariantExpr::Struct(ident_exprs))
                 }
                 else if let Some(exprs) = self.paren_exprs() {
-                    Expr::UnknownVariant(ident,variant_ident,VariantExpr::Tuple(exprs))
+                    Expr::Variant(ident,variant_ident,VariantExpr::Tuple(exprs))
                 }
                 else {
-                    Expr::UnknownVariant(ident,variant_ident,VariantExpr::Naked)
+                    Expr::Variant(ident,variant_ident,VariantExpr::Naked)
                 }
             }
         }
         else {
-            Expr::UnknownLocalConst(ident)
+            Expr::Ident(ident)
         };
 
         self.finish_expr_tail(expr)
@@ -588,7 +588,7 @@ impl Parser {
             self.punct('>');
             let ident = format!("{}<{}>",ident,element_type);
             if let Some(ident_exprs) = self.brace_ident_exprs() {
-                Expr::UnknownStruct(ident,ident_exprs)
+                Expr::Struct(ident,ident_exprs)
             }
             else {
                 self.fatal(&format!("struct literal expected after {}",ident));
@@ -597,13 +597,13 @@ impl Parser {
         else {
             let variant_ident = self.ident().expect("identifier expected");
             if let Some(ident_exprs) = self.brace_ident_exprs() {
-                Expr::UnknownVariant(ident,variant_ident,VariantExpr::Struct(ident_exprs))
+                Expr::Variant(ident,variant_ident,VariantExpr::Struct(ident_exprs))
             }
             else if let Some(exprs) = self.paren_exprs() {
-                Expr::UnknownVariant(ident,variant_ident,VariantExpr::Tuple(exprs))
+                Expr::Variant(ident,variant_ident,VariantExpr::Tuple(exprs))
             }
             else {
-                Expr::UnknownVariant(ident,variant_ident,VariantExpr::Naked)
+                Expr::Variant(ident,variant_ident,VariantExpr::Naked)
             }
         };
         self.finish_expr_tail(expr)
@@ -655,7 +655,7 @@ impl Parser {
             let expr = self.expr();
             ident_exprs.push((ident,expr));
         }
-        Expr::UnknownStruct(ident,ident_exprs)
+        Expr::Struct(ident,ident_exprs)
     }
 
     pub(crate) fn finish_block(&mut self,expr: Option<Expr>) -> Block {
@@ -722,7 +722,7 @@ impl Parser {
 
                         // ident { sub_ident::...  -> variant pattern
                         if parser.punct(':') {
-                            let expr = Expr::UnknownLocalConst(ident);
+                            let expr = Expr::Ident(ident);
                             let mut pat = parser.finish_variant_pat(sub_ident);
                             if self.punct3('.','.','=') {
                                 pat = Pat::Range(Box::new(pat),Box::new(self.pat()))
@@ -745,7 +745,7 @@ impl Parser {
 
                     // ident { sub_ident ...  -> expr { pat
                     else {
-                        let expr = Expr::UnknownLocalConst(ident);
+                        let expr = Expr::Ident(ident);
                         let pat = parser.finish_pat(sub_ident);
                         (expr,pat,parser)
                     }
@@ -753,7 +753,7 @@ impl Parser {
 
                 // ident { ...  -> expr {
                 else {
-                    let expr = Expr::UnknownLocalConst(ident);
+                    let expr = Expr::Ident(ident);
                     let pat = parser.pat();
                     (expr,pat,parser)
                 }
@@ -793,7 +793,7 @@ impl Parser {
 
                         // ident { sub_ident::...  -> variant expr
                         if parser.punct(':') {
-                            let main_expr = Expr::UnknownLocalConst(ident);
+                            let main_expr = Expr::Ident(ident);
                             let expr = parser.finish_variant_expr(sub_ident);
                             let block = parser.finish_block(Some(expr));
                             (main_expr,block)
@@ -809,7 +809,7 @@ impl Parser {
 
                     // ident { sub_ident ...  -> expr { ... }
                     else {
-                        let main_expr = Expr::UnknownLocalConst(ident);
+                        let main_expr = Expr::Ident(ident);
                         let expr = parser.finish_ident_as_expr(sub_ident);
                         let block = parser.finish_block(Some(expr));
                         (main_expr,block)
@@ -818,7 +818,7 @@ impl Parser {
 
                 // ident { ...  -> expr {
                 else {
-                    let main_expr = Expr::UnknownLocalConst(ident);
+                    let main_expr = Expr::Ident(ident);
                     let expr = parser.expr();
                     let block = parser.finish_block(Some(expr));
                     (main_expr,block)

@@ -21,5 +21,4 @@ name = "e"
 crate-type = ["rlib"]
 
 [dependencies]
-ast = { path = "./ast" }
-gpu_macros = { path = "./gpu_macros" }
+macros = { path = "./macros" }
