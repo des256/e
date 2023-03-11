@@ -26,7 +26,7 @@ pub enum Type {
     Mat4x3F32,Mat4x3F64,
     Mat4x4F32,Mat4x4F64,
     AnonTuple(Vec<Type>),
-    Array(Box<Type>,Box<Expr>),
+    Array(Box<Type>,usize),
     Ident(String),
 }
 
@@ -130,7 +130,6 @@ pub enum Expr {
     Variant(String,String,VariantExpr),
     Method(Box<Expr>,String,Vec<Expr>),
     Field(Box<Expr>,String),
-    TupleIndex(Box<Expr>,usize),
 }
 
 #[derive(Clone)]
@@ -159,12 +158,6 @@ pub struct Function {
     pub params: Vec<(String,Type)>,
     pub return_type: Type,
     pub block: Block,
-}
-
-#[derive(Clone)]
-pub struct Tuple {
-    pub ident: String,
-    pub types: Vec<Type>,
 }
 
 #[derive(Clone)]
@@ -202,7 +195,6 @@ pub struct Alias {
 #[derive(Clone)]
 pub struct Module {
     pub ident: String,
-    pub tuples: HashMap<String,Tuple>,
     pub structs: HashMap<String,Struct>,
     pub extern_structs: HashMap<String,Struct>,
     pub enums: HashMap<String,Enum>,

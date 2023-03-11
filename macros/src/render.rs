@@ -87,8 +87,8 @@ impl Render for Type {
             Type::Mat4x4F32 => "Type::Mat4x4F32".to_string(),
             Type::Mat4x4F64 => "Type::Mat4x4F64".to_string(),
             Type::AnonTuple(types) => format!("Type::AnonTuple({})",types.render()),
-            Type::Array(type_,expr) => format!("Type::Array(Box::new({}),Box::new({}))",type_.render(),expr.render()),
-            Type::Ident(ident) => format!("Type::Ident(\"{}\")",ident),
+            Type::Array(type_,count) => format!("Type::Array(Box::new({}),{})",type_.render(),count),
+            Type::Ident(ident) => format!("Type::IdentRef(\"{}\")",ident),
         }
     }
 }
@@ -275,7 +275,7 @@ impl Render for Expr {
             Expr::Variant(enum_ident,variant_ident,variant) => format!("Expr::Variant(\"{}\",\"{}\",{})",enum_ident,variant_ident,variant.render()),
             Expr::Method(expr,ident,exprs) => format!("Expr::Method(Box::new({}),\"{}\",{})",expr.render(),ident,exprs.render()),
             Expr::Field(expr,ident) => format!("Expr::Field(Box::new({}),\"{}\")",expr.render(),ident),
-            Expr::TupleIndex(expr,index) => format!("Expr::TupleIndex(Box::new({}),{})",expr.render(),index),
+            //Expr::TupleIndex(expr,index) => format!("Expr::TupleIndex(Box::new({}),{})",expr.render(),index),
         }
     }
 }
@@ -300,11 +300,13 @@ impl Render for Struct {
     }
 }
 
+/*
 impl Render for Tuple {
     fn render(&self) -> String {
         format!("Tuple {{ ident: \"{}\",types: {}, }}",self.ident,self.types.render())
     }
 }
+*/
 
 impl Render for Variant {
     fn render(&self) -> String {
@@ -368,15 +370,15 @@ impl Render for Module {
 
         let mut r = "{ use { super::*,std::collections::HashMap }; ".to_string();
 
-        if self.tuples.len() > 0 {
-            r += &format!("let mut tuples: HashMap<&str,Tuple> = HashMap::new(); ");
-            for tuple in self.tuples.iter() {
-                r += &format!("tuples.insert(\"{}\",{}); ",tuple.0,tuple.1.render());
-            }
-        }
-        else {
-            r += "let tuples: HashMap<&str,Tuple> = HashMap::new(); ";
-        }
+        //if self.tuples.len() > 0 {
+        //    r += &format!("let mut tuples: HashMap<&str,Tuple> = HashMap::new(); ");
+        //    for tuple in self.tuples.iter() {
+        //        r += &format!("tuples.insert(\"{}\",{}); ",tuple.0,tuple.1.render());
+        //    }
+        //}
+        //else {
+        //    r += "let tuples: HashMap<&str,Tuple> = HashMap::new(); ";
+        //}
 
         if extern_struct_idents.len() > 0 {
             r += "let mut extern_structs: HashMap<&str,Struct> = HashMap::new();";
@@ -438,7 +440,7 @@ impl Render for Module {
         else {
             r += "let functions: HashMap<&str,Function> = Vec::new(); ";
         }
-        r += &format!("Module {{ ident: \"{}\",tuples,structs,extern_structs,enums,aliases,consts,functions, anon_tuple_structs: Vec::new(),tuple_structs: HashMap::new(), }} }}",self.ident);
+        r += &format!("Module {{ ident: \"{}\",structs,extern_structs,enums,aliases,consts,functions, anon_tuple_structs: Vec::new(), }} }}",self.ident);
         r
     }
 }

@@ -91,7 +91,7 @@ impl Display for Type {
                 }
                 write!(f,")")
             },
-            Type::Array(type_,expr) => write!(f,"[{}; {}]",type_,expr),
+            Type::Array(type_,count) => write!(f,"[{}; {}]",type_,count),
             Type::Ident(ident) => write!(f,"{}",ident),
         }
     }
@@ -457,7 +457,6 @@ impl Display for Expr {
                 write!(f,")")
             },
             Expr::Field(expr,ident) => write!(f,"{}.{}",expr,ident),
-            Expr::TupleIndex(expr,index) => write!(f,"{}.{}",expr,index),
         }
     }
 }
@@ -500,20 +499,6 @@ impl Display for Function {
             write!(f," -> {}",self.return_type)?;
         }
         write!(f," {}",self.block)
-    }
-}
-
-impl Display for Tuple {
-    fn fmt(&self,f: &mut Formatter) -> Result {
-        write!(f,"struct {}(",self.ident)?;
-        let mut iter = self.types.iter();
-        if let Some(type_) = iter.next() {
-            write!(f,"{}",type_)?;
-            for type_ in iter {
-                write!(f,",{}",type_)?;
-            }
-        }
-        write!(f,")")
     }
 }
 
@@ -590,9 +575,6 @@ impl Display for Alias {
 impl Display for Module {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"mod {} {{\n",self.ident)?;
-        for tuple in self.tuples.iter() {
-            write!(f,"{};\n",tuple.1)?;
-        }
         for struct_ in self.structs.iter() {
             write!(f,"{};\n",struct_.1)?;
         }

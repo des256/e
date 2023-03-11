@@ -1,6 +1,5 @@
 use {
     super::*,
-    super::super::sc::*,
     crate::gpu,
     crate::checkgl,
     std::{
@@ -168,9 +167,13 @@ impl gpu::Gpu for Gpu {
         Ok(())
     }
 
-    fn create_vertex_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<VertexShader,String> {
+    fn create_vertex_shader(self: &Rc<Self>,ast: &gpu::sc::Module) -> Result<VertexShader,String> {
 
         dprintln!("OpenGL Vertex Shader AST:\n{}",ast);
+
+        let ast = gpu::sc::destructure_module(ast.clone())?;
+
+        dprintln!("OpenGL Vertex Shader AST after destructuring:\n{}",ast);
 
         //let module = resolve(ast);
 
@@ -200,9 +203,13 @@ impl gpu::Gpu for Gpu {
         Err("TODO: GLSL compiler".to_string())
     }
 
-    fn create_fragment_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<FragmentShader,String> {
+    fn create_fragment_shader(self: &Rc<Self>,ast: &gpu::sc::Module) -> Result<FragmentShader,String> {
 
         dprintln!("OpenGL Fragment Shader AST:\n{}",ast);
+
+        let ast = gpu::sc::destructure_module(ast.clone())?;
+
+        dprintln!("OpenGL Fragment Shader AST after destructuring:\n{}",ast);
 
         //let module = resolve(ast);
 
@@ -344,7 +351,7 @@ impl gpu::Gpu for Gpu {
     }
 
     fn create_vertex_buffer<T: gpu::Vertex>(self: &Rc<Self>,vertices: &Vec<T>) -> Result<VertexBuffer,String> {
-        use ast::*;
+        use gpu::sc::*;
 
         let mut vao: sys::GLuint = 0;
         let mut vbo: sys::GLuint = 0;

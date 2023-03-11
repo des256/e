@@ -1,6 +1,5 @@
 use {
     super::*,
-    super::super::sc::*,
     crate::gpu,
     std::{
         result::Result,
@@ -465,9 +464,13 @@ impl gpu::Gpu for Gpu {
         }
     }
 
-    fn create_vertex_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<VertexShader,String> {
+    fn create_vertex_shader(self: &Rc<Self>,ast: &gpu::sc::Module) -> Result<VertexShader,String> {
 
         dprintln!("Vulkan Vertex Shader AST:\n{}",ast);
+
+        let ast = gpu::sc::destructure_module(ast.clone())?;
+
+        dprintln!("Vulkan Vertex Shader AST after destructuring:\n{}",ast);
 
         //let module = resolve(ast);
 
@@ -491,9 +494,13 @@ impl gpu::Gpu for Gpu {
         Err("TODO: SPIR-V compiler".to_string())
     }
 
-    fn create_fragment_shader(self: &Rc<Self>,ast: &ast::Module) -> Result<FragmentShader,String> {
+    fn create_fragment_shader(self: &Rc<Self>,ast: &gpu::sc::Module) -> Result<FragmentShader,String> {
 
         dprintln!("Vulkan Fragment Shader AST:\n{}",ast);
+
+        let ast = gpu::sc::destructure_module(ast.clone())?;
+
+        dprintln!("Vulkan Fragment Shader AST after destructuring:\n{}",ast);
 
         //let module = resolve(ast);
 

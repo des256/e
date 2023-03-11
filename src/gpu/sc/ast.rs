@@ -29,11 +29,7 @@ pub enum Type {
     Array(Box<Type>,Box<Expr>),
     Ident(&'static str),
 
-    Integer,Float,
-    StructRef(&'static str),
-    TupleStructRef(&'static str),
-    AnonTupleStructRef(usize),
-    EnumStructRef(&'static str),
+    AnonTupleRef(usize),
 }
 
 #[derive(Clone)]
@@ -137,18 +133,12 @@ pub enum Expr {
     Method(Box<Expr>,&'static str,Vec<Expr>),
     Field(Box<Expr>,&'static str),
     TupleIndex(Box<Expr>,usize),
-
-    Discriminant(Box<Expr>,usize),
-    DestructTuple(Box<Expr>,usize,usize),
-    DestructStruct(Box<Expr>,usize,usize),
 }
 
 #[derive(Clone)]
 pub enum Stat {
     Let(Box<Pat>,Box<Type>,Box<Expr>),
     Expr(Box<Expr>),
-
-    Local(&'static str,Box<Type>,Box<Expr>),
 }
 
 #[derive(Clone)]
@@ -165,12 +155,6 @@ pub struct Function {
     pub params: Vec<(&'static str,Type)>,
     pub return_type: Type,
     pub block: Block,
-}
-
-#[derive(Clone)]
-pub struct Tuple {
-    pub ident: &'static str,
-    pub types: Vec<Type>,
 }
 
 #[derive(Clone)]
@@ -208,14 +192,10 @@ pub struct Alias {
 #[derive(Clone)]
 pub struct Module {
     pub ident: &'static str,
-    pub tuples: HashMap<&'static str,Tuple>,
     pub structs: HashMap<&'static str,Struct>,
     pub extern_structs: HashMap<&'static str,Struct>,
     pub enums: HashMap<&'static str,Enum>,
     pub aliases: HashMap<&'static str,Alias>,
     pub consts: HashMap<&'static str,Const>,
     pub functions: HashMap<&'static str,Function>,
-
-    pub tuple_structs: HashMap<&'static str,Struct>,
-    pub anon_tuple_structs: Vec<Struct>,
 }

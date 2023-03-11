@@ -345,8 +345,8 @@ pub fn vk_colorspace_to_string(colorspace: sys::VkColorSpaceKHR) -> &'static str
     }
 }
 
-pub(crate) fn type_to_vk_format(type_: &super::sc::ast::Type) -> Result<sys::VkFormat,String> {
-    use super::sc::ast::*;
+pub(crate) fn type_to_vk_format(type_: &super::sc::Type) -> Result<sys::VkFormat,String> {
+    use super::sc::*;
     match type_ {
         Type::Bool => Err("TODO: bool vertex field".to_string()),
         Type::U8 => Ok(sys::VK_FORMAT_R8_UINT),

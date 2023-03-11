@@ -4,7 +4,7 @@ use {
 };
 
 pub trait Vertex where Self: Sized {
-    fn ast() -> sc::ast::Struct;
+    fn ast() -> sc::Struct;
 }
 
 pub trait Uniform where Self: Sized {
@@ -295,8 +295,8 @@ pub trait Gpu {
     fn create_surface(self: &Rc<Self>,window: &Rc<Window>,r: Rect<i32>) -> Result<<Self::CommandBuffer as CommandBuffer>::Surface,String>;
     fn create_command_buffer(self: &Rc<Self>) -> Result<Self::CommandBuffer,String>;
     fn submit_command_buffer(&self,command_buffer: &Self::CommandBuffer) -> Result<(),String>;
-    fn create_vertex_shader(self: &Rc<Self>,ast: &sc::ast::Module) -> Result<Self::VertexShader,String>;
-    fn create_fragment_shader(self: &Rc<Self>,ast: &sc::ast::Module) -> Result<Self::FragmentShader,String>;
+    fn create_vertex_shader(self: &Rc<Self>,ast: &sc::Module) -> Result<Self::VertexShader,String>;
+    fn create_fragment_shader(self: &Rc<Self>,ast: &sc::Module) -> Result<Self::FragmentShader,String>;
     fn create_graphics_pipeline<T: Vertex>(self: &Rc<Self>,
         surface: &<Self::CommandBuffer as CommandBuffer>::Surface,
         pipeline_layout: &Rc<Self::PipelineLayout>,
@@ -353,8 +353,8 @@ pub mod webgl;
 pub mod webgpu;
 
 
-pub(crate) fn type_to_size(type_: &super::sc::ast::Type) -> Result<usize,String> {
-    use super::sc::ast::*;
+pub(crate) fn type_to_size(type_: &super::sc::Type) -> Result<usize,String> {
+    use super::sc::*;
     match type_ {
         Type::Bool => Err("TODO: bool vertex field".to_string()),
         Type::U8 => Ok(1),
