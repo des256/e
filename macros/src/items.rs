@@ -10,6 +10,7 @@ impl Parser {
         }
         let ident = ident.unwrap();
         let mut structs: HashMap<String,Struct> = HashMap::new();
+        let mut tuple_structs: HashMap<String,Vec<Type>> = HashMap::new();
         let mut enums: HashMap<String,Enum> = HashMap::new();
         let mut aliases: HashMap<String,Alias> = HashMap::new();
         let mut consts: HashMap<String,Const> = HashMap::new();
@@ -65,11 +66,7 @@ impl Parser {
                     // tuple
                     else if parser.peek_group('(') {
                         let types = parser.paren_types()?.unwrap();
-                        let mut fields: Vec<(String,Type)> = Vec::new();
-                        for i in 0..types.len() {
-                            fields.push((format!("f{}",i),types[i].clone()));
-                        }
-                        structs.insert(ident.clone(),Struct { ident: ident.clone(),fields, });
+                        tuple_structs.insert(ident.clone(),types);
                     }
                     else {
                         panic!("{}","{ or ( expected");
@@ -152,6 +149,7 @@ impl Parser {
         Ok(Module {
             ident,
             structs,
+            tuple_structs,
             extern_structs: HashMap::new(),
             enums,
             aliases,

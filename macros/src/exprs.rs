@@ -28,9 +28,9 @@ impl Parser {
                 Ok(Expr::Struct(ident,ident_exprs))
             }
 
-            // TupleOrCall
+            // TupleOrFunction
             else if let Some(exprs) = self.paren_exprs()? {
-                Ok(Expr::TupleOrCall(ident,exprs))
+                Ok(Expr::TupleOrFunction(ident,exprs))
             }
 
             // Variant
@@ -83,8 +83,11 @@ impl Parser {
             while !parser.done() {
                 let expr = parser.expr()?;
                 if parser.punct(';') {
-                    let expr2 = parser.expr()?;
-                    return Ok(Expr::Cloned(Box::new(expr),Box::new(expr2)));
+                    let count = parser.integer_literal();
+                    if count.is_none() {
+                        return Err("integer literal expected as array count".to_string());
+                    }
+                    return Ok(Expr::Cloned(Box::new(expr),count.unwrap() as usize));
                 }
                 else {
                     exprs.push(expr);
@@ -556,7 +559,7 @@ impl Parser {
 
     pub(crate) fn finish_ident_as_expr(&mut self,ident: String) -> Result<Expr,String> {
         let expr = if let Some(exprs) = self.paren_exprs()? {
-            Expr::TupleOrCall(ident,exprs)
+            Expr::TupleOrFunction(ident,exprs)
         }
         else if self.punct2(':',':') {
             if self.punct('<') {

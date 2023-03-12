@@ -19,7 +19,7 @@ what is left is a tree that can easily be translated into one of the target shad
 
 - expression evaluator? (eval_* in the old code is never referenced...)
 
-- expression type estimator? might not be necessary if we use expectations with should_type (get_expr_type in the old code is never referenced...)
+- expression type estimator? might not be necessary if we use expectations with expected_type (get_expr_type in the old code is never referenced...)
 
 so TODO:
 

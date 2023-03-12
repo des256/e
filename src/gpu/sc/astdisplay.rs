@@ -93,6 +93,10 @@ impl Display for Type {
             },
             Type::Array(type_,expr) => write!(f,"[{}; {}]",type_,expr),
             Type::Ident(ident) => write!(f,"{}",ident),
+
+            Type::AnonTupleRef(index) => write!(f,"Anon{:05}",index),
+            Type::TupleRef(ident) => write!(f,"{}",ident),
+            Type::StructRef(ident) => write!(f,"{}",ident),
         }
     }
 }
@@ -419,7 +423,7 @@ impl Display for Expr {
                 write!(f," }}")
             },
             Expr::Ident(ident) => write!(f,"{}",ident),
-            Expr::TupleOrCall(ident,exprs) => {
+            Expr::TupleOrFunction(ident,exprs) => {
                 write!(f,"{}(",ident)?;
                 let mut iter = exprs.iter();
                 if let Some(expr) = iter.next() {
@@ -458,6 +462,55 @@ impl Display for Expr {
             },
             Expr::Field(expr,ident) => write!(f,"{}.{}",expr,ident),
             Expr::TupleIndex(expr,index) => write!(f,"{}.{}",expr,index),
+
+            Expr::TupleRef(ident,exprs) => {
+                write!(f,"{} {{",ident)?;
+                let mut iter = exprs.iter();
+                let mut i = 0usize;
+                if let Some(expr) = iter.next() {
+                    write!(f,"f0: {}",expr)?;
+                    for expr in iter {
+                        i += 1;
+                        write!(f,",f{}: {}",i,expr)?;
+                    }
+                }
+                write!(f," }}")
+            },
+            Expr::StructRef(ident,exprs) => {
+                write!(f,"{} {{",ident)?;
+                let mut iter = exprs.iter();
+                if let Some((ident,expr)) = iter.next() {
+                    write!(f,"{}: {}",ident,expr)?;
+                    for (ident,expr) in iter {
+                        write!(f,",{}: {}",ident,expr)?;
+                    }
+                }
+                write!(f," }}")
+            },
+            Expr::FunctionRef(ident,exprs) => {
+                write!(f,"{}(",ident)?;
+                let mut iter = exprs.iter();
+                if let Some(expr) = iter.next() {
+                    write!(f,"{}",expr)?;
+                    for expr in iter {
+                        write!(f,",{}",expr)?;
+                    }
+                }
+                write!(f,")")
+            },
+            Expr::AnonTupleRef(index,exprs) => {
+                write!(f,"(")?;
+                let mut iter = exprs.iter();
+                if let Some(expr) = iter.next() {
+                    write!(f,"{}",expr)?;
+                    for expr in iter {
+                        write!(f,",{}",expr)?;
+                    }
+                }
+                write!(f,")")
+            },
+            Expr::ConstRef(ident) => write!(f,"{}",ident),
+            Expr::LocalOrParamRef(ident) => write!(f,"{}",ident),
         }
     }
 }
@@ -467,6 +520,8 @@ impl Display for Stat {
         match self {
             Stat::Expr(expr) => write!(f,"{};",expr),
             Stat::Let(pat,type_,expr) => write!(f,"let {}: {} = {};",pat,type_,expr),
+
+            Stat::Local(ident,type_,expr) => write!(f,"let {}: {} = {};",ident,type_,expr),
         }
     }
 }
@@ -578,6 +633,18 @@ impl Display for Module {
         write!(f,"mod {} {{\n",self.ident)?;
         for struct_ in self.structs.iter() {
             write!(f,"{};\n",struct_.1)?;
+        }
+        for struct_ in self.tuple_types.iter() {
+            write!(f,"struct {} {{ ",ident)?;
+            let mut first = true;
+            for i in 0..types.len() {
+                if !first {
+                    write!(f,", ")?;
+                }
+                write!(f,"f{}: {}",i,types[i])?;
+                first = false;
+            }
+            write!(f," }}")?;
         }
         for struct_ in self.extern_structs.iter() {
             write!(f,"{};\n",struct_.1)?;

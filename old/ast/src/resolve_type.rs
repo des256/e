@@ -53,12 +53,12 @@ impl Resolver {
     }
 
     // resolve type when an expected type is already known
-    pub fn resolve_should_type(&mut self,type_: &Type,should_type: &Type) -> Type {
+    pub fn resolve_expected_type(&mut self,type_: &Type,expected_type: &Type) -> Type {
         match type_ {
             
             Type::Inferred => {
-                self.log_change(format!("type {} inferred",should_type));
-                should_type.clone()
+                self.log_change(format!("type {} inferred",expected_type));
+                expected_type.clone()
             },
 
             Type::Void => type_.clone(),
@@ -73,30 +73,30 @@ impl Resolver {
                 _ => panic!("cannot set {} to float literal",type_),
             }
 
-            Type::Bool => if let Type::Bool = should_type { Type::Bool } else { panic!("{} expected instead of bool",should_type); },
-            Type::U8 => if let Type::U8 = should_type { Type::U8 } else { panic!("{} expected instead of u8",should_type); },
-            Type::I8 => if let Type::I8 = should_type { Type::I8 } else { panic!("{} expected instead of i8",should_type); },
-            Type::U16 => if let Type::U16 = should_type { Type::U16 } else { panic!("{} expected instead of u16",should_type); },
-            Type::I16 => if let Type::I16 = should_type { Type::I16 } else { panic!("{} expected instead of i16",should_type); },
-            Type::U32 => if let Type::U32 = should_type { Type::U32 } else { panic!("{} expected instead of u32",should_type); },
-            Type::I32 => if let Type::I32 = should_type { Type::I32 } else { panic!("{} expected instead of i32",should_type); },
-            Type::U64 => if let Type::U64 = should_type { Type::U64 } else { panic!("{} expected instead of u64",should_type); },
-            Type::I64 => if let Type::I64 = should_type { Type::I64 } else { panic!("{} expected instead of i64",should_type); },
-            Type::F16 => if let Type::F16 = should_type { Type::F16 } else { panic!("{} expected instead of f16",should_type); },
-            Type::F32 => if let Type::F32 = should_type { Type::F32 } else { panic!("{} expected instead of f32",should_type); },
-            Type::F64 => if let Type::F64 = should_type { Type::F64 } else { panic!("{} expected instead of f64",should_type); },
+            Type::Bool => if let Type::Bool = expected_type { Type::Bool } else { panic!("{} expected instead of bool",expected_type); },
+            Type::U8 => if let Type::U8 = expected_type { Type::U8 } else { panic!("{} expected instead of u8",expected_type); },
+            Type::I8 => if let Type::I8 = expected_type { Type::I8 } else { panic!("{} expected instead of i8",expected_type); },
+            Type::U16 => if let Type::U16 = expected_type { Type::U16 } else { panic!("{} expected instead of u16",expected_type); },
+            Type::I16 => if let Type::I16 = expected_type { Type::I16 } else { panic!("{} expected instead of i16",expected_type); },
+            Type::U32 => if let Type::U32 = expected_type { Type::U32 } else { panic!("{} expected instead of u32",expected_type); },
+            Type::I32 => if let Type::I32 = expected_type { Type::I32 } else { panic!("{} expected instead of i32",expected_type); },
+            Type::U64 => if let Type::U64 = expected_type { Type::U64 } else { panic!("{} expected instead of u64",expected_type); },
+            Type::I64 => if let Type::I64 = expected_type { Type::I64 } else { panic!("{} expected instead of i64",expected_type); },
+            Type::F16 => if let Type::F16 = expected_type { Type::F16 } else { panic!("{} expected instead of f16",expected_type); },
+            Type::F32 => if let Type::F32 = expected_type { Type::F32 } else { panic!("{} expected instead of f32",expected_type); },
+            Type::F64 => if let Type::F64 = expected_type { Type::F64 } else { panic!("{} expected instead of f64",expected_type); },
 
-            Type::AnonTuple(types) => if let Type::AnonTuple(should_types) = should_type.clone() {
+            Type::AnonTuple(types) => if let Type::AnonTuple(expected_types) = expected_type.clone() {
 
-                if types.len() != should_types.len() {
-                    panic!("anonymous tuple {} expected instead of anonymous tuple {}",should_type,type_);
+                if types.len() != expected_types.len() {
+                    panic!("anonymous tuple {} expected instead of anonymous tuple {}",expected_type,type_);
                 }
 
                 self.push_context(format!("anonymous tuple {}",type_));
 
                 let mut new_types: Vec<Type> = Vec::new();
                 for i in 0..types.len() {
-                    new_types.push(self.resolve_should_type(&types[i],&should_types[i]));
+                    new_types.push(self.resolve_expected_type(&types[i],&expected_types[i]));
                 }
 
                 self.pop_context();
@@ -104,25 +104,25 @@ impl Resolver {
                 self.get_anon_tuple_struct(type_,&new_types)
             }
             else {
-                panic!("{} expected instead of anonymous tuple {}",should_type,type_);
+                panic!("{} expected instead of anonymous tuple {}",expected_type,type_);
             },
 
-            Type::Array(type_,expr) => if let Type::Array(should_type,should_expr) = should_type {
+            Type::Array(type_,expr) => if let Type::Array(expected_type,expected_expr) = expected_type {
 
                 self.push_context(format!("array [{}; {}]",type_,expr));
 
-                let new_type = self.resolve_should_type(type_,should_type);
-                let new_expr = self.resolve_should_expr(expr,should_type);
+                let new_type = self.resolve_expected_type(type_,expected_type);
+                let new_expr = self.resolve_expected_expr(expr,expected_type);
 
                 self.pop_context();
 
                 Type::Array(Box::new(new_type),Box::new(new_expr))
             }
             else {
-                panic!("{} expected instead of {}",should_type,type_);
+                panic!("{} expected instead of {}",expected_type,type_);
             },
 
-            Type::UnknownStructTupleEnumAlias(ident) => match should_type {
+            Type::UnknownStructTupleEnumAlias(ident) => match expected_type {
                 Type::Struct(struct_ident) => if ident == struct_ident {
 
                     self.log_change(format!("resolved {} to struct reference",ident));
@@ -162,45 +162,45 @@ impl Resolver {
                     panic!("{} expected instead of {}",alias_ident,ident);
                 },
                 _ => {
-                    panic!("{} expected instead of {}",should_type,type_);
+                    panic!("{} expected instead of {}",expected_type,type_);
                 }
             },
 
-            Type::Struct(ident) => if let Type::Struct(struct_ident) = should_type {
+            Type::Struct(ident) => if let Type::Struct(struct_ident) = expected_type {
                 Type::Struct(ident.clone())
             }
             else {
-                panic!("{} expected instead of struct {}",should_type,ident);
+                panic!("{} expected instead of struct {}",expected_type,ident);
             },
 
-            Type::Tuple(ident) => if let Type::Struct(struct_ident) = should_type {
+            Type::Tuple(ident) => if let Type::Struct(struct_ident) = expected_type {
 
                 self.log_change(format!("resolved tuple {} to struct reference",ident));
 
                 Type::Struct(ident.clone())
             }
             else {
-                panic!("{} expected instead of tuple {}",should_type,ident);
+                panic!("{} expected instead of tuple {}",expected_type,ident);
             },
 
-            Type::Enum(ident) => if let Type::Enum(enum_ident) = should_type {
+            Type::Enum(ident) => if let Type::Enum(enum_ident) = expected_type {
 
                 // TODO: resolve enum to struct
 
                 Type::Enum(ident.clone())
             }
             else {
-                panic!("{} expected instead of enum {}",should_type,ident);
+                panic!("{} expected instead of enum {}",expected_type,ident);
             },
 
-            Type::Alias(ident) => if let Type::Alias(alias_ident) = should_type {
+            Type::Alias(ident) => if let Type::Alias(alias_ident) = expected_type {
 
                 // TODO: follow chain until final type
 
                 Type::Alias(ident.clone())
             }
             else {
-                panic!("{} expected instead of alias {}",should_type,ident);
+                panic!("{} expected instead of alias {}",expected_type,ident);
             },
         }
     }

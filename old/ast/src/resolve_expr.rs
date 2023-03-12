@@ -3,39 +3,39 @@ use super::*;
 impl Resolver {
 
     // resolve expr when the type is already known
-    pub fn resolve_should_expr(&mut self,expr: &Expr,should_type: &Type) -> Expr {
+    pub fn resolve_expected_expr(&mut self,expr: &Expr,expected_type: &Type) -> Expr {
         match expr {
 
-            Expr::Boolean(value) => if let Type::Bool = should_type {
+            Expr::Boolean(value) => if let Type::Bool = expected_type {
                 Expr::Boolean(*value)
             }
             else {
-                panic!("{} expected, instead of boolean {}",should_type,expr);
+                panic!("{} expected, instead of boolean {}",expected_type,expr);
             },
 
-            Expr::Integer(value) => if let Type::U8 | Type::I8 | Type::U16 | Type::I16 | Type::U32 | Type::I32 | Type::U64 | Type::I64 | Type::F16 | Type::F32 | Type::F64 = should_type {
+            Expr::Integer(value) => if let Type::U8 | Type::I8 | Type::U16 | Type::I16 | Type::U32 | Type::I32 | Type::U64 | Type::I64 | Type::F16 | Type::F32 | Type::F64 = expected_type {
                 Expr::Integer(*value)
             }
             else {
-                panic!("{} expected, instead of integer {}",should_type,expr);
+                panic!("{} expected, instead of integer {}",expected_type,expr);
             },
 
-            Expr::Float(value) => if let Type::F16 | Type::F32 | Type::F64 = should_type {
+            Expr::Float(value) => if let Type::F16 | Type::F32 | Type::F64 = expected_type {
                 Expr::Float(*value)
             }
             else {
-                panic!("{} expected, instead of float {}",should_type,expr);
+                panic!("{} expected, instead of float {}",expected_type,expr);
             },
 
-            Expr::Array(exprs) => if let Type::Array(should_type,should_expr) = should_type {
+            Expr::Array(exprs) => if let Type::Array(expected_type,expected_expr) = expected_type {
 
                 self.push_context("array".to_string());
 
-                // TODO: test exprs.len() vs. evaluated should_expr, probably move this evaluation elsewhere
+                // TODO: test exprs.len() vs. evaluated expected_expr, probably move this evaluation elsewhere
 
                 let mut new_exprs: Vec<Expr> = Vec::new();
                 for expr in exprs.iter() {
-                    let new_expr = self.resolve_should_expr(expr,should_type);
+                    let new_expr = self.resolve_expected_expr(expr,expected_type);
                     new_exprs.push(new_expr);
                 }
 
@@ -44,14 +44,14 @@ impl Resolver {
                 Expr::Array(new_exprs)
             }
             else {
-                panic!("{} expected, instead of array {}",should_type,expr);
+                panic!("{} expected, instead of array {}",expected_type,expr);
             },
 
-            Expr::Cloned(item_expr,count_expr) => if let Type::Array(should_type,should_expr) = should_type {
+            Expr::Cloned(item_expr,count_expr) => if let Type::Array(expected_type,expected_expr) = expected_type {
 
-                self.push_context(format!("cloned element for {}",should_type));
+                self.push_context(format!("cloned element for {}",expected_type));
 
-                let new_item_expr = self.resolve_should_expr(item_expr,should_type);
+                let new_item_expr = self.resolve_expected_expr(item_expr,expected_type);
                 let new_count_expr = self.resolve_expr(count_expr);
 
                 self.pop_context();
@@ -59,16 +59,16 @@ impl Resolver {
                 Expr::Cloned(Box::new(new_item_expr),Box::new(new_count_expr))
             }
             else {
-                panic!("{} expected, instead of cloned element {}",should_type,expr);
+                panic!("{} expected, instead of cloned element {}",expected_type,expr);
             },
 
             Expr::Index(array_expr,index_expr) => {
 
-                self.push_context(format!("array index to {}",should_type));
+                self.push_context(format!("array index to {}",expected_type));
 
                 let new_array_expr = self.resolve_expr(array_expr);
                 // TODO: verify this is indeed an Expr::Array
-                // TODO: verify the element type matches should_type
+                // TODO: verify the element type matches expected_type
                 let new_index_expr = self.resolve_expr(index_expr);
 
                 self.pop_context();
@@ -78,10 +78,10 @@ impl Resolver {
 
             Expr::Cast(expr,type_) => {
 
-                self.push_context(format!("cast to {}",should_type));
+                self.push_context(format!("cast to {}",expected_type));
 
                 let new_expr = self.resolve_expr(expr);
-                let new_type = self.resolve_should_type(type_,should_type);
+                let new_type = self.resolve_expected_type(type_,expected_type);
                 // TODO: maybe verify the cast is valid
 
                 self.pop_context();
@@ -89,14 +89,14 @@ impl Resolver {
                 Expr::Cast(Box::new(new_expr),Box::new(new_type))
             },
 
-            Expr::AnonTuple(exprs) => if let Type::Struct(struct_ident) = should_type {
+            Expr::AnonTuple(exprs) => if let Type::Struct(struct_ident) = expected_type {
 
                 if !self.module.anon_tuple_structs.contains_key(struct_ident) {
-                    panic!("{} expected instead of anonymous tuple literal {}",should_type,expr);
+                    panic!("{} expected instead of anonymous tuple literal {}",expected_type,expr);
                 }
                 let struct_ = self.module.anon_tuple_structs[struct_ident].clone();
 
-                self.push_context(format!("anonymous tuple literal {}",should_type));
+                self.push_context(format!("anonymous tuple literal {}",expected_type));
 
                 if exprs.len() != struct_.fields.len() {
                     panic!("anonymous tuple literal {} should have {} elements",expr,struct_.fields.len());
@@ -104,7 +104,7 @@ impl Resolver {
 
                 let mut new_exprs: Vec<Expr> = Vec::new();
                 for i in 0..struct_.fields.len() {
-                    let new_expr = self.resolve_should_expr(&exprs[i],&struct_.fields[i].1);
+                    let new_expr = self.resolve_expected_expr(&exprs[i],&struct_.fields[i].1);
                     new_exprs.push(new_expr);
                 }
 
@@ -115,23 +115,23 @@ impl Resolver {
                 Expr::Struct(struct_ident.clone(),new_exprs)
             }
             else {
-                panic!("{} expected instead of anonymous tuple literal {}",should_type,expr);
+                panic!("{} expected instead of anonymous tuple literal {}",expected_type,expr);
             },
 
             Expr::Unary(op,expr) => {
 
                 match op {
-                    UnaryOp::Neg => if let Type::Integer | Type::Float | Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::F16 | Type::F32 | Type::F64 | Type::UnknownStructTupleEnumAlias(_) | Type::Struct(_) | Type::Tuple(_) | Type::Alias(_) = should_type { } else {
-                        panic!("{} expected instead of {}",should_type,expr);
+                    UnaryOp::Neg => if let Type::Integer | Type::Float | Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::F16 | Type::F32 | Type::F64 | Type::UnknownStructTupleEnumAlias(_) | Type::Struct(_) | Type::Tuple(_) | Type::Alias(_) = expected_type { } else {
+                        panic!("{} expected instead of {}",expected_type,expr);
                     },
-                    UnaryOp::Not => if let Type::Bool | Type::UnknownStructTupleEnumAlias(_) | Type::Struct(_) | Type::Tuple(_) | Type::Alias(_) = should_type { } else {
-                        panic!("{} expected instead of boolean result of !",should_type);
+                    UnaryOp::Not => if let Type::Bool | Type::UnknownStructTupleEnumAlias(_) | Type::Struct(_) | Type::Tuple(_) | Type::Alias(_) = expected_type { } else {
+                        panic!("{} expected instead of boolean result of !",expected_type);
                     },
                 }
 
-                self.push_context(format!("unary {} to {}",op,should_type));
+                self.push_context(format!("unary {} to {}",op,expected_type));
 
-                let new_expr = self.resolve_should_expr(expr,should_type);
+                let new_expr = self.resolve_expected_expr(expr,expected_type);
 
                 self.pop_context();
 
@@ -144,20 +144,20 @@ impl Resolver {
                     BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod | BinaryOp::Add | BinaryOp::Sub | 
                     BinaryOp::Shl | BinaryOp::Shr | BinaryOp::And | BinaryOp::Or | BinaryOp::Xor |
                     BinaryOp::AddAssign | BinaryOp::SubAssign | BinaryOp::MulAssign | BinaryOp::DivAssign | BinaryOp::ModAssign |
-                    BinaryOp::AndAssign | BinaryOp::OrAssign | BinaryOp::XorAssign | BinaryOp::ShlAssign | BinaryOp::ShrAssign => if let Type::Integer | Type::Float | Type::U8 | Type::I8 | Type::U16 | Type::I16 | Type::U32 | Type::I32 | Type::U64 | Type::I64 | Type::F16 | Type::F32 | Type::F64 | Type::UnknownStructTupleEnumAlias(_) | Type::Struct(_) | Type::Tuple(_) | Type::Alias(_) = should_type { } else {
-                        panic!("{} expected instead of {}",should_type,expr);
+                    BinaryOp::AndAssign | BinaryOp::OrAssign | BinaryOp::XorAssign | BinaryOp::ShlAssign | BinaryOp::ShrAssign => if let Type::Integer | Type::Float | Type::U8 | Type::I8 | Type::U16 | Type::I16 | Type::U32 | Type::I32 | Type::U64 | Type::I64 | Type::F16 | Type::F32 | Type::F64 | Type::UnknownStructTupleEnumAlias(_) | Type::Struct(_) | Type::Tuple(_) | Type::Alias(_) = expected_type { } else {
+                        panic!("{} expected instead of {}",expected_type,expr);
                     },
                     BinaryOp::Eq | BinaryOp::NotEq |
                     BinaryOp::Greater | BinaryOp::Less | BinaryOp::GreaterEq | BinaryOp::LessEq |
-                    BinaryOp::LogAnd | BinaryOp::LogOr => if let Type::Bool = should_type { } else {
-                        panic!("{} expected instead of boolean {}",should_type,expr);
+                    BinaryOp::LogAnd | BinaryOp::LogOr => if let Type::Bool = expected_type { } else {
+                        panic!("{} expected instead of boolean {}",expected_type,expr);
                     },
                     BinaryOp::Assign => { },
                 }
 
-                self.push_context(format!("binary {} to {}",op,should_type));
+                self.push_context(format!("binary {} to {}",op,expected_type));
 
-                // TODO: you can actually figure out should_type for expr1 and expr2 as well
+                // TODO: you can actually figure out expected_type for expr1 and expr2 as well
                 let new_expr1 = self.resolve_expr(expr1);
                 let new_expr2 = self.resolve_expr(expr2);
 
@@ -228,7 +228,7 @@ impl Resolver {
             },
 
             Expr::Field(struct_expr,struct_ident,index) => {
-                // TODO: verify struct_ident.index is indeed a should_type
+                // TODO: verify struct_ident.index is indeed a expected_type
                 expr.clone()
             },
 
@@ -238,7 +238,7 @@ impl Resolver {
             },
 
             Expr::TupleIndex(tuple_expr,tuple_ident,index) => {
-                // TODO: verify tuple_ident.index is indeed a should_type
+                // TODO: verify tuple_ident.index is indeed a expected_type
                 expr.clone()                
             },
         }
@@ -286,7 +286,7 @@ impl Resolver {
 
                 let new_array_expr = self.resolve_expr(array_expr);
                 // TODO: verify this is indeed an Expr::Array
-                // TODO: verify the element type matches should_type
+                // TODO: verify the element type matches expected_type
                 let new_index_expr = self.resolve_expr(index_expr);
 
                 self.pop_context();

@@ -252,7 +252,7 @@ impl Render for Expr {
             Expr::Integer(value) => format!("Expr::Integer({} as i64)",*value),
             Expr::Float(value) => format!("Expr::Float({} as f64)",*value),
             Expr::Array(exprs) => format!("Expr::Array({})",exprs.render()),
-            Expr::Cloned(expr,expr2) => format!("Expr::Cloned(Box::new({}),Box::new({}))",expr.render(),expr2.render()),
+            Expr::Cloned(expr,count) => format!("Expr::Cloned(Box::new({}),{})",expr.render(),count),
             Expr::Index(expr,expr2) => format!("Expr::Index(Box::new({}),Box::new({}))",expr.render(),expr2.render()),
             Expr::Cast(expr,type_) => format!("Expr::Cast(Box::new({}),Box::new({}))",expr.render(),type_.render()),
             Expr::AnonTuple(exprs) => format!("Expr::AnonTuple({})",exprs.render()),
@@ -270,7 +270,7 @@ impl Render for Expr {
             Expr::WhileLet(pats,expr,block) => format!("Expr::WhileLet({},Box::new({}),{})",pats.render(),expr.render(),block.render()),
             Expr::Match(expr,arms) => format!("Expr::Match(Box::new({}),{})",expr.render(),arms.render()),
             Expr::Ident(ident) => format!("Expr::Ident(\"{}\")",ident),
-            Expr::TupleOrCall(ident,exprs) => format!("Expr::TupleOrCall(\"{}\",{})",ident,exprs.render()),
+            Expr::TupleOrFunction(ident,exprs) => format!("Expr::TupleOrFunction(\"{}\",{})",ident,exprs.render()),
             Expr::Struct(ident,fields) => format!("Expr::Struct(\"{}\",{})",ident,fields.render()),
             Expr::Variant(enum_ident,variant_ident,variant) => format!("Expr::Variant(\"{}\",\"{}\",{})",enum_ident,variant_ident,variant.render()),
             Expr::Method(expr,ident,exprs) => format!("Expr::Method(Box::new({}),\"{}\",{})",expr.render(),ident,exprs.render()),
@@ -380,6 +380,26 @@ impl Render for Module {
         //    r += "let tuples: HashMap<&str,Tuple> = HashMap::new(); ";
         //}
 
+        if self.structs.len() > 0 {
+            r += &format!("let mut structs: HashMap<&str,Struct> = HashMap::new();");
+            for struct_ in self.structs.iter() {
+                r += &format!("structs.insert(\"{}\",{}); ",struct_.0,struct_.1.render());
+            }
+        }
+        else {
+            r += "let mut structs: HashMap<&str,Struct> = HashMap::new(); ";
+        }
+
+        if self.tuple_structs.len() > 0 {
+            r += &format!("let mut tuple_structs: HashMap<&str,Struct> = HashMap::new();");
+            for struct_ in self.tuple_structs.iter() {
+                r += &format!("tuple_structs.insert(\"{}\",{}); ",struct_.0,struct_.1.render());
+            }
+        }
+        else {
+            r += "let mut tuple_structs: HashMap<&str,Struct> = HashMap::new(); ";
+        }
+
         if extern_struct_idents.len() > 0 {
             r += "let mut extern_structs: HashMap<&str,Struct> = HashMap::new();";
             for extern_struct_ident in extern_struct_idents.iter() {
@@ -392,16 +412,6 @@ impl Render for Module {
         }
         else {
             r += "let extern_structs: HashMap<&str,Struct> = HashMap::new(); ";
-        }
-
-        if self.structs.len() > 0 {
-            r += &format!("let mut structs: HashMap<&str,Struct> = HashMap::new();");
-            for struct_ in self.structs.iter() {
-                r += &format!("structs.insert(\"{}\",{}); ",struct_.0,struct_.1.render());
-            }
-        }
-        else {
-            r += "let mut structs: HashMap<&str,Struct> = HashMap::new(); ";
         }
 
         if self.enums.len() > 0 {
@@ -440,7 +450,7 @@ impl Render for Module {
         else {
             r += "let functions: HashMap<&str,Function> = Vec::new(); ";
         }
-        r += &format!("Module {{ ident: \"{}\",structs,extern_structs,enums,aliases,consts,functions, anon_tuple_structs: Vec::new(), }} }}",self.ident);
+        r += &format!("Module {{ ident: \"{}\",structs,tuple_structs,extern_structs,enums,aliases,consts,functions, anon_tuple_structs: Vec::new(), }} }}",self.ident);
         r
     }
 }

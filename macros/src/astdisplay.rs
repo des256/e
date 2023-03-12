@@ -419,7 +419,7 @@ impl Display for Expr {
                 write!(f," }}")
             },
             Expr::Ident(ident) => write!(f,"{}",ident),
-            Expr::TupleOrCall(ident,exprs) => {
+            Expr::TupleOrFunction(ident,exprs) => {
                 write!(f,"{}(",ident)?;
                 let mut iter = exprs.iter();
                 if let Some(expr) = iter.next() {
@@ -577,6 +577,18 @@ impl Display for Module {
         write!(f,"mod {} {{\n",self.ident)?;
         for struct_ in self.structs.iter() {
             write!(f,"{};\n",struct_.1)?;
+        }
+        for (ident,types) in self.tuple_structs.iter() {
+            write!(f,"struct {} {{ ",ident)?;
+            let mut first = true;
+            for i in 0..types.len() {
+                if !first {
+                    write!(f,", ")?;
+                }
+                write!(f,"f{}: {}",i,types[i])?;
+                first = false;
+            }
+            write!(f," }}")?;
         }
         for struct_ in self.extern_structs.iter() {
             write!(f,"{};\n",struct_.1)?;

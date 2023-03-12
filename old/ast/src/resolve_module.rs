@@ -68,7 +68,7 @@ impl Resolver {
                 let new_type = self.resolve_type(type_);
                 params.push((ident.clone(),new_type));
             }
-            let block = self.resolve_should_block(&function.block,&return_type);
+            let block = self.resolve_expected_block(&function.block,&return_type);
             functions.insert(function_ident.clone(),Function {
                 ident: function_ident.clone(),
                 params,

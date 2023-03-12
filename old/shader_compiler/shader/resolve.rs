@@ -266,14 +266,14 @@ impl Context {
         ident
     }
         
-    fn process_type(&mut self,type_: &Type,should_type: &Type) -> Option<Type> {
+    fn process_type(&mut self,type_: &Type,expected_type: &Type) -> Option<Type> {
         match type_ {
             Type::AnonTuple(types) => {
-                if let Type::AnonTuple(should_types) = should_type {
+                if let Type::AnonTuple(expected_types) = expected_type {
                     let mut new_types: Vec<Type> = Vec::new();
-                    if types.len() == should_types.len() {
+                    if types.len() == expected_types.len() {
                         for i in 0..types.len() {
-                            if let Some(type_) = Self::tightest(&types[i],&should_types[i]) {
+                            if let Some(type_) = Self::tightest(&types[i],&expected_types[i]) {
                                 new_types.push(type_);
                             }
                             else {
@@ -294,28 +294,28 @@ impl Context {
                     Some(Type::Struct(self.get_anon_tuple_struct(&new_types)))
                 }
             },
-            Type::Array(type_,expr) => if let Type::Array(should_type,_) = should_type {
-                let new_type = if let Some(type_) = self.process_type(type_,should_type) { type_ } else { return None; };
+            Type::Array(type_,expr) => if let Type::Array(expected_type,_) = expected_type {
+                let new_type = if let Some(type_) = self.process_type(type_,expected_type) { type_ } else { return None; };
                 let new_expr = self.process_expr(expr,&Type::Integer);
                 Some(Type::Array(Box::new(new_type),Box::new(new_expr)))                
             }
-            else if let Type::Inferred = should_type {
+            else if let Type::Inferred = expected_type {
                 let new_expr = self.process_expr(expr,&Type::Integer);
                 Some(Type::Array(Box::new((**type_).clone()),Box::new(new_expr)))
             }
             else {
                 None
             },
-            Type::Struct(ident) => if let Type::Struct(_) = should_type {
+            Type::Struct(ident) => if let Type::Struct(_) = expected_type {
                 Some(Type::Struct(ident.clone()))
             }
-            else if let Type::Inferred = should_type {
+            else if let Type::Inferred = expected_type {
                 Some(Type::Struct(ident.clone()))
             }
             else {
                 None
             },
-            _ => if let Some(type_) = Self::tightest(type_,should_type) {
+            _ => if let Some(type_) = Self::tightest(type_,expected_type) {
                 Some(type_)
             }
             else {
@@ -324,21 +324,21 @@ impl Context {
         }        
     }
 
-    fn process_expr(&mut self,expr: &Expr,should_type: &Type) -> Expr {
-        // returns type with processed anonymous tuples, unless it doesn't fit should_type
+    fn process_expr(&mut self,expr: &Expr,expected_type: &Type) -> Expr {
+        // returns type with processed anonymous tuples, unless it doesn't fit expected_type
         match expr {
             Expr::Boolean(value) => Expr::Boolean(*value),
             Expr::Integer(value) => Expr::Integer(*value),
             Expr::Float(value) => Expr::Float(*value),
             Expr::Array(exprs) => {
-                if let Type::Array(should_type,_) = should_type {
+                if let Type::Array(expected_type,_) = expected_type {
                     let mut new_exprs: Vec<Expr> = Vec::new();
                     for expr in exprs {
-                        new_exprs.push(self.process_expr(expr,should_type));
+                        new_exprs.push(self.process_expr(expr,expected_type));
                     }
                     Expr::Array(new_exprs)
                 }
-                else if let Type::Inferred = should_type {
+                else if let Type::Inferred = expected_type {
                     let mut new_exprs: Vec<Expr> = Vec::new();
                     for expr in exprs {
                         new_exprs.push(self.process_expr(expr,&Type::Inferred));
@@ -346,22 +346,22 @@ impl Context {
                     Expr::Array(new_exprs)
                 }
                 else {
-                    panic!("type mismatch (array found, {} expected)",should_type);
+                    panic!("type mismatch (array found, {} expected)",expected_type);
                 }
             },
             Expr::Cloned(expr,expr2) => {
-                if let Type::Array(should_type,_) = should_type {
-                    let new_expr = self.process_expr(expr,should_type);
+                if let Type::Array(expected_type,_) = expected_type {
+                    let new_expr = self.process_expr(expr,expected_type);
                     let new_expr2 = self.process_expr(expr2,&Type::Integer);
                     Expr::Cloned(Box::new(new_expr),Box::new(new_expr2))
                 }
-                else if let Type::Inferred = should_type {
+                else if let Type::Inferred = expected_type {
                     let new_expr = self.process_expr(expr,&Type::Inferred);
                     let new_expr2 = self.process_expr(expr2,&Type::Integer);
                     Expr::Cloned(Box::new(new_expr),Box::new(new_expr2))
                 }
                 else {
-                    panic!("type mismatch (array found, {} expected)",should_type);
+                    panic!("type mismatch (array found, {} expected)",expected_type);
                 }
             },
             Expr::Index(expr,expr2) => {
@@ -371,23 +371,23 @@ impl Context {
             },
             Expr::Cast(expr,type_) => {
                 let new_expr = self.process_expr(expr,&Type::Inferred);
-                let new_type = self.process_type(type_,should_type).expect(&format!("incompatible cast types ({} should be {})",type_,should_type));
+                let new_type = self.process_type(type_,expected_type).expect(&format!("incompatible cast types ({} should be {})",type_,expected_type));
                 Expr::Cast(Box::new(new_expr),Box::new(new_type))
             },
             Expr::AnonTuple(exprs) => {
-                if let Type::AnonTuple(should_types) = should_type {
+                if let Type::AnonTuple(expected_types) = expected_type {
                     let mut new_fields: Vec<(String,Expr)> = Vec::new();
                     for i in 0..exprs.len() {
-                        new_fields.push((format!("_{}",i),self.process_expr(&exprs[i],&should_types[i])));
+                        new_fields.push((format!("_{}",i),self.process_expr(&exprs[i],&expected_types[i])));
                     }
-                    Expr::Struct(self.get_anon_tuple_struct(should_types),new_fields)
+                    Expr::Struct(self.get_anon_tuple_struct(expected_types),new_fields)
                 }
                 else {
-                    panic!("type mismatch (anonymous tuple found, {} expected)",should_type);
+                    panic!("type mismatch (anonymous tuple found, {} expected)",expected_type);
                 }
             },
             Expr::Unary(op,expr) => {
-                let new_expr = self.process_expr(expr,should_type);
+                let new_expr = self.process_expr(expr,expected_type);
                 Expr::Unary(
                     op.clone(),
                     Box::new(new_expr)
@@ -416,8 +416,8 @@ impl Context {
                     BinaryOp::XorAssign |
                     BinaryOp::ShlAssign |
                     BinaryOp::ShrAssign => {
-                        let new_expr = self.process_expr(expr,should_type);
-                        let new_expr2 = self.process_expr(expr2,should_type);
+                        let new_expr = self.process_expr(expr,expected_type);
+                        let new_expr2 = self.process_expr(expr2,expected_type);
                         Expr::Binary(Box::new(new_expr),op.clone(),Box::new(new_expr2))
                     },
                     BinaryOp::Eq |
@@ -436,29 +436,29 @@ impl Context {
             },
             Expr::Continue => Expr::Continue,
             Expr::Break(expr) => if let Some(expr) = expr {
-                Expr::Break(Some(Box::new(self.process_expr(expr,should_type))))
+                Expr::Break(Some(Box::new(self.process_expr(expr,expected_type))))
             }
             else {
                 Expr::Break(None)
             },
             Expr::Return(expr) => if let Some(expr) = expr {
-                Expr::Return(Some(Box::new(self.process_expr(expr,should_type))))
+                Expr::Return(Some(Box::new(self.process_expr(expr,expected_type))))
             }
             else {
                 Expr::Return(None)
             },
-            Expr::Block(block) => Expr::Block(self.process_block(block,should_type)),
+            Expr::Block(block) => Expr::Block(self.process_block(block,expected_type)),
             Expr::If(expr,block,else_expr) => if let Some(else_expr) = else_expr {
                 Expr::If(
                     Box::new(self.process_expr(expr,&Type::Bool)),
-                    self.process_block(block,should_type),
-                    Some(Box::new(self.process_expr(else_expr,should_type)))
+                    self.process_block(block,expected_type),
+                    Some(Box::new(self.process_expr(else_expr,expected_type)))
                 )
             }
             else {
                 Expr::If(
                     Box::new(self.process_expr(expr,&Type::Bool)),
-                    self.process_block(block,should_type),
+                    self.process_block(block,expected_type),
                     None
                 )
             },
@@ -491,7 +491,7 @@ impl Context {
                 if self.stdlib.methods.contains_key(ident) {
                     let mut found: Option<Method> = None;
                     for method in self.stdlib.methods[ident].iter() {
-                        if let None = Self::tightest(&method.type_,should_type) {
+                        if let None = Self::tightest(&method.type_,expected_type) {
                             continue;
                         }
                         if let None = Self::tightest(&self.get_expr_type(expr),&method.from_type) {
@@ -691,7 +691,7 @@ impl Context {
         }
     }
 
-    fn process_block(&mut self,block: &Block,should_type: &Type) -> Block {
+    fn process_block(&mut self,block: &Block,expected_type: &Type) -> Block {
         let mut new_stats: Vec<Stat> = Vec::new();
         for stat in block.stats.iter() {
             // TODO: build new_stats
@@ -709,7 +709,7 @@ impl Context {
             });
         }
         let new_expr = if let Some(expr) = &block.expr {
-            Some(Box::new(self.process_expr(&expr,should_type)))
+            Some(Box::new(self.process_expr(&expr,expected_type)))
         }
         else {
             None

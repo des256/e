@@ -3,9 +3,9 @@ use super::*;
 impl Resolver {
 
     // resolve block when the return type is already known
-    pub fn resolve_should_block(&mut self,block: &Block,should_type: &Type) -> Block {
+    pub fn resolve_expected_block(&mut self,block: &Block,expected_type: &Type) -> Block {
 
-        self.push_context(format!("block returning {}",should_type));
+        self.push_context(format!("block returning {}",expected_type));
 
         let mut stats: Vec<Stat> = Vec::new();
         for stat in block.stats.iter() {
@@ -13,7 +13,7 @@ impl Resolver {
             stats.push(new_stat);
         }
         let expr = if let Some(expr) = &block.expr {
-            Some(Box::new(self.resolve_should_expr(&expr,should_type)))
+            Some(Box::new(self.resolve_expected_expr(&expr,expected_type)))
         }
         else {
             None

@@ -83,85 +83,85 @@ impl Resolver {
         }
     }
 
-    pub fn block(&self,block: &mut sr::Block,should_type: &sr::Type) -> sr::Type {
+    pub fn block(&self,block: &mut sr::Block,expected_type: &sr::Type) -> sr::Type {
         if let Some(expr) = block.expr.as_mut() {
-            self.expr(expr,should_type)
+            self.expr(expr,expected_type)
         }
-        else if let sr::Type::Inferred = should_type {
+        else if let sr::Type::Inferred = expected_type {
             sr::Type::Void
         }
         else {
-            panic!("block should return {}",should_type);
+            panic!("block should return {}",expected_type);
         }
     }
 
-    pub fn expr(&self,expr: &mut sr::Expr,should_type: &sr::Type) -> sr::Type {
+    pub fn expr(&self,expr: &mut sr::Expr,expected_type: &sr::Type) -> sr::Type {
         match expr {
             sr::Expr::UnknownIdent(ident) => panic!("ASSERT ERROR: unknown identifier {}",ident),
             sr::Expr::UnknownStruct(ident,_) => panic!("ASSERT ERROR: unknown struct {}",ident),
             sr::Expr::UnknownCallOrTuple(ident,_) => panic!("ASSERT ERROR: unknown function call or tuple {}",ident),
 
-            sr::Expr::Boolean(value) => self.tightest(&sr::Type::Boolean,should_type).expect(&format!("{} expected instead of boolean {}",should_type,if *value { "true" } else { "false" })),
-            sr::Expr::Integer(value) => self.tightest(&sr::Type::Integer,should_type).expect(&format!("{} expected instead of integer {}",should_type,*value)),
-            sr::Expr::Float(value) => self.tightest(&sr::Type::Float,should_type).expect(&format!("{} expected instead of float {}",should_type,*value)),
-            sr::Expr::Base(bt,_) => self.tightest(&sr::Type::Base(bt.clone()),should_type).expect(&format!("{} expected instead of {}",should_type,bt.to_rust())),
-            sr::Expr::Const(const_) => self.tightest(&const_.type_,should_type).expect(&format!("{} expected instead of constant {}",should_type,const_.type_)),
-            sr::Expr::Local(local) => self.tightest(&local.type_,should_type).expect(&format!("{} expected instead of local {}",should_type,local.type_)),
-            sr::Expr::Param(param) => self.tightest(&param.type_,should_type).expect(&format!("{} expected instead of parameter {}",should_type,param.type_)),
+            sr::Expr::Boolean(value) => self.tightest(&sr::Type::Boolean,expected_type).expect(&format!("{} expected instead of boolean {}",expected_type,if *value { "true" } else { "false" })),
+            sr::Expr::Integer(value) => self.tightest(&sr::Type::Integer,expected_type).expect(&format!("{} expected instead of integer {}",expected_type,*value)),
+            sr::Expr::Float(value) => self.tightest(&sr::Type::Float,expected_type).expect(&format!("{} expected instead of float {}",expected_type,*value)),
+            sr::Expr::Base(bt,_) => self.tightest(&sr::Type::Base(bt.clone()),expected_type).expect(&format!("{} expected instead of {}",expected_type,bt.to_rust())),
+            sr::Expr::Const(const_) => self.tightest(&const_.type_,expected_type).expect(&format!("{} expected instead of constant {}",expected_type,const_.type_)),
+            sr::Expr::Local(local) => self.tightest(&local.type_,expected_type).expect(&format!("{} expected instead of local {}",expected_type,local.type_)),
+            sr::Expr::Param(param) => self.tightest(&param.type_,expected_type).expect(&format!("{} expected instead of parameter {}",expected_type,param.type_)),
             sr::Expr::Array(exprs) => {
                 // find tightest element type and check if all elements have compatible types
                 let mut type_ = sr::Type::Inferred;
                 let count = exprs.len();
                 for expr in exprs.iter_mut() {
-                    type_ = self.tightest(&type_,&self.expr(expr,should_type)).expect(&format!("array element types incompatible at {}",expr));
+                    type_ = self.tightest(&type_,&self.expr(expr,expected_type)).expect(&format!("array element types incompatible at {}",expr));
                 }
 
                 // if this should be an array
-                if let sr::Type::Array(element_should_type,_) = should_type {
+                if let sr::Type::Array(element_expected_type,_) = expected_type {
 
                     // check if the element type is correct
-                    if type_ == **element_should_type {
-                        should_type.clone()
+                    if type_ == **element_expected_type {
+                        expected_type.clone()
                     }
                     else {
-                        panic!("array element should be {} instead of {}",element_should_type,type_);
+                        panic!("array element should be {} instead of {}",element_expected_type,type_);
                     }
                 }
 
                 // if don't care, attempt to infer the type
-                else if let sr::Type::Inferred = should_type {
+                else if let sr::Type::Inferred = expected_type {
                     sr::Type::Array(Box::new(type_),Box::new(sr::Expr::Integer(count as i64)))
                 }
 
                 // otherwise this is incorrect
                 else {
-                    panic!("{} expected instead of [{}; {}]",should_type,type_,count);
+                    panic!("{} expected instead of [{}; {}]",expected_type,type_,count);
                 }
             },
             sr::Expr::Cloned(expr,count) => {
                 // infer element type
-                let type_ = self.expr(expr,should_type);
+                let type_ = self.expr(expr,expected_type);
 
                 // if this should be an array
-                if let sr::Type::Array(element_should_type,_) = should_type {
+                if let sr::Type::Array(element_expected_type,_) = expected_type {
 
                     // check if element type is correct
-                    if type_ == **element_should_type {
-                        should_type.clone()
+                    if type_ == **element_expected_type {
+                        expected_type.clone()
                     }
                     else {
-                        panic!("array element should be {} instead of {}",should_type,type_);
+                        panic!("array element should be {} instead of {}",expected_type,type_);
                     }
                 }
 
                 // if don't care, attempt to infer the type
-                else if let sr::Type::Inferred = should_type {
+                else if let sr::Type::Inferred = expected_type {
                     sr::Type::Array(Box::new(type_),count.clone())
                 }
 
                 // otherwise this is incorrect
                 else {
-                    panic!("{} expected instead of [{}; {}]",should_type,type_,count);
+                    panic!("{} expected instead of [{}; {}]",expected_type,type_,count);
                 }
             },
             sr::Expr::Struct(struct_,fields) => {
@@ -171,25 +171,25 @@ impl Resolver {
                 }
 
                 // if this should be a struct
-                if let sr::Type::Struct(should_struct) = should_type {
+                if let sr::Type::Struct(expected_struct) = expected_type {
 
                     // check if it's the right one
-                    if struct_ == should_struct {
-                        should_type.clone()
+                    if struct_ == expected_struct {
+                        expected_type.clone()
                     }
                     else {
-                        panic!("{} expected instead of {}",should_struct,struct_);
+                        panic!("{} expected instead of {}",expected_struct,struct_);
                     }
                 }
 
                 // if don't care, return the referenced struct
-                else if let sr::Type::Inferred = should_type {
+                else if let sr::Type::Inferred = expected_type {
                     sr::Type::Struct(Rc::clone(&struct_))
                 }
                 
                 // otherwise this is incorrect
                 else {
-                    panic!("{} expected instead of struct {}",should_type,struct_);
+                    panic!("{} expected instead of struct {}",expected_type,struct_);
                 }
             },
             sr::Expr::Call(function,exprs) => {
@@ -199,7 +199,7 @@ impl Resolver {
                 }
 
                 // and return the tightest of the two
-                self.tightest(&function.return_type,should_type).expect(&format!("function should return {} instead of {}",should_type,function.return_type))
+                self.tightest(&function.return_type,expected_type).expect(&format!("function should return {} instead of {}",expected_type,function.return_type))
             },
             sr::Expr::Field(expr,ident) => {
                 // check if expr is a struct and extract the field
@@ -218,7 +218,7 @@ impl Resolver {
                 };
 
                 // and return the tightest of the two
-                self.tightest(&type_,should_type).expect(&format!("{} expected instead of {}",should_type,type_))
+                self.tightest(&type_,expected_type).expect(&format!("{} expected instead of {}",expected_type,type_))
             },
             sr::Expr::Method(expr,ident,exprs) => {
                 /*
@@ -228,7 +228,7 @@ impl Resolver {
                 }
 
                 // and return the tightest of the two
-                self.tightest(&function.return_type,should_type).expect(&format!("function should return {} instead of {}",should_type,function.return_type))
+                self.tightest(&function.return_type,expected_type).expect(&format!("function should return {} instead of {}",expected_type,function.return_type))
                 */
                 sr::Type::Inferred
             },
@@ -242,11 +242,11 @@ impl Resolver {
                 };
 
                 // and return the tightest of the two
-                self.tightest(&type_,should_type).expect(&format!("{} expected instead of {}",should_type,type_))
+                self.tightest(&type_,expected_type).expect(&format!("{} expected instead of {}",expected_type,type_))
             },
-            sr::Expr::Cast(_,type_) => self.tightest(type_,should_type).expect(&format!("{} expected instead of {}",should_type,type_)),
+            sr::Expr::Cast(_,type_) => self.tightest(type_,expected_type).expect(&format!("{} expected instead of {}",expected_type,type_)),
             sr::Expr::AnonTuple(exprs) => {
-                if let sr::Type::Struct(struct_) = should_type {
+                if let sr::Type::Struct(struct_) = expected_type {
                     // check each expression against the suggested type
                     for i in 0..exprs.len() {
                         self.expr(&mut exprs[i],&struct_.fields[i].type_);
@@ -259,14 +259,14 @@ impl Resolver {
                     }
                     *expr = sr::Expr::Struct(Rc::clone(&struct_),fields);
 
-                    should_type.clone()
+                    expected_type.clone()
                 }
                 else {
-                    panic!("attempting to match anonymous tuple with {}",should_type);
+                    panic!("attempting to match anonymous tuple with {}",expected_type);
                 }
             },
-            sr::Expr::Neg(expr) => self.expr(expr,should_type),
-            sr::Expr::Not(expr) => self.expr(expr,should_type),
+            sr::Expr::Neg(expr) => self.expr(expr,expected_type),
+            sr::Expr::Not(expr) => self.expr(expr,expected_type),
             sr::Expr::Mul(expr,expr2) |
             sr::Expr::Div(expr,expr2) |
             sr::Expr::Mod(expr,expr2) |
@@ -287,7 +287,7 @@ impl Resolver {
             sr::Expr::OrAssign(expr,expr2) |
             sr::Expr::XorAssign(expr,expr2) |
             sr::Expr::ShlAssign(expr,expr2) |
-            sr::Expr::ShrAssign(expr,expr2) => self.tightest(&self.expr(expr,should_type),&self.expr(expr2,should_type)).expect(&format!("types of {} and {} incompatible",expr,expr2)),
+            sr::Expr::ShrAssign(expr,expr2) => self.tightest(&self.expr(expr,expected_type),&self.expr(expr2,expected_type)).expect(&format!("types of {} and {} incompatible",expr,expr2)),
             sr::Expr::Eq(expr,expr2) |
             sr::Expr::NotEq(expr,expr2) |
             sr::Expr::Greater(expr,expr2) |
@@ -296,48 +296,48 @@ impl Resolver {
             sr::Expr::LessEq(expr,expr2) |
             sr::Expr::LogAnd(expr,expr2) |
             sr::Expr::LogOr(expr,expr2) => {
-                if let sr::Type::Boolean = should_type {
+                if let sr::Type::Boolean = expected_type {
                     self.tightest(&self.expr(expr,&sr::Type::Inferred),&self.expr(expr2,&sr::Type::Inferred)).expect(&format!("types of {} and {} incompatible",expr,expr2));
                 }
                 else {
-                    panic!("{} expected instead of boolean from comparison result or logical operation",should_type);
+                    panic!("{} expected instead of boolean from comparison result or logical operation",expected_type);
                 }
                 sr::Type::Boolean
             },
-            sr::Expr::Continue => self.tightest(&sr::Type::Void,should_type).expect(&format!("{} expected instead of void",should_type)),
+            sr::Expr::Continue => self.tightest(&sr::Type::Void,expected_type).expect(&format!("{} expected instead of void",expected_type)),
             sr::Expr::Break(expr) |
             sr::Expr::Return(expr) => if let Some(expr) = expr {
-                self.expr(expr,should_type)
+                self.expr(expr,expected_type)
             }
             else {
-                self.tightest(&sr::Type::Void,should_type).expect(&format!("{} expected instead of void",should_type))
+                self.tightest(&sr::Type::Void,expected_type).expect(&format!("{} expected instead of void",expected_type))
             },
-            sr::Expr::Block(block) => self.block(block,should_type),
+            sr::Expr::Block(block) => self.block(block,expected_type),
             sr::Expr::If(expr,block,else_expr) => {
                 self.expr(expr,&sr::Type::Boolean);
-                let mut type_ = self.block(block,should_type);
+                let mut type_ = self.block(block,expected_type);
                 if let Some(else_expr) = else_expr {
-                    type_ = self.tightest(&type_,&self.expr(else_expr,should_type)).expect(&format!("types of {} and {} incompatible",expr,else_expr));
+                    type_ = self.tightest(&type_,&self.expr(else_expr,expected_type)).expect(&format!("types of {} and {} incompatible",expr,else_expr));
                 }
-                if let sr::Type::Inferred = should_type {
+                if let sr::Type::Inferred = expected_type {
                     type_
                 }
                 else {
-                    panic!("{} expected instead if {}",should_type,type_);
+                    panic!("{} expected instead if {}",expected_type,type_);
                 }
             },
             sr::Expr::Loop(block) => {
                 self.block(block,&sr::Type::Inferred);
-                should_type.clone()
+                expected_type.clone()
             },                
             sr::Expr::For(_,_,block) => {
                 self.block(block,&sr::Type::Inferred);
-                should_type.clone()
+                expected_type.clone()
             },
             sr::Expr::While(expr,block) => {
                 if let sr::Type::Boolean = self.expr(expr,&sr::Type::Boolean) {
                     self.block(block,&sr::Type::Inferred);
-                    should_type.clone()
+                    expected_type.clone()
                 }
                 else {
                     panic!("while-expression {} should be boolean",expr);
