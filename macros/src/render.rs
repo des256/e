@@ -273,7 +273,7 @@ impl Render for Expr {
             Expr::TupleOrFunction(ident,exprs) => format!("Expr::TupleOrFunction(\"{}\",{})",ident,exprs.render()),
             Expr::Struct(ident,fields) => format!("Expr::Struct(\"{}\",{})",ident,fields.render()),
             Expr::Variant(enum_ident,variant_ident,variant) => format!("Expr::Variant(\"{}\",\"{}\",{})",enum_ident,variant_ident,variant.render()),
-            Expr::Method(expr,ident,exprs) => format!("Expr::Method(Box::new({}),\"{}\",{})",expr.render(),ident,exprs.render()),
+            Expr::MethodRef(expr,ident,exprs) => format!("Expr::MethodRef(Box::new({}),\"{}\",{})",expr.render(),ident,exprs.render()),
             Expr::Field(expr,ident) => format!("Expr::Field(Box::new({}),\"{}\")",expr.render(),ident),
             //Expr::TupleIndex(expr,index) => format!("Expr::TupleIndex(Box::new({}),{})",expr.render(),index),
         }
@@ -289,6 +289,12 @@ impl Render for Stat {
     }
 }
 
+impl Render for Tuple {
+    fn render(&self) -> String {
+        format!("Tuple {{ ident: \"{}\",types: {}, }}",self.ident,self.types.render())
+    }
+}
+
 impl Render for Struct {
     fn render(&self) -> String {
         let mut r = format!("Struct {{ ident: \"{}\",fields: vec![",self.ident);
@@ -299,14 +305,6 @@ impl Render for Struct {
         r
     }
 }
-
-/*
-impl Render for Tuple {
-    fn render(&self) -> String {
-        format!("Tuple {{ ident: \"{}\",types: {}, }}",self.ident,self.types.render())
-    }
-}
-*/
 
 impl Render for Variant {
     fn render(&self) -> String {
@@ -354,8 +352,8 @@ impl Render for Module {
 
         let mut main_found = false;
         for function in self.functions.iter() {
-            if function.0 == "main" {
-                for (_,type_) in function.1.params.iter() {
+            if function.ident == "main" {
+                for (_,type_) in function.params.iter() {
                     if let Type::Ident(ident) = type_ {
                         extern_struct_idents.push(ident.clone());
                     }
@@ -368,89 +366,75 @@ impl Render for Module {
             panic!("missing main function");
         }
 
-        let mut r = "{ use { super::*,std::collections::HashMap }; ".to_string();
+        let mut r = "{ use super::*; ".to_string();
 
-        //if self.tuples.len() > 0 {
-        //    r += &format!("let mut tuples: HashMap<&str,Tuple> = HashMap::new(); ");
-        //    for tuple in self.tuples.iter() {
-        //        r += &format!("tuples.insert(\"{}\",{}); ",tuple.0,tuple.1.render());
-        //    }
-        //}
-        //else {
-        //    r += "let tuples: HashMap<&str,Tuple> = HashMap::new(); ";
-        //}
+        if self.tuples.len() > 0 {
+            r += &format!("let mut tuples: Vec<Tuple> = Vec::new(); ");
+            for tuple in self.tuples.iter() {
+                r += &format!("tuples.push({}); ",tuple.render());
+            }
+        }
+        else {
+            r += "let tuples: Vec<Tuple> = Vec::new(); ";
+        }
 
         if self.structs.len() > 0 {
-            r += &format!("let mut structs: HashMap<&str,Struct> = HashMap::new();");
+            r += &format!("let mut structs: Vec<Struct> = Vec::new();");
             for struct_ in self.structs.iter() {
-                r += &format!("structs.insert(\"{}\",{}); ",struct_.0,struct_.1.render());
+                r += &format!("structs.push({}); ",struct_.render());
             }
         }
         else {
-            r += "let mut structs: HashMap<&str,Struct> = HashMap::new(); ";
+            r += "let mut structs: Vec<Struct> = Vec::new(); ";
         }
 
-        if self.tuple_structs.len() > 0 {
-            r += &format!("let mut tuple_structs: HashMap<&str,Struct> = HashMap::new();");
-            for struct_ in self.tuple_structs.iter() {
-                r += &format!("tuple_structs.insert(\"{}\",{}); ",struct_.0,struct_.1.render());
+        if self.extern_structs.len() > 0 {
+            r += "let mut extern_structs: Vec<Struct> = Vec::new();";
+            for struct_ in self.extern_structs.iter() {
+                r += &format!("extern_structs.push(super::{}::ast());",struct_.ident);
             }
         }
         else {
-            r += "let mut tuple_structs: HashMap<&str,Struct> = HashMap::new(); ";
-        }
-
-        if extern_struct_idents.len() > 0 {
-            r += "let mut extern_structs: HashMap<&str,Struct> = HashMap::new();";
-            for extern_struct_ident in extern_struct_idents.iter() {
-                // hack: if struct contains <>, it's not an external struct, but something defined in the standard library
-                // there are probably other structs as well, but for now let's assume they're not defined in the standard library
-                if !extern_struct_ident.contains('<') {
-                    r += &format!("extern_structs.insert(\"{}\",super::{}::ast());",extern_struct_ident,extern_struct_ident);
-                }
-            }
-        }
-        else {
-            r += "let extern_structs: HashMap<&str,Struct> = HashMap::new(); ";
+            r += "let extern_structs: Vec<Struct> = Vec::new(); ";
         }
 
         if self.enums.len() > 0 {
-            r += &format!("let mut enums: HashMap<&str,Enum> = HashMap::new(); ");
+            r += &format!("let mut enums: Vec<&str,Enum> = Vec::new(); ");
             for enum_ in self.enums.iter() {
-                r += &format!("enums.insert(\"{}\",{}); ",enum_.0,enum_.1.render());
+                r += &format!("enums.push({}); ",enum_.render());
             }
         }
         else {
-            r += "let enums: HashMap<&str,Enum> = HashMap::new(); ";
+            r += "let enums: Vec<Enum> = Vec::new(); ";
         }
         if self.aliases.len() > 0 {
-            r += &format!("let mut aliases: HashMap<&str,Alias> = HashMap::new(); ");
+            r += &format!("let mut aliases: Vec<Alias> = Vec::new(); ");
             for alias in self.aliases.iter() {
-                r += &format!("aliases.insert(\"{}\",{}); ",alias.0,alias.1.render());
+                r += &format!("aliases.push({}); ",alias.render());
             }
         }
         else {
-            r += "let aliases: HashMap<&str,Alias> = HashMap::new(); ";
+            r += "let aliases: Vec<Alias> = Vec::new(); ";
         }
         if self.consts.len() > 0 {
-            r += &format!("let mut consts: HashMap<&str,Const> = HashMap::new(); ");
+            r += &format!("let mut consts: Vec<Const> = Vec::new(); ");
             for const_ in self.consts.iter() {
-                r += &format!("consts.insert(\"{}\",{}); ",const_.0,const_.1.render());
+                r += &format!("consts.push({}); ",const_.render());
             }
         }
         else {
-            r += "let consts: HashMap<&str,Const> = HashMap::new(); ";
+            r += "let consts: Vec<Const> = Vec::new(); ";
         }
         if self.functions.len() > 0 {
-            r += &format!("let mut functions: HashMap<&str,Function> = HashMap::new(); ");
+            r += &format!("let mut functions: Vec<Function> = Vec::new(); ");
             for function in self.functions.iter() {
-                r += &format!("functions.insert(\"{}\",{}); ",function.0,function.1.render());
+                r += &format!("functions.push({}); ",function.render());
             }
         }
         else {
-            r += "let functions: HashMap<&str,Function> = Vec::new(); ";
+            r += "let functions: Vec<Function> = Vec::new(); ";
         }
-        r += &format!("Module {{ ident: \"{}\",structs,tuple_structs,extern_structs,enums,aliases,consts,functions, anon_tuple_structs: Vec::new(), }} }}",self.ident);
+        r += &format!("Module {{ ident: \"{}\",tuples,structs,extern_structs,enums,aliases,consts,functions, }} }}",self.ident);
         r
     }
 }

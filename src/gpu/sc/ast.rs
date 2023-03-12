@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 // ast::Type describes type nodes 
 #[derive(Clone)]
 pub enum Type {
@@ -54,6 +52,9 @@ pub enum Type {
 
     // prepare: struct reference
     StructRef(&'static str),
+
+    // prepare: enum reference
+    EnumRef(&'static str),
 }
 
 // pattern matching: ast::FieldPat describe a (partial) field in a struct or struct enum variant, resolved in the destructure pass
@@ -275,7 +276,7 @@ pub enum Expr {
     Variant(&'static str,&'static str,VariantExpr),
 
     // method call (only for stdlib objects)
-    Method(Box<Expr>,&'static str,Vec<Expr>),
+    MethodRef(Box<Expr>,&'static str,Vec<Expr>),
 
     // structure field selector
     Field(Box<Expr>,&'static str),
@@ -367,6 +368,17 @@ pub struct Struct {
     pub fields: Vec<(&'static str,Type)>,
 }
 
+// ast::Tuple describes a tuple
+#[derive(Clone)]
+pub struct Tuple {
+
+    // identifier for the tuple
+    pub ident: &'static str,
+
+    // tuple type descriptions
+    pub types: Vec<Type>,
+}
+
 // ast::Variant describes an enum variant
 #[derive(Clone)]
 pub enum Variant {
@@ -417,15 +429,29 @@ pub struct Alias {
     pub type_: Type,
 }
 
-// ast::Module describes the module
+// ast::Module describes the module as it comes from the parser macro
 #[derive(Clone)]
 pub struct Module {
     pub ident: &'static str,
-    pub structs: HashMap<&'static str,Struct>,
-    pub tuple_types: HashMap<&'static str,Vec<Type>>,
-    pub extern_structs: HashMap<&'static str,Struct>,
-    pub enums: HashMap<&'static str,Enum>,
-    pub aliases: HashMap<&'static str,Alias>,
-    pub consts: HashMap<&'static str,Const>,
-    pub functions: HashMap<&'static str,Function>,
+    pub tuples: Vec<Tuple>,
+    pub structs: Vec<Struct>,
+    pub extern_structs: Vec<Struct>,
+    pub enums: Vec<Enum>,
+    pub aliases: Vec<Alias>,
+    pub consts: Vec<Const>,
+    pub functions: Vec<Function>,
+}
+
+// ast::PreparedModule describes the module after prepare pass
+#[derive(Clone)]
+pub struct PreparedModule {
+    pub ident: &'static str,
+    pub tuples: Vec<Tuple>,
+    pub structs: Vec<Struct>,
+    pub extern_structs: Vec<Struct>,
+    pub enums: Vec<Enum>,
+    pub aliases: Vec<Alias>,
+    pub consts: Vec<Const>,
+    pub functions: Vec<Function>,
+    pub anon_tuple_types: Vec<Vec<Type>>,
 }

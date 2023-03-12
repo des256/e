@@ -1,12 +1,9 @@
 #![feature(proc_macro_span)]
-use {
-    std::collections::HashMap,
-    proc_macro::{
-        TokenStream,
-        TokenTree,
-        Delimiter,
-        token_stream::IntoIter,
-    }
+use proc_macro::{
+    TokenStream,
+    TokenTree,
+    Delimiter,
+    token_stream::IntoIter,
 };
 
 mod ast;

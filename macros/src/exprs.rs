@@ -113,7 +113,7 @@ impl Parser {
                 // Field, Method
                 if let Some(ident) = self.ident() {
                     if let Some(exprs) = self.paren_exprs()? {
-                        expr = Expr::Method(Box::new(expr),ident,exprs);
+                        expr = Expr::MethodRef(Box::new(expr),ident,exprs);
                     }
                     else {
                         expr = Expr::Field(Box::new(expr),ident);
@@ -424,7 +424,7 @@ impl Parser {
             if self.punct('.') {
                 if let Some(ident) = self.ident() {
                     if let Some(exprs) = self.paren_exprs()? {
-                        expr = Expr::Method(Box::new(expr),ident,exprs);
+                        expr = Expr::MethodRef(Box::new(expr),ident,exprs);
                     }
                     else {
                         expr = Expr::Field(Box::new(expr),ident);

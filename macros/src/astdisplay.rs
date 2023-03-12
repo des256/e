@@ -445,7 +445,7 @@ impl Display for Expr {
                 write!(f,"{}::{}",enum_ident,variant_ident)?;
                 write!(f,"{}",variant_expr)
             },
-            Expr::Method(expr,method_ident,exprs) => {
+            Expr::MethodRef(expr,method_ident,exprs) => {
                 write!(f,"{}.{}(",expr,method_ident)?;
                 let mut iter = exprs.iter();
                 if let Some(expr) = iter.next() {
@@ -499,6 +499,21 @@ impl Display for Function {
             write!(f," -> {}",self.return_type)?;
         }
         write!(f," {}",self.block)
+    }
+}
+
+impl Display for Tuple {
+    fn fmt(&self,f: &mut Formatter) -> Result { 
+        write!(f,"struct {}(",self.ident)?;
+        let mut first = true;
+        for type_ in self.types.iter() {
+            if !first {
+                write!(f,", ")?;
+            }
+            write!(f,"{}",type_)?;
+            first = false;
+        }
+        write!(f," }}")
     }
 }
 
@@ -575,35 +590,26 @@ impl Display for Alias {
 impl Display for Module {
     fn fmt(&self,f: &mut Formatter) -> Result {
         write!(f,"mod {} {{\n",self.ident)?;
-        for struct_ in self.structs.iter() {
-            write!(f,"{};\n",struct_.1)?;
+        for tuple in self.tuples.iter() {
+            write!(f,"{};\n",tuple)?;
         }
-        for (ident,types) in self.tuple_structs.iter() {
-            write!(f,"struct {} {{ ",ident)?;
-            let mut first = true;
-            for i in 0..types.len() {
-                if !first {
-                    write!(f,", ")?;
-                }
-                write!(f,"f{}: {}",i,types[i])?;
-                first = false;
-            }
-            write!(f," }}")?;
+        for struct_ in self.structs.iter() {
+            write!(f,"{};\n",struct_)?;
         }
         for struct_ in self.extern_structs.iter() {
-            write!(f,"{};\n",struct_.1)?;
+            write!(f,"{};\n",struct_)?;
         }
         for enum_ in self.enums.iter() {
-            write!(f,"{};\n",enum_.1)?;
+            write!(f,"{};\n",enum_)?;
         }
         for alias in self.aliases.iter() {
-            write!(f,"{};\n",alias.1)?;
+            write!(f,"{};\n",alias)?;
         }
         for const_ in self.consts.iter() {
-            write!(f,"{};\n",const_.1)?;
+            write!(f,"{};\n",const_)?;
         }
         for function in self.functions.iter() {
-            write!(f,"{};\n",function.1)?;
+            write!(f,"{};\n",function)?;
         }
         write!(f,"}}")
     }

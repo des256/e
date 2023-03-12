@@ -171,9 +171,9 @@ impl gpu::Gpu for Gpu {
 
         dprintln!("OpenGL Vertex Shader AST:\n{}",ast);
 
-        let ast = gpu::sc::destructure_module(ast.clone())?;
+        let ast = gpu::sc::prepare_module(ast)?;
 
-        dprintln!("OpenGL Vertex Shader AST after destructuring:\n{}",ast);
+        dprintln!("OpenGL Vertex Shader AST after preparing:\n{}",ast);
 
         //let module = resolve(ast);
 
@@ -207,9 +207,9 @@ impl gpu::Gpu for Gpu {
 
         dprintln!("OpenGL Fragment Shader AST:\n{}",ast);
 
-        let ast = gpu::sc::destructure_module(ast.clone())?;
+        let ast = gpu::sc::prepare_module(ast)?;
 
-        dprintln!("OpenGL Fragment Shader AST after destructuring:\n{}",ast);
+        dprintln!("OpenGL Fragment Shader AST after preparing:\n{}",ast);
 
         //let module = resolve(ast);
 

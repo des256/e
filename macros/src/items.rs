@@ -9,12 +9,12 @@ impl Parser {
             return self.err("identifier expected");
         }
         let ident = ident.unwrap();
-        let mut structs: HashMap<String,Struct> = HashMap::new();
-        let mut tuple_structs: HashMap<String,Vec<Type>> = HashMap::new();
-        let mut enums: HashMap<String,Enum> = HashMap::new();
-        let mut aliases: HashMap<String,Alias> = HashMap::new();
-        let mut consts: HashMap<String,Const> = HashMap::new();
-        let mut functions: HashMap<String,Function> = HashMap::new();
+        let mut tuples: Vec<Tuple> = Vec::new();
+        let mut structs: Vec<Struct> = Vec::new();
+        let mut enums: Vec<Enum> = Vec::new();
+        let mut aliases: Vec<Alias> = Vec::new();
+        let mut consts: Vec<Const> = Vec::new();
+        let mut functions: Vec<Function> = Vec::new();
         if let Some(mut parser) = self.group('{') {
             while !parser.done() {
 
@@ -41,7 +41,7 @@ impl Parser {
                         return self.err("{{ expected (module)");
                     }
                     let block = block.unwrap();
-                    functions.insert(ident.clone(),Function { ident,params,return_type,block, });
+                    functions.push(Function { ident,params,return_type,block, });
                 }
 
                 // struct or tuple
@@ -60,13 +60,13 @@ impl Parser {
                         for (ident,type_) in ident_types.iter() {
                             fields.push((ident.clone(),type_.clone()));
                         }
-                        structs.insert(ident.clone(),Struct { ident: ident.clone(),fields, });
+                        structs.push(Struct { ident,fields, });
                     }
 
                     // tuple
                     else if parser.peek_group('(') {
                         let types = parser.paren_types()?.unwrap();
-                        tuple_structs.insert(ident.clone(),types);
+                        tuples.push(Tuple { ident,types, });
                     }
                     else {
                         panic!("{}","{ or ( expected");
@@ -105,7 +105,7 @@ impl Parser {
                             }
                             parser.punct(',');
                         }
-                        enums.insert(ident.clone(),Enum { ident,variants, });
+                        enums.push(Enum { ident,variants, });
                     }
                     else {
                         return self.err("{{ expected (module, enum)");
@@ -123,7 +123,7 @@ impl Parser {
                     let type_ = parser.type_()?;
                     parser.punct('=');
                     let expr = parser.expr()?;
-                    consts.insert(ident.clone(),Const { ident,type_,expr, });
+                    consts.push(Const { ident,type_,expr, });
                 }
 
                 // alias
@@ -135,7 +135,7 @@ impl Parser {
                     let ident = ident.unwrap();
                     parser.punct('=');
                     let type_ = parser.type_()?;
-                    aliases.insert(ident.clone(),Alias { ident,type_, });
+                    aliases.push(Alias { ident,type_, });
                 }
 
                 // skip a semicolon if any
@@ -148,9 +148,9 @@ impl Parser {
 
         Ok(Module {
             ident,
+            tuples,
             structs,
-            tuple_structs,
-            extern_structs: HashMap::new(),
+            extern_structs: Vec::new(),
             enums,
             aliases,
             consts,

@@ -1,9 +1,7 @@
 mod ast;
+pub use ast::*;
 
 mod astdisplay;
-
-mod context;
-pub use context::*;
 
 mod stdlib;
 pub use stdlib::*;
@@ -11,11 +9,14 @@ pub use stdlib::*;
 mod prepare;
 pub use prepare::*;
 
-mod destructure;
-pub use destructure::*;
+//mod destructure;
+//pub use destructure::*;
 
-mod deenumify;
-pub use deenumify::*;
+//mod deenumify;
+//pub use deenumify::*;
 
 mod tac;
 pub use tac::*;
+
+mod rendertac;
+pub use rendertac::*;

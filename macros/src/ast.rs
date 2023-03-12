@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 #[derive(Clone)]
 pub enum Type {
     Inferred,
@@ -128,7 +126,7 @@ pub enum Expr {
     TupleOrFunction(String,Vec<Expr>),
     Struct(String,Vec<(String,Expr)>),
     Variant(String,String,VariantExpr),
-    Method(Box<Expr>,String,Vec<Expr>),
+    MethodRef(Box<Expr>,String,Vec<Expr>),
     Field(Box<Expr>,String),
 }
 
@@ -158,6 +156,12 @@ pub struct Function {
     pub params: Vec<(String,Type)>,
     pub return_type: Type,
     pub block: Block,
+}
+
+#[derive(Clone)]
+pub struct Tuple {
+    pub ident: String,
+    pub types: Vec<Type>,
 }
 
 #[derive(Clone)]
@@ -195,11 +199,11 @@ pub struct Alias {
 #[derive(Clone)]
 pub struct Module {
     pub ident: String,
-    pub structs: HashMap<String,Struct>,
-    pub tuple_structs: HashMap<String,Vec<Type>>,
-    pub extern_structs: HashMap<String,Struct>,
-    pub enums: HashMap<String,Enum>,
-    pub aliases: HashMap<String,Alias>,
-    pub consts: HashMap<String,Const>,
-    pub functions: HashMap<String,Function>,
+    pub tuples: Vec<Tuple>,
+    pub structs: Vec<Struct>,
+    pub extern_structs: Vec<Struct>,
+    pub enums: Vec<Enum>,
+    pub aliases: Vec<Alias>,
+    pub consts: Vec<Const>,
+    pub functions: Vec<Function>,
 }
