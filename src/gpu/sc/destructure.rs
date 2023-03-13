@@ -1,13 +1,10 @@
-use {
-    std::collections::HashMap,
-    super::*,
-};
+use super::*;
 
 // - destructure patterns
 
 struct Context {
-    consts: HashMap<&'static str,Const>,
-    stdlib_consts: HashMap<&'static str,Const>,
+    consts: Vec<Const>,
+    stdlib_consts: Vec<Const>,
 }
 
 impl Context {
@@ -244,45 +241,44 @@ impl Context {
         Ok(stats)
     }
 
-    fn process_type(&self,type_: Type) -> Result<Type,String> {
+    fn destructure_type(&self,type_: &Type) -> Result<Type,String> {
         match type_ {
-            Type::Array(type_,expr) => {
-                let new_type = self.process_type(*type_)?;
-                let new_expr = self.process_expr(*expr)?;
-                Ok(Type::Array(Box::new(new_type),Box::new(new_expr)))
+            Type::Array(type_,index) => {
+                let new_type = self.destructure_type(type_)?;
+                Ok(Type::Array(Box::new(new_type),*index))
             },
             Type::AnonTuple(types) => {
                 let mut new_types: Vec<Type> = Vec::new();
                 for type_ in types.iter() {
-                    new_types.push(self.process_type(type_.clone())?);
+                    new_types.push(self.destructure_type(type_)?);
                 }
                 Ok(Type::AnonTuple(new_types))
             },
-            _ => Ok(type_),
+            _ => Ok(type_.clone()),
         }
     }
 
-    fn process_block(&self,block: Block) -> Result<Block,String> {
+    fn destructure_block(&self,block: &Block) -> Result<Block,String> {
         let mut new_stats: Vec<Stat> = Vec::new();
         for stat in block.stats.iter() {
             match stat {
                 Stat::Let(pat,type_,expr) => {
-                    let new_expr = self.process_expr(*expr.clone())?;
-                    let expr = Expr::Cast(Box::new(new_expr),(*type_).clone());
+                    let new_expr = self.destructure_expr(expr)?;
+                    let expr = Expr::Cast(Box::new(new_expr),(type_).clone());
                     new_stats.append(&mut self.destructure_pat(&pat,&expr)?);
                 },
                 Stat::Expr(expr) => {
-                    let new_expr = self.process_expr(*expr.clone())?;
+                    let new_expr = self.destructure_expr(expr)?;
                     new_stats.push(Stat::Expr(Box::new(new_expr)));
                 },
                 Stat::Local(ident,type_,expr) => {
-                    let new_expr = self.process_expr(*expr.clone())?;
+                    let new_expr = self.destructure_expr(expr)?;
                     new_stats.push(Stat::Local(ident.clone(),(*type_).clone(),Box::new(new_expr)));
                 },
             }
         }
-        let new_expr = if let Some(expr) = block.expr {
-            Some(Box::new(self.process_expr(*expr)?))
+        let new_expr = if let Some(expr) = &block.expr {
+            Some(Box::new(self.destructure_expr(expr)?))
         }
         else {
             None
@@ -293,68 +289,67 @@ impl Context {
         })
     }
 
-    fn process_expr(&self,expr: Expr) -> Result<Expr,String> {
+    fn destructure_expr(&self,expr: &Expr) -> Result<Expr,String> {
         match expr {
-            Expr::Boolean(value) => Ok(Expr::Boolean(value)),
-            Expr::Integer(value) => Ok(Expr::Integer(value)),
-            Expr::Float(value) => Ok(Expr::Float(value)),
+            Expr::Boolean(value) => Ok(Expr::Boolean(*value)),
+            Expr::Integer(value) => Ok(Expr::Integer(*value)),
+            Expr::Float(value) => Ok(Expr::Float(*value)),
             Expr::Array(exprs) => {
                 let mut new_exprs: Vec<Expr> = Vec::new();
                 for expr in exprs {
-                    new_exprs.push(self.process_expr(expr)?);
+                    new_exprs.push(self.destructure_expr(expr)?);
                 }
                 Ok(Expr::Array(new_exprs))
             },
-            Expr::Cloned(value_expr,count_expr) => {
-                let new_value_expr = self.process_expr(*value_expr)?;
-                let new_count_expr = self.process_expr(*count_expr)?;
-                Ok(Expr::Cloned(Box::new(new_value_expr),Box::new(new_count_expr)))
+            Expr::Cloned(value_expr,count) => {
+                let new_value_expr = self.destructure_expr(value_expr)?;
+                Ok(Expr::Cloned(Box::new(new_value_expr),*count))
             },
             Expr::Index(array_expr,index_expr) => {
-                let new_array_expr = self.process_expr(*array_expr)?;
-                let new_index_expr = self.process_expr(*index_expr)?;
+                let new_array_expr = self.destructure_expr(array_expr)?;
+                let new_index_expr = self.destructure_expr(index_expr)?;
                 Ok(Expr::Index(Box::new(new_array_expr),Box::new(new_index_expr)))
             },
             Expr::Cast(expr,type_) => {
-                let new_expr = self.process_expr(*expr)?;
-                let new_type = self.process_type(*type_)?;
+                let new_expr = self.destructure_expr(expr)?;
+                let new_type = self.destructure_type(type_)?;
                 Ok(Expr::Cast(Box::new(new_expr),Box::new(new_type)))
             },
             Expr::AnonTuple(exprs) => {
                 let mut new_exprs: Vec<Expr> = Vec::new();
                 for expr in exprs {
-                    new_exprs.push(self.process_expr(expr)?);
+                    new_exprs.push(self.destructure_expr(expr)?);
                 }
                 Ok(Expr::AnonTuple(new_exprs))
             },
             Expr::Unary(op,expr) => {
-                let new_expr = self.process_expr(*expr)?;
-                Ok(Expr::Unary(op,Box::new(new_expr)))
+                let new_expr = self.destructure_expr(expr)?;
+                Ok(Expr::Unary(op.clone(),Box::new(new_expr)))
             },
             Expr::Binary(expr1,op,expr2) => {
-                let new_expr1 = self.process_expr(*expr1)?;
-                let new_expr2 = self.process_expr(*expr2)?;
-                Ok(Expr::Binary(Box::new(new_expr1),op,Box::new(new_expr2)))
+                let new_expr1 = self.destructure_expr(expr1)?;
+                let new_expr2 = self.destructure_expr(expr2)?;
+                Ok(Expr::Binary(Box::new(new_expr1),op.clone(),Box::new(new_expr2)))
             },
             Expr::Continue => Ok(Expr::Continue),
             Expr::Break(expr) => if let Some(expr) = expr {
-                Ok(Expr::Break(Some(Box::new(self.process_expr(*expr)?))))
+                Ok(Expr::Break(Some(Box::new(self.destructure_expr(expr)?))))
             }
             else {
                 Ok(Expr::Break(None))
             },
             Expr::Return(expr) => if let Some(expr) = expr {
-                Ok(Expr::Return(Some(Box::new(self.process_expr(*expr)?))))
+                Ok(Expr::Return(Some(Box::new(self.destructure_expr(expr)?))))
             }
             else {
                 Ok(Expr::Return(None))
             },
-            Expr::Block(block) => Ok(Expr::Block(self.process_block(block)?)),
+            Expr::Block(block) => Ok(Expr::Block(self.destructure_block(block)?)),
             Expr::If(cond_expr,block,else_expr) => {
-                let new_cond_expr = self.process_expr(*cond_expr)?;
-                let new_block = self.process_block(block)?;
+                let new_cond_expr = self.destructure_expr(cond_expr)?;
+                let new_block = self.destructure_block(block)?;
                 let new_else_expr = if let Some(else_expr) = else_expr {
-                    Some(Box::new(self.process_expr(*else_expr)?))
+                    Some(Box::new(self.destructure_expr(else_expr)?))
                 }
                 else {
                     None
@@ -362,16 +357,16 @@ impl Context {
                 Ok(Expr::If(Box::new(new_cond_expr),new_block,new_else_expr))
             },
             Expr::While(cond_expr,block) => {
-                let new_cond_expr = self.process_expr(*cond_expr)?;
-                let new_block = self.process_block(block)?;
+                let new_cond_expr = self.destructure_expr(cond_expr)?;
+                let new_block = self.destructure_block(block)?;
                 Ok(Expr::While(Box::new(new_cond_expr),new_block))
             },
-            Expr::Loop(block) => Ok(Expr::Loop(self.process_block(block)?)),
+            Expr::Loop(block) => Ok(Expr::Loop(self.destructure_block(block)?)),
             Expr::IfLet(pats,expr,block,else_expr) => {
-                let new_expr = self.process_expr(*expr)?;
-                let mut new_block = self.process_block(block)?;
+                let new_expr = self.destructure_expr(expr)?;
+                let mut new_block = self.destructure_block(block)?;
                 let new_else_expr = if let Some(else_expr) = else_expr {
-                    Some(Box::new(self.process_expr(*else_expr)?))
+                    Some(Box::new(self.destructure_expr(else_expr)?))
                 }
                 else {
                     None
@@ -399,13 +394,13 @@ impl Context {
                 if pats.len() == 1 {
                     if let Pat::Ident(ident) = &pats[0] {
                         let (expr,op,expr2) = match range {
-                            Range::FromTo(expr1,expr2) => (self.process_expr(*expr1)?,BinaryOp::Less,self.process_expr(*expr2)?),
-                            Range::FromToIncl(expr1,expr2) => (self.process_expr(*expr1)?,BinaryOp::LessEq,self.process_expr(*expr2)?),
+                            Range::FromTo(expr1,expr2) => (self.destructure_expr(expr1)?,BinaryOp::Less,self.destructure_expr(expr2)?),
+                            Range::FromToIncl(expr1,expr2) => (self.destructure_expr(expr1)?,BinaryOp::LessEq,self.destructure_expr(expr2)?),
                             _ => { return Err("for range can only be .. or ..=".to_string()) },
                         };
                         let mut stats = block.stats.clone();
-                        if let Some(expr) = block.expr {
-                            stats.push(Stat::Expr(expr));
+                        if let Some(expr) = &block.expr {
+                            stats.push(Stat::Expr(expr.clone()));
                         }
                         let loop_block = Block {
                             stats,
@@ -428,8 +423,8 @@ impl Context {
                 }
             },
             Expr::WhileLet(pats,expr,block) => {
-                let new_expr = self.process_expr(*expr)?;
-                let mut new_block = self.process_block(block)?;
+                let new_expr = self.destructure_expr(expr)?;
+                let mut new_block = self.destructure_block(block)?;
                 let mut while_block = Block {
                     stats: vec![
                         Stat::Local("scrut",Box::new(Type::Inferred),Box::new(new_expr)),
@@ -450,7 +445,7 @@ impl Context {
                 Ok(Expr::Block(while_block))
             },
             Expr::Match(expr,arms) => {
-                let new_expr = self.process_expr(*expr)?;
+                let new_expr = self.destructure_expr(expr)?;
                 let mut match_block = Block {
                     stats: vec![
                         Stat::Local("scrut",Box::new(Type::Inferred),Box::new(new_expr)),
@@ -461,7 +456,7 @@ impl Context {
                 let mut else_expr: Option<Box<Expr>> = None;
                 for (pats,_,expr) in arms {
                     // TODO: consider if_expr
-                    let new_expr = self.process_expr(*expr)?;
+                    let new_expr = self.destructure_expr(expr)?;
                     if let Some(condition) = self.make_pats_bool(&pats,"scrut")? {
                         let arm_block = Block {
                             stats: self.destructure_pats(&pats,"scrut")?,
@@ -490,17 +485,17 @@ impl Context {
                 Ok(Expr::Block(match_block))
             },
             Expr::Ident(ident) => Ok(Expr::Ident(ident)),
-            Expr::TupleOrCall(ident,exprs) => {
+            Expr::TupleOrFunction(ident,exprs) => {
                 let mut new_exprs: Vec<Expr> = Vec::new();
                 for expr in exprs.iter() {
-                    new_exprs.push(self.process_expr(expr.clone())?);
+                    new_exprs.push(self.destructure_expr(expr)?);
                 }
-                Ok(Expr::TupleOrCall(ident,new_exprs))
+                Ok(Expr::TupleOrFunction(ident,new_exprs))
             },
             Expr::Struct(ident,fields) => {
                 let mut new_fields: Vec<(&'static str,Expr)> = Vec::new();
                 for (ident,expr) in fields {
-                    new_fields.push((ident.clone(),self.process_expr(expr)?));
+                    new_fields.push((ident.clone(),self.destructure_expr(expr)?));
                 }
                 Ok(Expr::Struct(ident,new_fields))
             },
@@ -510,138 +505,166 @@ impl Context {
                     VariantExpr::Tuple(exprs) => {
                         let mut new_exprs: Vec<Expr> = Vec::new();
                         for expr in exprs.iter() {
-                            new_exprs.push(self.process_expr(expr.clone())?);
+                            new_exprs.push(self.destructure_expr(expr)?);
                         }
                         VariantExpr::Tuple(new_exprs)
                     },
                     VariantExpr::Struct(fields) => {
                         let mut new_fields: Vec<(&'static str,Expr)> = Vec::new();
                         for (ident,expr) in fields {
-                            new_fields.push((ident,self.process_expr(expr)?));
+                            new_fields.push((ident,self.destructure_expr(expr)?));
                         }
                         VariantExpr::Struct(new_fields)
                     },
                 };
                 Ok(Expr::Variant(enum_ident,variant_ident,new_variant_expr))
             },
-            Expr::Method(from_expr,ident,exprs) => {
-                let new_from_expr = self.process_expr(*from_expr)?;
+            Expr::MethodRef(from_expr,ident,exprs) => {
+                let new_from_expr = self.destructure_expr(from_expr)?;
                 let mut new_exprs: Vec<Expr> =Vec::new();
                 for expr in exprs {
-                    new_exprs.push(self.process_expr(expr)?);
+                    new_exprs.push(self.destructure_expr(expr)?);
                 }
-                Ok(Expr::Method(Box::new(new_from_expr),ident,new_exprs))
+                Ok(Expr::MethodRef(Box::new(new_from_expr),ident,new_exprs))
             },
             Expr::Field(expr,ident) => {
-                let new_expr = self.process_expr(*expr)?;
+                let new_expr = self.destructure_expr(expr)?;
                 Ok(Expr::Field(Box::new(new_expr),ident))
             },
             Expr::TupleIndex(expr,index) => {
-                let new_expr = self.process_expr(*expr)?;
-                Ok(Expr::TupleIndex(Box::new(new_expr),index))
+                let new_expr = self.destructure_expr(expr)?;
+                Ok(Expr::TupleIndex(Box::new(new_expr),*index))
             },
         
+            Expr::TupleRef(ident,exprs) => {
+                let mut new_exprs: Vec<Expr> = Vec::new();
+                for expr in exprs.iter() {
+                    new_exprs.push(self.destructure_expr(expr)?);
+                }
+                Ok(Expr::TupleRef(ident,new_exprs))
+            },
+            Expr::FunctionRef(ident,exprs) => {
+                let mut new_exprs: Vec<Expr> = Vec::new();
+                for expr in exprs.iter() {
+                    new_exprs.push(self.destructure_expr(expr)?);
+                }
+                Ok(Expr::FunctionRef(ident,new_exprs))
+            },
+            Expr::StructRef(ident,exprs) => {
+                let mut new_exprs: Vec<Expr> = Vec::new();
+                for expr in exprs.iter() {
+                    new_exprs.push(self.destructure_expr(expr)?);
+                }
+                Ok(Expr::StructRef(ident,new_exprs))
+            },
+            Expr::AnonTupleRef(index,exprs) => {
+                let mut new_exprs: Vec<Expr> = Vec::new();
+                for expr in exprs.iter() {
+                    new_exprs.push(self.destructure_expr(expr)?);
+                }
+                Ok(Expr::AnonTupleRef(*index,new_exprs))
+            },
+            Expr::ConstRef(ident) => Ok(Expr::ConstRef(ident)),
+            Expr::LocalOrParamRef(ident) => Ok(Expr::LocalOrParamRef(ident)),
             Expr::Discriminant(expr,index) => {
-                let new_expr = self.process_expr(*expr)?;
-                Ok(Expr::Discriminant(Box::new(new_expr),index))
+                let new_expr = self.destructure_expr(expr)?;
+                Ok(Expr::Discriminant(Box::new(new_expr),*index))
             },
             Expr::DestructTuple(expr,variant_index,index) => {
-                let new_expr = self.process_expr(*expr)?;
-                Ok(Expr::DestructTuple(Box::new(new_expr),variant_index,index))
+                let new_expr = self.destructure_expr(expr)?;
+                Ok(Expr::DestructTuple(Box::new(new_expr),*variant_index,*index))
             },
             Expr::DestructStruct(expr,variant_index,index) => {
-                let new_expr = self.process_expr(*expr)?;
-                Ok(Expr::DestructStruct(Box::new(new_expr),variant_index,index))
+                let new_expr = self.destructure_expr(expr)?;
+                Ok(Expr::DestructStruct(Box::new(new_expr),*variant_index,*index))
             },
         }
-    }
-
-    pub fn process_module(module: Module) -> Result<Module,String> {
-        let stdlib = StandardLib::new();
-        let context = Context {
-            consts: module.consts.clone(),
-            stdlib_consts: stdlib.consts.clone(),
-        };
-        let mut new_structs: HashMap<&'static str,Struct> = HashMap::new();
-        for struct_ in module.structs.values() {
-            let mut new_fields: Vec<(&'static str,Type)> = Vec::new();
-            for field in struct_.fields.iter() {
-                new_fields.push((field.0,context.process_type(field.1.clone())?));
-            }
-            new_structs.insert(struct_.ident,Struct { ident: struct_.ident,fields: new_fields, });
-        }
-        let mut new_extern_structs: HashMap<&'static str,Struct> = HashMap::new();
-        for struct_ in module.extern_structs.values() {
-            let mut new_fields: Vec<(&'static str,Type)> = Vec::new();
-            for field in struct_.fields.iter() {
-                new_fields.push((field.0,context.process_type(field.1.clone())?));
-            }
-            new_extern_structs.insert(struct_.ident,Struct { ident: struct_.ident,fields: new_fields, });
-        }
-        let mut new_enums: HashMap<&'static str,Enum> = HashMap::new();
-        for enum_ in module.enums.values() {
-            let mut new_variants: Vec<(&'static str,Variant)> = Vec::new();
-            for (variant_ident,variant) in enum_.variants.iter() {
-                match variant {
-                    Variant::Naked => new_variants.push((variant_ident,Variant::Naked)),
-                    Variant::Tuple(types) => {
-                        let mut new_types: Vec<Type> = Vec::new();
-                        for type_ in types.iter() {
-                            new_types.push(context.process_type(type_.clone())?);
-                        }
-                        new_variants.push((variant_ident,Variant::Tuple(new_types)));
-                    },
-                    Variant::Struct(fields) => {
-                        let mut new_fields: Vec<(&'static str,Type)> = Vec::new();
-                        for (ident,type_) in fields.iter() {
-                            new_fields.push((ident,context.process_type(type_.clone())?));
-                        }
-                        new_variants.push((variant_ident,Variant::Struct(new_fields)));
-                    }
-                }   
-            }
-            new_enums.insert(enum_.ident,Enum { ident: enum_.ident,variants: new_variants,});
-        }
-        let mut new_aliases: HashMap<&'static str,Alias> = HashMap::new();
-        for alias in module.aliases.values() {
-            let new_type = context.process_type(alias.type_.clone())?;
-            new_aliases.insert(alias.ident,Alias { ident: alias.ident,type_: new_type, });
-        }
-        let mut new_consts: HashMap<&'static str,Const> = HashMap::new();
-        for const_ in module.consts.values() {
-            let new_expr = context.process_expr(const_.expr.clone())?;
-            let new_type = context.process_type(const_.type_.clone())?;
-            new_consts.insert(const_.ident,Const { ident: const_.ident,type_: new_type,expr: new_expr, });
-        }
-        let mut new_functions: HashMap<&'static str,Function> = HashMap::new();
-        for function in module.functions.values() {
-            let mut new_params: Vec<(&'static str,Type)> = Vec::new();
-            for param in function.params.iter() {
-                new_params.push((param.0,context.process_type(param.1.clone())?));
-            }
-            let new_return_type = context.process_type(function.return_type.clone())?;
-            let new_block = context.process_block(function.block.clone())?;
-            new_functions.insert(function.ident,Function {
-                ident: function.ident,
-                params: new_params,
-                return_type: new_return_type,
-                block: new_block,
-            });
-        }
-        Ok(Module {
-            ident: module.ident,
-            structs: new_structs,
-            extern_structs: new_extern_structs,
-            enums: new_enums,
-            aliases: new_aliases,
-            consts: new_consts,
-            functions: new_functions,
-
-            anon_tuple_structs: Vec::new(),
-        })
     }
 }
 
-pub fn destructure_module(module: Module) -> Result<Module,String> {
-    Context::process_module(module)
+pub fn destructure_module(module: &PreparedModule) -> Result<DestructuredModule,String> {
+    let stdlib = StandardLib::new();
+    let context = Context {
+        consts: module.consts.clone(),
+        stdlib_consts: stdlib.consts.clone(),
+    };
+    let mut new_tuples: Vec<Tuple> = Vec::new();
+    for tuple in module.tuples.iter() {
+        let mut new_types: Vec<Type> = Vec::new();
+        for type_ in tuple.types.iter() {
+            new_types.push(context.destructure_type(type_)?);
+        }
+        new_tuples.push(Tuple { ident: tuple.ident,types: new_types, });
+    }
+    let mut new_structs: Vec<Struct> = Vec::new();
+    for struct_ in module.structs.iter() {
+        let mut new_fields: Vec<(&'static str,Type)> = Vec::new();
+        for (ident,type_) in struct_.fields.iter() {
+            new_fields.push((ident,context.destructure_type(type_)?));
+        }
+        new_structs.push(Struct { ident: struct_.ident,fields: new_fields, });
+    }
+    let mut new_extern_structs: Vec<Struct> = Vec::new();
+    for struct_ in module.extern_structs.iter() {
+        let mut new_fields: Vec<(&'static str,Type)> = Vec::new();
+        for (ident,type_) in struct_.fields.iter() {
+            new_fields.push((ident,context.destructure_type(type_)?));
+        }
+        new_extern_structs.push(Struct { ident: struct_.ident,fields: new_fields, });
+    }
+    let mut new_enums: Vec<Enum> = Vec::new();
+    for enum_ in module.enums.iter() {
+        let mut new_variants: Vec<(&'static str,Variant)> = Vec::new();
+        for (variant_ident,variant) in enum_.variants.iter() {
+            match variant {
+                Variant::Naked => new_variants.push((variant_ident,Variant::Naked)),
+                Variant::Tuple(types) => {
+                    let mut new_types: Vec<Type> = Vec::new();
+                    for type_ in types.iter() {
+                        new_types.push(context.destructure_type(type_)?);
+                    }
+                    new_variants.push((variant_ident,Variant::Tuple(new_types)));
+                },
+                Variant::Struct(fields) => {
+                    let mut new_fields: Vec<(&'static str,Type)> = Vec::new();
+                    for (ident,type_) in fields.iter() {
+                        new_fields.push((ident,context.destructure_type(type_)?));
+                    }
+                    new_variants.push((variant_ident,Variant::Struct(new_fields)));
+                }
+            }   
+        }
+        new_enums.push(Enum { ident: enum_.ident,variants: new_variants,});
+    }
+    let mut new_consts: Vec<Const> = Vec::new();
+    for const_ in module.consts.iter() {
+        let new_expr = context.destructure_expr(&const_.expr)?;
+        let new_type = context.destructure_type(&const_.type_)?;
+        new_consts.push(Const { ident: const_.ident,type_: new_type,expr: new_expr, });
+    }
+    let mut new_functions: Vec<Function> = Vec::new();
+    for function in module.functions.iter() {
+        let mut new_params: Vec<(&'static str,Type)> = Vec::new();
+        for (ident,type_) in function.params.iter() {
+            new_params.push((ident,context.destructure_type(type_)?));
+        }
+        let new_return_type = context.destructure_type(&function.return_type)?;
+        let new_block = context.destructure_block(&function.block)?;
+        new_functions.push(Function {
+            ident: function.ident,
+            params: new_params,
+            return_type: new_return_type,
+            block: new_block,
+        });
+    }
+    Ok(DestructuredModule {
+        ident: module.ident,
+        tuples: new_tuples,
+        structs: new_structs,
+        extern_structs: new_extern_structs,
+        enums: new_enums,
+        consts: new_consts,
+        functions: new_functions,
+        anon_tuple_types: module.anon_tuple_types.clone(),
+    })
 }

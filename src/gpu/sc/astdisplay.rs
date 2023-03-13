@@ -514,6 +514,9 @@ impl Display for Expr {
             },
             Expr::ConstRef(ident) => write!(f,"{}",ident),
             Expr::LocalOrParamRef(ident) => write!(f,"{}",ident),
+            Expr::Discriminant(expr,variant_index) => write!(f,"{}::<{}>?",expr,variant_index),
+            Expr::DestructTuple(expr,variant_index,index) => write!(f,"{}::<{}>.{}",expr,variant_index,index),
+            Expr::DestructStruct(expr,variant_index,index) => write!(f,"{}::<{}>.{}",expr,variant_index,index),
         }
     }
 }
@@ -696,13 +699,47 @@ impl Display for PreparedModule {
                 write!(f,"f{}: {}",k,self.anon_tuple_types[i][k])?;
                 first = false;
             }
-            write!(f," }};\n");
+            write!(f," }};\n")?;
         }
         for enum_ in self.enums.iter() {
             write!(f,"{};\n",enum_)?;
         }
-        for alias in self.aliases.iter() {
-            write!(f,"{};\n",alias)?;
+        for const_ in self.consts.iter() {
+            write!(f,"{};\n",const_)?;
+        }
+        for function in self.functions.iter() {
+            write!(f,"{};\n",function)?;
+        }
+        write!(f,"}}")
+    }
+}
+
+impl Display for DestructuredModule {
+    fn fmt(&self,f: &mut Formatter) -> Result {
+        write!(f,"mod {} {{\n",self.ident)?;
+        for tuple in self.tuples.iter() {
+            write!(f,"{};\n",tuple)?;
+        }
+        for struct_ in self.structs.iter() {
+            write!(f,"{};\n",struct_)?;
+        }
+        for struct_ in self.extern_structs.iter() {
+            write!(f,"{};\n",struct_)?;
+        }
+        for i in 0..self.anon_tuple_types.len() {
+            write!(f,"struct Anon{:05} {{ ",i)?;
+            let mut first = true;
+            for k in 0..self.anon_tuple_types[i].len() {
+                if !first {
+                    write!(f,",")?;
+                }
+                write!(f,"f{}: {}",k,self.anon_tuple_types[i][k])?;
+                first = false;
+            }
+            write!(f," }};\n")?;
+        }
+        for enum_ in self.enums.iter() {
+            write!(f,"{};\n",enum_)?;
         }
         for const_ in self.consts.iter() {
             write!(f,"{};\n",const_)?;

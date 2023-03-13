@@ -9,8 +9,8 @@ pub use stdlib::*;
 mod prepare;
 pub use prepare::*;
 
-//mod destructure;
-//pub use destructure::*;
+mod destructure;
+pub use destructure::*;
 
 //mod deenumify;
 //pub use deenumify::*;

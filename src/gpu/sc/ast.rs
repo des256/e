@@ -303,6 +303,15 @@ pub enum Expr {
 
     // prepare: temporary node for local or parameter variable references
     LocalOrParamRef(&'static str),
+
+    // destructure: discriminant for enums, this is a boolean test to check which variant an enum is
+    Discriminant(Box<Expr>,usize),
+
+    // destructure: destructure tuple variant, this is an index into the tuple variant
+    DestructTuple(Box<Expr>,usize,usize),
+
+    // destructure: destructure struct variant, this is an index into the struct variant
+    DestructStruct(Box<Expr>,usize,usize),
 }
 
 // ast::Stat describes statement expressions that appear in blocks
@@ -450,7 +459,17 @@ pub struct PreparedModule {
     pub structs: Vec<Struct>,
     pub extern_structs: Vec<Struct>,
     pub enums: Vec<Enum>,
-    pub aliases: Vec<Alias>,
+    pub consts: Vec<Const>,
+    pub functions: Vec<Function>,
+    pub anon_tuple_types: Vec<Vec<Type>>,
+}
+
+pub struct DestructuredModule {
+    pub ident: &'static str,
+    pub tuples: Vec<Tuple>,
+    pub structs: Vec<Struct>,
+    pub extern_structs: Vec<Struct>,
+    pub enums: Vec<Enum>,
     pub consts: Vec<Const>,
     pub functions: Vec<Function>,
     pub anon_tuple_types: Vec<Vec<Type>>,

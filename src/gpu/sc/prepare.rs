@@ -1,6 +1,9 @@
 use {
     super::*,
-    std::cmp::PartialEq,
+    std::{
+        cell::RefCell,
+        cmp::PartialEq,
+    },
 };
 
 // - convert aliases to their types
@@ -101,7 +104,7 @@ impl PartialEq for Type {
 struct Context {
     pub stdlib: StandardLib,
     pub module: Module,
-    pub anon_tuple_types: Vec<Vec<Type>>,
+    pub anon_tuple_types: RefCell<Vec<Vec<Type>>>,
 }
 
 impl Context {
@@ -109,19 +112,20 @@ impl Context {
     fn prepare_type(&self,type_: &Type) -> Result<Type,String> {
 
         match type_ {
-            
+
             // convert anonymous tuple type into a struct that can be referenced by unique index
             Type::AnonTuple(types) => {
+                let mut anon_tuple_types = self.anon_tuple_types.borrow_mut();
                 let mut new_types: Vec<Type> = Vec::new();
                 for type_ in types.iter() {
                     new_types.push(self.prepare_type(type_)?);
                 }
                 let mut found_index: Option<usize> = None;
-                for i in 0..self.anon_tuple_types.len() {
-                    if self.anon_tuple_types[i].len() == types.len() {
+                for i in 0..anon_tuple_types.len() {
+                    if anon_tuple_types[i].len() == types.len() {
                         let mut all_types_match = true;
                         for k in 0..types.len() {
-                            if self.anon_tuple_types[i][k] != new_types[k] {
+                            if anon_tuple_types[i][k] != new_types[k] {
                                 all_types_match = false;
                                 break;
                             }
@@ -136,8 +140,8 @@ impl Context {
                     Ok(Type::AnonTupleRef(index))
                 }
                 else {
-                    let index = self.anon_tuple_types.len();
-                    self.anon_tuple_types.push(new_types);
+                    let index = anon_tuple_types.len();
+                    anon_tuple_types.push(new_types);
                     Ok(Type::AnonTupleRef(index))
                 }
             },
@@ -151,31 +155,31 @@ impl Context {
             Type::Ident(ident) => {
                 let found_alias = self.module.aliases.iter().find(|alias| &alias.ident == ident);
                 if let Some(alias) = found_alias {
-                    return Ok(alias.type_);
+                    return Ok(alias.type_.clone());
                 }
                 let found_struct = self.module.structs.iter().find(|struct_| &struct_.ident == ident);
                 if let Some(struct_) = found_struct {
-                    return Ok(Type::StructRef(ident));
+                    return Ok(Type::StructRef(struct_.ident));
                 }
                 let found_tuple = self.module.tuples.iter().find(|tuple| &tuple.ident == ident);
                 if let Some(tuple) = found_tuple {
-                    return Ok(Type::TupleRef(ident));
+                    return Ok(Type::TupleRef(tuple.ident));
                 }
                 let found_enum = self.module.enums.iter().find(|enum_| &enum_.ident == ident);
                 if let Some(enum_) = found_enum {
-                    return Ok(Type::EnumRef(ident));
+                    return Ok(Type::EnumRef(enum_.ident));
                 }
                 let found_struct = self.stdlib.structs.iter().find(|struct_| &struct_.ident == ident);
                 if let Some(struct_) = found_struct {
-                    return Ok(Type::StructRef(ident));
+                    return Ok(Type::StructRef(struct_.ident));
                 }
                 let found_tuple = self.stdlib.tuples.iter().find(|tuple| &tuple.ident == ident);
                 if let Some(tuple) = found_tuple {
-                    return Ok(Type::TupleRef(ident));
+                    return Ok(Type::TupleRef(tuple.ident));
                 }
                 let found_enum = self.stdlib.enums.iter().find(|enum_| &enum_.ident == ident);
                 if let Some(enum_) = found_enum {
-                    return Ok(Type::EnumRef(ident));
+                    return Ok(Type::EnumRef(enum_.ident));
                 }
 
                 else {
@@ -331,10 +335,11 @@ impl Context {
             },
 
             Expr::AnonTuple(exprs) => if let Type::AnonTupleRef(index) = expected_type {
-                if self.anon_tuple_types[*index].len() == exprs.len() {
+                let anon_tuple_types = self.anon_tuple_types.borrow();
+                if anon_tuple_types[*index].len() == exprs.len() {
                     let mut new_exprs: Vec<Expr> = Vec::new();
                     for i in 0..exprs.len() {
-                        new_exprs.push(self.prepare_expr(&exprs[i],&self.anon_tuple_types[*index][i])?);
+                        new_exprs.push(self.prepare_expr(&exprs[i],&anon_tuple_types[*index][i])?);
                     }
                     Ok(Expr::AnonTupleRef(*index,new_exprs))
                 }
@@ -673,6 +678,12 @@ impl Context {
             Expr::ConstRef(ident) => Ok(Expr::ConstRef(ident)),
 
             Expr::LocalOrParamRef(ident) => Ok(Expr::LocalOrParamRef(ident)),
+
+            Expr::Discriminant(expr,index) => Ok(Expr::Discriminant(expr.clone(),*index)),
+
+            Expr::DestructTuple(expr,variant_index,index) => Ok(Expr::DestructTuple(expr.clone(),*variant_index,*index)),
+
+            Expr::DestructStruct(expr,variant_index,index) => Ok(Expr::DestructStruct(expr.clone(),*variant_index,*index)),
         }
     }
 }
@@ -682,7 +693,7 @@ pub fn prepare_module(module: &Module) -> Result<PreparedModule,String> {
     let mut context = Context {
         stdlib: StandardLib::new(),
         module: module.clone(),
-        anon_tuple_types: Vec::new(),
+        anon_tuple_types: RefCell::new(Vec::new()),
     };
 
     // create aliases with final type
@@ -698,7 +709,8 @@ pub fn prepare_module(module: &Module) -> Result<PreparedModule,String> {
                 break;
             }
         }
-        aliases.push(Alias { ident: alias.ident,type_: type_.clone(), });
+        let type_ = context.prepare_type(type_)?;
+        aliases.push(Alias { ident: alias.ident,type_, });
     }
     context.module.aliases = aliases;
 
@@ -764,7 +776,7 @@ pub fn prepare_module(module: &Module) -> Result<PreparedModule,String> {
     context.module.enums = enums;
 
     // prepare consts
-    let consts: Vec<Const> = Vec::new();
+    let mut consts: Vec<Const> = Vec::new();
     for const_ in context.module.consts.iter() {
         let new_type = context.prepare_type(&const_.type_)?;
         let new_expr = context.prepare_expr(&const_.expr,&new_type)?;
@@ -773,14 +785,14 @@ pub fn prepare_module(module: &Module) -> Result<PreparedModule,String> {
     context.module.consts = consts;
 
     // prepare functions
-    let functions: Vec<Function> = Vec::new();
+    let mut functions: Vec<Function> = Vec::new();
     for function in context.module.functions.iter() {
         let mut new_params: Vec<(&'static str,Type)> = Vec::new();
-        for (ident,type_) in function.params {
+        for (ident,type_) in function.params.iter() {
             new_params.push((ident,context.prepare_type(&type_)?));
         }
         let new_return_type = context.prepare_type(&function.return_type)?;
-        let new_block = context.prepare_block(&function.block,&function.return_type)?;
+        let new_block = context.prepare_block(&function.block,&new_return_type)?;
         functions.push(Function { ident: function.ident,params: new_params,return_type: new_return_type,block: new_block, });
     }
     context.module.functions = functions;
@@ -791,9 +803,8 @@ pub fn prepare_module(module: &Module) -> Result<PreparedModule,String> {
         structs: context.module.structs,
         extern_structs: context.module.extern_structs,
         enums: context.module.enums,
-        aliases: context.module.aliases,
         consts: context.module.consts,
         functions: context.module.functions,
-        anon_tuple_types: context.anon_tuple_types,    
+        anon_tuple_types: context.anon_tuple_types.into_inner(),
     })
 }

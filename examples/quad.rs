@@ -17,7 +17,9 @@ struct MyVertex {
 
 #[vertex_shader]
 mod quad_vs {
-    fn main(vertex: MyVertex) -> (Vec4<f32>,Vec3<f32>) {
+    type OutputToFS = Vectorz;
+    type Vectorz = (Vec4<f32>,Vec3<f32>);
+    fn main(vertex: MyVertex) -> OutputToFS {
         (vertex.pos,vertex.color)
     }
 }

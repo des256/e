@@ -88,7 +88,7 @@ impl Render for Type {
             Type::Mat4x4F64 => "Type::Mat4x4F64".to_string(),
             Type::AnonTuple(types) => format!("Type::AnonTuple({})",types.render()),
             Type::Array(type_,count) => format!("Type::Array(Box::new({}),{})",type_.render(),count),
-            Type::Ident(ident) => format!("Type::IdentRef(\"{}\")",ident),
+            Type::Ident(ident) => format!("Type::Ident(\"{}\")",ident),
         }
     }
 }

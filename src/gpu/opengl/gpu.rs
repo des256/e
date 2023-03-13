@@ -170,10 +170,10 @@ impl gpu::Gpu for Gpu {
     fn create_vertex_shader(self: &Rc<Self>,ast: &gpu::sc::Module) -> Result<VertexShader,String> {
 
         dprintln!("OpenGL Vertex Shader AST:\n{}",ast);
-
         let ast = gpu::sc::prepare_module(ast)?;
-
         dprintln!("OpenGL Vertex Shader AST after preparing:\n{}",ast);
+        let ast = gpu::sc::destructure_module(&ast)?;
+        dprintln!("OpenGL Vertex Shader AST after destructuring:\n{}",ast);
 
         //let module = resolve(ast);
 
@@ -206,10 +206,10 @@ impl gpu::Gpu for Gpu {
     fn create_fragment_shader(self: &Rc<Self>,ast: &gpu::sc::Module) -> Result<FragmentShader,String> {
 
         dprintln!("OpenGL Fragment Shader AST:\n{}",ast);
-
         let ast = gpu::sc::prepare_module(ast)?;
-
         dprintln!("OpenGL Fragment Shader AST after preparing:\n{}",ast);
+        let ast = gpu::sc::destructure_module(&ast)?;
+        dprintln!("OpenGL Fragment Shader AST after destructuring:\n{}",ast);
 
         //let module = resolve(ast);
 
