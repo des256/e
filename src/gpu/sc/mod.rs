@@ -12,8 +12,8 @@ pub use prepare::*;
 mod destructure;
 pub use destructure::*;
 
-//mod deenumify;
-//pub use deenumify::*;
+mod deenumify;
+pub use deenumify::*;
 
 mod tac;
 pub use tac::*;

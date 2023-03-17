@@ -181,10 +181,7 @@ impl Context {
                 if let Some(enum_) = found_enum {
                     return Ok(Type::EnumRef(enum_.ident));
                 }
-
-                else {
-                    Ok(Type::Ident(ident))
-                }
+                Err(format!("Unknown identifier {}",ident))
             },
 
             // everything else is fine as it is

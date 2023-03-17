@@ -484,21 +484,9 @@ impl Context {
                 match_block.expr = Some(Box::new(*result_expr.unwrap()));
                 Ok(Expr::Block(match_block))
             },
-            Expr::Ident(ident) => Ok(Expr::Ident(ident)),
-            Expr::TupleOrFunction(ident,exprs) => {
-                let mut new_exprs: Vec<Expr> = Vec::new();
-                for expr in exprs.iter() {
-                    new_exprs.push(self.destructure_expr(expr)?);
-                }
-                Ok(Expr::TupleOrFunction(ident,new_exprs))
-            },
-            Expr::Struct(ident,fields) => {
-                let mut new_fields: Vec<(&'static str,Expr)> = Vec::new();
-                for (ident,expr) in fields {
-                    new_fields.push((ident.clone(),self.destructure_expr(expr)?));
-                }
-                Ok(Expr::Struct(ident,new_fields))
-            },
+            Expr::Ident(_) => Err("Expr::Ident should not exist in destructure pass".to_string()),
+            Expr::TupleOrFunction(_,_) => Err("Expr::TupleOrFunction should not exist in destructure pass".to_string()),
+            Expr::Struct(ident,fields) => Err("Expr::Struct should not exist in destructure pass".to_string()),
             Expr::Variant(enum_ident,variant_ident,variant_expr) => {
                 let new_variant_expr = match variant_expr {
                     VariantExpr::Naked => VariantExpr::Naked,
