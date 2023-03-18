@@ -83,3 +83,9 @@ pub use rect::*;
 
 mod pose;
 pub use pose::*;
+
+mod pixel;
+pub use pixel::*;
+
+mod image;
+pub use image::*;

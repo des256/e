@@ -80,7 +80,7 @@ impl Component {
     }
 }
 
-fn decode_pixels<T: Pixel>(dst: &mut Mat<T>,src: &[u8],width: usize,height: usize,bottom_up: bool,itype: Type,palette: &[T; 256],redmask: u32,greenmask: u32,bluemask: u32,alphamask: u32) {
+fn decode_pixels<T: Pixel>(dst: &mut Image<T>,src: &[u8],width: usize,height: usize,bottom_up: bool,itype: Type,palette: &[T; 256],redmask: u32,greenmask: u32,bluemask: u32,alphamask: u32) {
     let red = Component::new(redmask);
     let green = Component::new(greenmask);
     let blue = Component::new(bluemask);
@@ -517,7 +517,7 @@ pub fn test(src: &[u8]) -> Option<(u32,u32)> {
     None
 }
 
-pub fn decode<T: Pixel + Default>(src: &[u8]) -> Option<Mat<T>> {
+pub fn decode<T: Pixel + Default>(src: &[u8]) -> Option<Image<T>> {
     let tag = from_le16(&src[0..2]);
     if (tag != 0x4D42) &&
         (tag != 0x4142) &&
@@ -669,7 +669,7 @@ pub fn decode<T: Pixel + Default>(src: &[u8]) -> Option<Mat<T>> {
             _ => { },
         }
     }
-    let mut image = Mat::<T>::new(Vec2::<usize> { x: width,y: height, });
+    let mut image = Image::<T>::new(width,height);
     decode_pixels(&mut image,&src[offset as usize..],width,height,bottom_up,itype,&palette,redmask,greenmask,bluemask,alphamask);
     Some(image)
 }
