@@ -8,7 +8,7 @@ use {
 
 //pub mod bmp;
 //pub mod png;
-pub mod jpeg_old;
+pub mod jpeg;
 
 #[allow(dead_code)]
 pub fn test(src: &[u8]) -> Option<(u32,u32)> {
@@ -19,7 +19,7 @@ pub fn test(src: &[u8]) -> Option<(u32,u32)> {
     //    Some(size)
     //}
     //else
-    if let Some(size) = jpeg_old::test(src) {
+    if let Some(size) = jpeg::test(src) {
         Some(size)
     }
     else {
@@ -36,7 +36,7 @@ pub fn decode<T: Pixel + Default>(src: &[u8]) -> Option<Image<T>> {
     //    Some(image)
     //}
     //else
-    if let Ok(image) = jpeg_old::decode::<T>(src) {
+    if let Ok(image) = jpeg::decode::<T>(src) {
         Some(image)
     }
     else {

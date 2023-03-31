@@ -6,8 +6,8 @@ mod astdisplay;
 mod stdlib;
 pub use stdlib::*;
 
-mod prepare;
-pub use prepare::*;
+mod pass1;
+pub use pass1::*;
 
 //mod destructure;
 //pub use destructure::*;

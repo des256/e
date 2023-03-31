@@ -148,6 +148,34 @@ impl<'a> Reader<'a> {
     }
 }
 
+const FC0: f32 = 1.0;
+const FC1: f32 = 0.98078528;
+const FC2: f32 = 0.92387953;
+const FC3: f32 = 0.83146961;
+const FC4: f32 = 0.70710678;
+const FC5: f32 = 0.55557023;
+const FC6: f32 = 0.38268343;
+const FC7: f32 = 0.19509032;
+
+const FIX: u8 = 8;
+const ONE: f32 = (1 << FIX) as f32;
+const C0: i32 = (FC0 * ONE) as i32;
+const C1: i32 = (FC1 * ONE) as i32;
+const C2: i32 = (FC2 * ONE) as i32;
+const C3: i32 = (FC3 * ONE) as i32;
+const C4: i32 = (FC4 * ONE) as i32;
+const C5: i32 = (FC5 * ONE) as i32;
+const C6: i32 = (FC6 * ONE) as i32;
+const C7: i32 = (FC7 * ONE) as i32;
+
+const C7PC1: i32 = C7 + C1;
+const C5PC3: i32 = C5 + C3;
+const C7MC1: i32 = C7 - C1;
+const C5MC3: i32 = C5 - C3;
+const C0S: i32 = (C0 >> 1);
+const C6PC2: i32 = C6 + C2;
+const C6MC2: i32 = C6 - C2;
+
 const FOLDING: [usize; 64] = [
 	56,57,8,40,9,58,59,10,
 	41,0,48,1,42,11,60,61,
@@ -202,6 +230,7 @@ impl<'a> Context<'a> {
         reader: Reader,
         dc_tables: [Table; 4],
         ac_tables: [Table; 4],
+        q_tables: [[i32; 64]; 4],
         channels: [Channel; 3],
         prog: Prog,
         mask: u8,
@@ -213,6 +242,7 @@ impl<'a> Context<'a> {
             reader,
             dc_tables,
             ac_tables,
+            q_tables,
             channels,
             prog,
             mask,
@@ -395,71 +425,6 @@ impl<'a> Context<'a> {
             }
             else {
                 self.read_prog_start_ac(coeffs,c);
-            }
-        }
-    }
-
-    pub fn process_seq_macroblock(&mut self) {
-        let mut coeffs: [i32; 64];
-        match self.type_ {
-            Type::Y => {
-                if (self.mask & 1) != 0 {
-                    self.read_seq(coeffs,c);
-                    self.convert_block(&coeffs[0..64],&y[0..64],0);
-
-                    // TODO: roughly here
-                }
-            },
-            Type::YUV420 => {
-                if (self.mask & 1) != 0 {
-                    self.read_block(&mut coeffs[0..64],refine,0);
-                    self.read_block(&mut coeffs[64..128],refine,0);
-                    self.read_block(&mut coeffs[128..192],refine,0);
-                    self.read_block(&mut coeffs[192..256],refine,0);
-                }
-                if (self.mask & 2) != 0 {
-                    self.read_block(&mut coeffs[256..320],refine,1);
-                }
-                if (self.mask & 4) != 0 {
-                    self.read_block(&mut coeffs[320..384],refine,2);
-                }
-            },
-            Type::YUV422 | Type::YUV440 => {
-                if (self.mask & 1) != 0 {
-                    self.read_block(&mut coeffs[0..64],refine,0);
-                    self.read_block(&mut coeffs[64..128],refine,0);
-                }
-                if (self.mask & 2) != 0 {
-                    self.read_block(&mut coeffs[128..192],refine,1);
-                }
-                if (self.mask & 4) != 0 {
-                    self.read_block(&mut coeffs[192..256],refine,2);
-                }
-            },
-            Type::YUV444 | Type::RGB444 => {
-                if (self.mask & 1) != 0 {
-                    self.read_block(&mut coeffs[0..64],refine,0);
-                }
-                if (self.mask & 2) != 0 {
-                    self.read_block(&mut coeffs[64..128],refine,1);
-                }
-                if (self.mask & 4) != 0 {
-                    self.read_block(&mut coeffs[128..192],refine,2);
-                }
-            },
-        }
-        if self.resint != 0 {
-            self.rescnt -= 1;
-            if self.rescnt == 0 {
-                let mut tsp = self.reader.leave();
-                if (self.reader.block[tsp] == 0xFF) && ((self.reader.block[tsp + 1] >= 0xD0) && (self.reader.block[tsp + 1] < 0xD8)) {
-                    tsp += 2;
-                    self.rescnt = self.resint;
-                    self.channels[0].dc = 0;
-                    self.channels[1].dc = 0;
-                    self.channels[2].dc = 0;
-                }
-                self.reader.enter(tsp);
             }
         }
     }
@@ -662,54 +627,54 @@ impl<'a> Context<'a> {
         for i in 0..64 {
             temp1[i] = coeffs[i] * self.q_tables[self.channels[c].qt][i];
         }
-        partial_idct(&mut temp2,&temp1);
-        unswizzle_transpose_swizzle(&mut temp1,&temp2);
-        partial_idct(&mut temp2,&temp1);
-        unswizzle_transpose(values,&temp2);
+        Self::partial_idct(&mut temp2,&temp1);
+        Self::unswizzle_transpose_swizzle(&mut temp1,&temp2);
+        Self::partial_idct(&mut temp2,&temp1);
+        Self::unswizzle_transpose(values,&temp2);
     }
 
-    pub fn convert_macroblock(&mut self,coeffs: &mut [i32],y: &mut [i32],u: &mut [i32],v: &mut [i32]) {
+    pub fn convert_macroblock(&mut self,coeffs: &[i32],values: &mut [i32]) {
         match self.type_ {
             Type::Y => {
                 if (self.mask & 1) != 0 {
-                    self.convert_block(&coeffs[0..64],&y[0..64],0);
+                    self.convert_block(&coeffs[0..64],&mut values[0..64],0);
                 }
             },
             Type::YUV420 => {
                 if (self.mask & 1) != 0 {
-                    self.convert_block(&coeffs[0..64],&y[0..64],0);
-                    self.convert_block(&coeffs[64..128],&y[64..128],0);
-                    self.convert_block(&coeffs[128..192],&y[128..192],0);
-                    self.convert_block(&coeffs[192..256],&y[192..256],0);
+                    self.convert_block(&coeffs[0..64],&mut values[0..64],0);
+                    self.convert_block(&coeffs[64..128],&mut values[64..128],0);
+                    self.convert_block(&coeffs[128..192],&mut values[128..192],0);
+                    self.convert_block(&coeffs[192..256],&mut values[192..256],0);
                 }
                 if (self.mask & 2) != 0 {
-                    self.convert_block(&coeffs[256..320],&u[0..64],1);
+                    self.convert_block(&coeffs[256..320],&mut values[256..320],1);
                 }
                 if (self.mask & 4) != 0 {
-                    self.convert_block(&coeffs[320..384],&v[0..64],2);
+                    self.convert_block(&coeffs[320..384],&mut values[320..384],2);
                 }
             },
             Type::YUV422 | Type::YUV440 => {
                 if (self.mask & 1) != 0 {
-                    self.convert_block(&coeffs[0..64],&y[0..64],0);
-                    self.convert_block(&coeffs[64..128],&y[64..128],0);
+                    self.convert_block(&coeffs[0..64],&values[0..64],0);
+                    self.convert_block(&coeffs[64..128],&values[64..128],0);
                 }
                 if (self.mask & 2) != 0 {
-                    self.convert_block(&coeffs[128..192],&u[0..64],1);
+                    self.convert_block(&coeffs[128..192],&values[128..192],1);
                 }
                 if (self.mask & 4) != 0 {
-                    self.convert_block(&coeffs[192..256],&v[0..64],2);
+                    self.convert_block(&coeffs[192..256],&values[192..256],2);
                 }
             },
             Type::YUV444 | Type::RGB444 => {
                 if (self.mask & 1) != 0 {
-                    self.convert_block(&coeffs[0..64],&y[0..64],0);
+                    self.convert_block(&coeffs[0..64],&values[0..64],0);
                 }
                 if (self.mask & 2) != 0 {
-                    self.convert_block(&coeffs[64..128],&u[0..64],0);
+                    self.convert_block(&coeffs[64..128],&values[64..128],0);
                 }
                 if (self.mask & 4) != 0 {
-                    self.convert_block(&coeffs[128..192],&v[0..64],0);
+                    self.convert_block(&coeffs[128..192],&values[128..192],0);
                 }
             },
         }
@@ -719,7 +684,7 @@ impl<'a> Context<'a> {
         let r = if r < 0 { 0 } else { if r > 255 { 255 } else { r as u8 } };
         let g = if g < 0 { 0 } else { if g > 255 { 255 } else { g as u8 } };
         let b = if b < 0 { 0 } else { if b > 255 { 255 } else { b as u8 } };
-        *image.pixel_mut(usizexy { x: px,y: py, }) = T::new_rgb(r,g,b);
+        image[(px,py)].set(r,g,b,255);
     }
     
     fn draw_yuv<T: Pixel>(image: &mut Image<T>,px: usize,py: usize,y: i32,u: i32,v: i32) {
@@ -728,4 +693,171 @@ impl<'a> Context<'a> {
         let b = ((y << 8) + 454 * u) >> 8;
         draw_rgb(image,px,py,r,g,b);
     }
+
+    fn draw_macroblock<T: Pixel>(&self,image: &mut Image<T>,x0: usize,y0: usize,width: usize,height: usize,values: &[i32]) {
+        match self.type_ {
+            Type::Y => {
+                for i in 0..height {
+                    for k in 0..width {
+                        draw_yuv(image,x0 + k,y0 + i,y[i * 8 + k] + 128,0,0);
+                    }
+                }
+            },
+            Type::YUV420 => {
+                for i in 0..height {
+                    for k in 0..width {
+                        let by = (i >> 3) * 2 + (k >> 3);
+                        let si = i & 7;
+                        let sk = k & 7;
+                        let y = values[by * 64 + si * 8 + sk] + 128;
+                        let hi = i >> 1;
+                        let hk = k >> 1;
+                        let u = values[256 + hi * 8 + hk];
+                        let v = values[320 + hi * 8 + hk];
+                        draw_yuv(image,x0 + k,y0 + i,y,u,v);
+                    }
+                }
+            },
+            Type::YUV422 => {
+                for i in 0..height {
+                    for k in 0..width {
+                        let by = k >> 3;
+                       let sk = k & 7;
+                        let y = values[by * 64 + i * 8 + sk] + 128;
+                        let hk = k >> 1;
+                        let u = values[128 + i * 8 + hk];
+                        let v = values[192 + i * 8 + hk];
+                        draw_yuv(image,x0 + k,y0 + i,y,u,v);
+                    }
+                }            
+            },
+            Type::YUV440 => {
+                for i in 0..height {
+                    for k in 0..width {
+                        let by = i >> 3;
+                        let si = k & 7;
+                        let y = values[by * 64 + si * 8 + k] + 128;
+                        let hi = i >> 1;
+                        let u = values[128 + hi * 8 + k];
+                        let v = values[192 + hi * 8 + k];
+                        draw_yuv(image,x0 + k,y0 + i,y,u,v);
+                    }
+                }            
+            },
+            Type::YUV444 => {
+                for i in 0..height {
+                    for k in 0..width {
+                        let y = values[i * 8 + k] + 128;
+                        let u = values[64 + i * 8 + k];
+                        let v = values[128 + i * 8 + k];
+                        draw_yuv(image,x0 + k,y0 + i,y,u,v);
+                    }
+                }            
+            },
+            Type::RGB444 => {
+                for i in 0..height {
+                    for k in 0..width {
+                        let r = values[i * 8 + k] + 128;
+                        let g = values[64 + i * 8 + k] + 128;
+                        let b = values[128 + i * 8 + k] + 128;
+                        draw_rgb(image,x0 + k,y0 + i,r,g,b);
+                    }
+                }            
+            },
+        }
+    }
+
+    pub fn process_seq_macroblock(&mut self) {
+        let mut coeffs: [i32; 384];
+        let mut values: [i32; 384];
+        match self.type_ {
+            Type::Y => {
+                if (self.mask & 1) != 0 {
+                    self.read_seq(&mut coeffs,c);
+                    self.convert_block(&coeffs[0..64],&mut values[0..64],0);
+                    self.draw_block
+
+                    // TODO: roughly here
+                }
+            },
+            Type::YUV420 => {
+                if (self.mask & 1) != 0 {
+                    self.read_block(&mut coeffs[0..64],refine,0);
+                    self.read_block(&mut coeffs[64..128],refine,0);
+                    self.read_block(&mut coeffs[128..192],refine,0);
+                    self.read_block(&mut coeffs[192..256],refine,0);
+                }
+                if (self.mask & 2) != 0 {
+                    self.read_block(&mut coeffs[256..320],refine,1);
+                }
+                if (self.mask & 4) != 0 {
+                    self.read_block(&mut coeffs[320..384],refine,2);
+                }
+            },
+            Type::YUV422 | Type::YUV440 => {
+                if (self.mask & 1) != 0 {
+                    self.read_block(&mut coeffs[0..64],refine,0);
+                    self.read_block(&mut coeffs[64..128],refine,0);
+                }
+                if (self.mask & 2) != 0 {
+                    self.read_block(&mut coeffs[128..192],refine,1);
+                }
+                if (self.mask & 4) != 0 {
+                    self.read_block(&mut coeffs[192..256],refine,2);
+                }
+            },
+            Type::YUV444 | Type::RGB444 => {
+                if (self.mask & 1) != 0 {
+                    self.read_block(&mut coeffs[0..64],refine,0);
+                }
+                if (self.mask & 2) != 0 {
+                    self.read_block(&mut coeffs[64..128],refine,1);
+                }
+                if (self.mask & 4) != 0 {
+                    self.read_block(&mut coeffs[128..192],refine,2);
+                }
+            },
+        }
+        if self.resint != 0 {
+            self.rescnt -= 1;
+            if self.rescnt == 0 {
+                let mut tsp = self.reader.leave();
+                if (self.reader.block[tsp] == 0xFF) && ((self.reader.block[tsp + 1] >= 0xD0) && (self.reader.block[tsp + 1] < 0xD8)) {
+                    tsp += 2;
+                    self.rescnt = self.resint;
+                    self.channels[0].dc = 0;
+                    self.channels[1].dc = 0;
+                    self.channels[2].dc = 0;
+                }
+                self.reader.enter(tsp);
+            }
+        }
+    }
 }
+
+pub fn test(src: &[u8]) -> Option<Vec2<usize>> {
+	let mut sp = 0;
+	if from_be16(&src[sp..sp + 2]) != 0xFFD8 {
+		return None;
+	}
+	sp += 2;
+	while sp < src.len() {
+		let marker = from_be16(&src[sp..sp + 2]);
+		let length = from_be16(&src[sp + 2..sp + 4]) as usize;
+		match marker {
+			0xFFC0 | 0xFFC1 | 0xFFC2 => {
+				let width = from_be16(&src[sp + 5..sp + 7]) as usize;
+				let height = from_be16(&src[sp + 7..sp + 9]) as usize;
+				let components = src[sp + 9];
+				if (components == 1) || (components == 3) {  // does not support RGBA or CMYK JPEGs
+					return Some(Vec2 { x: width,y: height, });
+				}
+				return None;
+			},
+			_ => { },
+		}
+		sp += length + 2;
+	}		
+	None
+}
+
