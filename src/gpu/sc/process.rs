@@ -3,11 +3,14 @@ use {
     std::{
         cell::RefCell,
         cmp::PartialEq,
+        collections::HashMap,
     },
 };
 
 // - convert aliases to their types
 // - convert anonymous tuples to structs
+// - destructure patterns
+// - convert enums to structs
 
 impl PartialEq for Type {
     fn eq(&self,other: &Type) -> bool {
@@ -101,13 +104,15 @@ impl PartialEq for Type {
     }
 }
 
-struct Pass1Context {
+struct Context {
     pub stdlib: StandardLib,
     pub module: Module,
     pub anon_tuple_types: RefCell<Vec<Vec<Type>>>,
+    pub enum_tuples: Vec<Tuple>,
+    pub enum_mappings: Vec<Vec<Vec<usize>>>,
 }
 
-impl Pass1Context {
+impl Context {
 
     fn pat_eq(&self,pat: &Pat,scrut: &Expr) -> Result<Option<Expr>,String> {
 
@@ -988,19 +993,27 @@ impl Pass1Context {
 
             Expr::LocalRefOrParamRef(ident) => Ok(Expr::LocalRefOrParamRef(ident)),
 
-            Expr::EnumDiscr(expr,index) => Ok(Expr::EnumDiscr(expr.clone(),*index)),
+            Expr::EnumDiscr(expr,index) => {
+                let new_expr = self.expr(expr,&Type::Inferred)?;
+                Ok(Expr::Binary(Box::new(Expr::Field(Box::new(new_expr),"discr")),BinaryOp::Eq,Box::new(Expr::Integer(*index as i64))))
+            },
 
-            Expr::EnumArg(expr,variant_index,index) => Ok(Expr::EnumArg(expr.clone(),*variant_index,*index)),
+            Expr::EnumArg(expr,variant_index,index) => {
+                let new_expr = self.expr(expr,&Type::Inferred)?;
+                Ok(Expr::EnumArg(Box::new(new_expr),*variant_index,*index))
+            },
         }
     }
 }
 
-pub fn pass1(module: &Module) -> Result<Module,String> {
+pub fn process(module: &Module) -> Result<ProcessedModule,String> {
 
-    let mut context = Pass1Context {
+    let mut context = Context {
         stdlib: StandardLib::new(),
         module: module.clone(),
         anon_tuple_types: RefCell::new(Vec::new()),
+        enum_tuples: Vec::new(),
+        enum_mappings: Vec::new(),
     };
 
     // create aliases with final type
@@ -1021,7 +1034,7 @@ pub fn pass1(module: &Module) -> Result<Module,String> {
     }
     context.module.aliases = aliases;
 
-    // prepare tuples
+    // process tuples
     let mut tuples: Vec<Tuple> = Vec::new();
     for tuple in context.module.tuples.iter() {
         let mut new_types: Vec<Type> = Vec::new();
@@ -1032,7 +1045,7 @@ pub fn pass1(module: &Module) -> Result<Module,String> {
     }
     context.module.tuples = tuples;
 
-    // prepare structs
+    // process structs
     let mut structs: Vec<Struct> = Vec::new();
     for struct_ in context.module.structs.iter() {
         let mut new_fields: Vec<(&'static str,Type)> = Vec::new();
@@ -1043,7 +1056,7 @@ pub fn pass1(module: &Module) -> Result<Module,String> {
     }
     context.module.structs = structs;
 
-    // prepare external structs
+    // process external structs
     let mut structs: Vec<Struct> = Vec::new();
     for struct_ in context.module.extern_structs.iter() {
         let mut new_fields: Vec<(&'static str,Type)> = Vec::new();
@@ -1054,35 +1067,136 @@ pub fn pass1(module: &Module) -> Result<Module,String> {
     }
     context.module.extern_structs = structs;
 
-    // prepare enums
-    let mut enums: Vec<Enum> = Vec::new();
-    for enum_ in context.module.enums.iter() {
-        let mut new_variants: Vec<(&'static str,Variant)> = Vec::new();
-        for (ident,variant) in enum_.variants.iter() {
-            let new_variant = match variant {
-                Variant::Naked => Variant::Naked,
+    // process enums
+    for enum_ in module.enums.iter() {
+
+        // this is the merged total type count for all variants
+        let mut total_type_counts: HashMap<Type,usize> = HashMap::new();
+
+        for (_,variant) in enum_.variants.iter() {
+
+            // calculate how many components of fields of each type there are in this variant
+            let mut type_counts: HashMap<Type,usize> = HashMap::new();
+
+            match variant {
+                Variant::Naked => { },
                 Variant::Tuple(types) => {
-                    let mut new_types: Vec<Type> = Vec::new();
                     for type_ in types {
-                        new_types.push(context.type_(type_)?);
+                        if type_counts.contains_key(&type_) {
+                            *(type_counts.get_mut(&type_).unwrap()) += 1;
+                        }
+                        else {
+                            type_counts.insert(type_.clone(),1);
+                        }
                     }
-                    Variant::Tuple(new_types)
                 },
                 Variant::Struct(fields) => {
-                    let mut new_fields: Vec<(&'static str,Type)> = Vec::new();
-                    for (ident,type_) in fields {
-                        new_fields.push((ident,context.type_(type_)?))
+                    for (_,type_) in fields {
+                        if type_counts.contains_key(&type_) {
+                            *(type_counts.get_mut(&type_).unwrap()) += 1;
+                        }
+                        else {
+                            type_counts.insert(type_.clone(),1);
+                        }
                     }
-                    Variant::Struct(new_fields)
                 },
-            };
-            new_variants.push((ident,new_variant));
-        }
-        enums.push(Enum { ident: enum_.ident,variants: new_variants, });
-    }
-    context.module.enums = enums;
+            }
 
-    // prepare consts
+            // merge into total list
+            for (type_,count) in type_counts.iter() {
+                if total_type_counts.contains_key(type_) {
+                    if total_type_counts[type_] < *count {
+                        *(total_type_counts.get_mut(type_).unwrap()) = *count;
+                    }
+                }
+                else {
+                    total_type_counts.insert(type_.clone(),*count);
+                }
+            }
+        }
+
+        // now we know how many items of specific types we have, so start building the tuples
+        let mut new_types: Vec<Type> = Vec::new();
+        for (type_,count) in total_type_counts.iter() {
+            for _ in 0..*count {
+                new_types.push(type_.clone());
+            }
+        }
+
+        // calculate the mapping for each variant
+        let mut mappings: Vec<Vec<usize>> = Vec::new();
+        for (variant_ident,variant) in enum_.variants.iter() {
+            match variant {
+                Variant::Naked => {
+                    mappings.push(Vec::new());
+                },
+                Variant::Tuple(types) => {
+                    let mut mapping: Vec<usize> = Vec::new();
+                    let mut comp = 0usize;
+                    for type_ in types {
+                        let mut found_slot: Option<usize> = None;
+                        for i in 0..new_types.len() {
+                            if *type_ == new_types[i] {
+                                let mut already_assigned = false;
+                                for k in 0..mapping.len() {
+                                    if mapping[k] == i {
+                                        already_assigned = true;
+                                        break;
+                                    }
+                                }
+                                if already_assigned {
+                                    break;
+                                }
+                                found_slot = Some(i);
+                                break;
+                            }
+                        }
+                        if let Some(index) = found_slot {
+                            mapping.push(index);
+                        }
+                        else {
+                            return Err(format!("Unable to find slot for {}::{}.{}",enum_.ident,variant_ident,comp));
+                        }
+                        comp += 1;
+                    }
+                    mappings.push(mapping);
+                },
+                Variant::Struct(fields) => {
+                    let mut mapping: Vec<usize> = Vec::new();
+                    for (ident,type_) in fields {
+                        let mut found_slot: Option<usize> = None;
+                        for i in 0..new_types.len() {
+                            if *type_ == new_types[i] {
+                                let mut already_assigned = false;
+                                for k in 0..mapping.len() {
+                                    if mapping[k] == i {
+                                        already_assigned = true;
+                                        break;
+                                    }
+                                }
+                                if already_assigned {
+                                    break;
+                                }
+                                found_slot = Some(i);
+                                break;
+                            }
+                        }
+                        if let Some(index) = found_slot {
+                            mapping.push(index);
+                        }
+                        else {
+                            return Err(format!("Unable to find slot for {}::{}.{}",enum_.ident,variant_ident,ident));
+                        }
+                    }
+                    mappings.push(mapping);
+                },
+            }
+        }
+        context.enum_tuples.push(Tuple { ident: enum_.ident.clone(),types: new_types, });
+        context.enum_mappings.push(mappings);
+    }
+
+    // process consts
     let mut consts: Vec<Const> = Vec::new();
     for const_ in context.module.consts.iter() {
         let new_type = context.type_(&const_.type_)?;
@@ -1091,7 +1205,7 @@ pub fn pass1(module: &Module) -> Result<Module,String> {
     }
     context.module.consts = consts;
 
-    // prepare functions
+    // process functions
     let mut functions: Vec<Function> = Vec::new();
     for function in context.module.functions.iter() {
         let mut new_params: Vec<(&'static str,Type)> = Vec::new();
@@ -1104,14 +1218,15 @@ pub fn pass1(module: &Module) -> Result<Module,String> {
     }
     context.module.functions = functions;
 
-    Ok(PreparedModule {
+    Ok(ProcessedModule {
         ident: context.module.ident,
         tuples: context.module.tuples,
+        anon_tuple_types: context.anon_tuple_types.into_inner(),
         structs: context.module.structs,
         extern_structs: context.module.extern_structs,
-        enums: context.module.enums,
+        enum_tuples: context.enum_tuples,
+        enum_mappings: context.enum_mappings,
         consts: context.module.consts,
         functions: context.module.functions,
-        anon_tuple_types: context.anon_tuple_types.into_inner(),
     })
 }

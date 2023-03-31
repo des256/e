@@ -419,7 +419,7 @@ impl Display for Expr {
                 write!(f," }}")
             },
             Expr::Ident(ident) => write!(f,"{}",ident),
-            Expr::TupleOrFunction(ident,exprs) => {
+            Expr::TupleLitOrFunctionCall(ident,exprs) => {
                 write!(f,"{}(",ident)?;
                 let mut iter = exprs.iter();
                 if let Some(expr) = iter.next() {
@@ -430,7 +430,7 @@ impl Display for Expr {
                 }
                 write!(f,")")
             },
-            Expr::Struct(struct_ident,fields) => {
+            Expr::StructLit(struct_ident,fields) => {
                 write!(f,"{} {{ ",struct_ident)?;
                 let mut iter = fields.iter();
                 if let Some(field) = iter.next() {
@@ -445,7 +445,7 @@ impl Display for Expr {
                 write!(f,"{}::{}",enum_ident,variant_ident)?;
                 write!(f,"{}",variant_expr)
             },
-            Expr::MethodRef(expr,method_ident,exprs) => {
+            Expr::MethodCall(expr,method_ident,exprs) => {
                 write!(f,"{}.{}(",expr,method_ident)?;
                 let mut iter = exprs.iter();
                 if let Some(expr) = iter.next() {

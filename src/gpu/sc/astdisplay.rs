@@ -661,3 +661,40 @@ impl Display for Module {
         write!(f,"}}")
     }
 }
+
+impl Display for ProcessedModule {
+    fn fmt(&self,f: &mut Formatter) -> Result {
+        write!(f,"mod {} {{\n",self.ident)?;
+        for tuple in self.tuples.iter() {
+            write!(f,"{};\n",tuple)?;
+        }
+        for i in 0..self.anon_tuple_types.len() {
+            write!(f,"struct Anon{:05}(",i);
+            let mut first = true;
+            for type_ in self.anon_tuple_types[i].iter() {
+                if !first {
+                    write!(f,",")?;
+                }
+                write!(f,"{}",type_)?;
+                first = false;
+            }
+            write!(f,")")?;
+        }
+        for struct_ in self.structs.iter() {
+            write!(f,"{};\n",struct_)?;
+        }
+        for struct_ in self.extern_structs.iter() {
+            write!(f,"{};\n",struct_)?;
+        }
+        for tuple in self.enum_tuples.iter() {
+            write!(f,"{};\n",tuple)?;
+        }
+        for const_ in self.consts.iter() {
+            write!(f,"{};\n",const_)?;
+        }
+        for function in self.functions.iter() {
+            write!(f,"{};\n",function)?;
+        }
+        write!(f,"}}")
+    }
+}

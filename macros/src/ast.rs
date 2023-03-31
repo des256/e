@@ -123,10 +123,10 @@ pub enum Expr {
     WhileLet(Vec<Pat>,Box<Expr>,Block),
     Match(Box<Expr>,Vec<(Vec<Pat>,Option<Box<Expr>>,Box<Expr>)>),
     Ident(String),
-    TupleOrFunction(String,Vec<Expr>),
-    Struct(String,Vec<(String,Expr)>),
+    TupleLitOrFunctionCall(String,Vec<Expr>),
+    StructLit(String,Vec<(String,Expr)>),
     Variant(String,String,VariantExpr),
-    MethodRef(Box<Expr>,String,Vec<Expr>),
+    MethodCall(Box<Expr>,String,Vec<Expr>),
     Field(Box<Expr>,String),
 }
 

@@ -198,7 +198,7 @@ pub enum Expr {
     // type cast
     Cast(Box<Expr>,Box<Type>),
 
-    // anonymous tuple, these are converted to AnonTupleRef in the prepare pass
+    // anonymous tuple, these are converted to AnonTupleLit
     AnonTuple(Vec<Expr>),
 
     // unary operation
@@ -398,6 +398,18 @@ pub struct Module {
     pub extern_structs: Vec<Struct>,
     pub enums: Vec<Enum>,
     pub aliases: Vec<Alias>,
+    pub consts: Vec<Const>,
+    pub functions: Vec<Function>,
+}
+
+pub struct ProcessedModule {
+    pub ident: &'static str,
+    pub tuples: Vec<Tuple>,
+    pub anon_tuple_types: Vec<Vec<Type>>,
+    pub structs: Vec<Struct>,
+    pub extern_structs: Vec<Struct>,
+    pub enum_tuples: Vec<Tuple>,
+    pub enum_mappings: Vec<Vec<Vec<usize>>>,
     pub consts: Vec<Const>,
     pub functions: Vec<Function>,
 }

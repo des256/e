@@ -466,9 +466,9 @@ impl gpu::Gpu for Gpu {
 
     fn create_vertex_shader(self: &Rc<Self>,ast: &gpu::sc::Module) -> Result<VertexShader,String> {
 
-        //dprintln!("Vulkan Vertex Shader AST:\n{}",ast);
-        let ast = gpu::sc::prepare_module(ast)?;
-        //dprintln!("Vulkan Vertex Shader AST after preparing:\n{}",ast);
+        dprintln!("Vulkan Vertex Shader AST:\n{}",ast);
+        let ast = gpu::sc::process(ast)?;
+        dprintln!("Vulkan Vertex Shader AST after processing:\n{}",ast);
         //let ast = gpu::sc::destructure_module(&ast)?;
         //dprintln!("Vulkan Vertex Shader AST after destructuring:\n{}",ast);
 
@@ -496,9 +496,9 @@ impl gpu::Gpu for Gpu {
 
     fn create_fragment_shader(self: &Rc<Self>,ast: &gpu::sc::Module) -> Result<FragmentShader,String> {
 
-        //dprintln!("Vulkan Fragment Shader AST:\n{}",ast);
-        let ast = gpu::sc::prepare_module(ast)?;
-        //dprintln!("Vulkan Fragment Shader AST after preparing:\n{}",ast);
+        dprintln!("Vulkan Fragment Shader AST:\n{}",ast);
+        let ast = gpu::sc::process(ast)?;
+        dprintln!("Vulkan Fragment Shader AST after preparing:\n{}",ast);
         //let ast = gpu::sc::destructure_module(&ast)?;
         //dprintln!("Vulkan Fragment Shader AST after destructuring:\n{}",ast);
 

@@ -25,12 +25,12 @@ impl Parser {
 
             // Struct
             if let Some(ident_exprs) = self.brace_ident_exprs()? {
-                Ok(Expr::Struct(ident,ident_exprs))
+                Ok(Expr::StructLit(ident,ident_exprs))
             }
 
             // TupleOrFunction
             else if let Some(exprs) = self.paren_exprs()? {
-                Ok(Expr::TupleOrFunction(ident,exprs))
+                Ok(Expr::TupleLitOrFunctionCall(ident,exprs))
             }
 
             // Variant
@@ -41,7 +41,7 @@ impl Parser {
                     self.punct('>');
                     let ident = format!("{}<{}>",ident,element_type);
                     if let Some(ident_exprs) = self.brace_ident_exprs()? {
-                        Ok(Expr::Struct(ident,ident_exprs))
+                        Ok(Expr::StructLit(ident,ident_exprs))
                     }
                     else {
                         self.err(&format!("struct literal expected after {}",ident))
@@ -113,7 +113,7 @@ impl Parser {
                 // Field, Method
                 if let Some(ident) = self.ident() {
                     if let Some(exprs) = self.paren_exprs()? {
-                        expr = Expr::MethodRef(Box::new(expr),ident,exprs);
+                        expr = Expr::MethodCall(Box::new(expr),ident,exprs);
                     }
                     else {
                         expr = Expr::Field(Box::new(expr),ident);
@@ -424,7 +424,7 @@ impl Parser {
             if self.punct('.') {
                 if let Some(ident) = self.ident() {
                     if let Some(exprs) = self.paren_exprs()? {
-                        expr = Expr::MethodRef(Box::new(expr),ident,exprs);
+                        expr = Expr::MethodCall(Box::new(expr),ident,exprs);
                     }
                     else {
                         expr = Expr::Field(Box::new(expr),ident);
@@ -559,7 +559,7 @@ impl Parser {
 
     pub(crate) fn finish_ident_as_expr(&mut self,ident: String) -> Result<Expr,String> {
         let expr = if let Some(exprs) = self.paren_exprs()? {
-            Expr::TupleOrFunction(ident,exprs)
+            Expr::TupleLitOrFunctionCall(ident,exprs)
         }
         else if self.punct2(':',':') {
             if self.punct('<') {
@@ -571,7 +571,7 @@ impl Parser {
                 self.punct('>');
                 let ident = format!("{}<{}>",ident,element_type);
                 if let Some(ident_exprs) = self.brace_ident_exprs()? {
-                    Expr::Struct(ident,ident_exprs)
+                    Expr::StructLit(ident,ident_exprs)
                 }
                 else {
                     return self.err(&format!("struct literal expected after {}",ident));
@@ -611,7 +611,7 @@ impl Parser {
             self.punct('>');
             let ident = format!("{}<{}>",ident,element_type);
             if let Some(ident_exprs) = self.brace_ident_exprs()? {
-                Expr::Struct(ident,ident_exprs)
+                Expr::StructLit(ident,ident_exprs)
             }
             else {
                 return self.err(&format!("struct literal expected after {}",ident));
@@ -690,7 +690,7 @@ impl Parser {
             let expr = self.expr()?;
             ident_exprs.push((ident,expr));
         }
-        Ok(Expr::Struct(ident,ident_exprs))
+        Ok(Expr::StructLit(ident,ident_exprs))
     }
 
     pub(crate) fn finish_block(&mut self,expr: Option<Expr>) -> Result<Block,String> {

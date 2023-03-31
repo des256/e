@@ -270,10 +270,10 @@ impl Render for Expr {
             Expr::WhileLet(pats,expr,block) => format!("Expr::WhileLet({},Box::new({}),{})",pats.render(),expr.render(),block.render()),
             Expr::Match(expr,arms) => format!("Expr::Match(Box::new({}),{})",expr.render(),arms.render()),
             Expr::Ident(ident) => format!("Expr::Ident(\"{}\")",ident),
-            Expr::TupleOrFunction(ident,exprs) => format!("Expr::TupleOrFunction(\"{}\",{})",ident,exprs.render()),
-            Expr::Struct(ident,fields) => format!("Expr::Struct(\"{}\",{})",ident,fields.render()),
+            Expr::TupleLitOrFunctionCall(ident,exprs) => format!("Expr::TupleLitOrFunctionCall(\"{}\",{})",ident,exprs.render()),
+            Expr::StructLit(ident,fields) => format!("Expr::StructLit(\"{}\",{})",ident,fields.render()),
             Expr::Variant(enum_ident,variant_ident,variant) => format!("Expr::Variant(\"{}\",\"{}\",{})",enum_ident,variant_ident,variant.render()),
-            Expr::MethodRef(expr,ident,exprs) => format!("Expr::MethodRef(Box::new({}),\"{}\",{})",expr.render(),ident,exprs.render()),
+            Expr::MethodCall(expr,ident,exprs) => format!("Expr::MethodCall(Box::new({}),\"{}\",{})",expr.render(),ident,exprs.render()),
             Expr::Field(expr,ident) => format!("Expr::Field(Box::new({}),\"{}\")",expr.render(),ident),
             //Expr::TupleIndex(expr,index) => format!("Expr::TupleIndex(Box::new({}),{})",expr.render(),index),
         }

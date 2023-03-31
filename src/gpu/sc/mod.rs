@@ -6,14 +6,8 @@ mod astdisplay;
 mod stdlib;
 pub use stdlib::*;
 
-mod pass1;
-pub use pass1::*;
-
-//mod destructure;
-//pub use destructure::*;
-
-//mod deenumify;
-//pub use deenumify::*;
+mod process;
+pub use process::*;
 
 //mod tac;
 //pub use tac::*;
