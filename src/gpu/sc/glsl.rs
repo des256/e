@@ -98,16 +98,35 @@ impl Context {
             Expr::StructLit(ident,fields) => Err("TODO: struct literal".to_string()),
             Expr::VariantLit(ident,variant_ident,expr) => Err("TODO: enum variant literal".to_string()),
             Expr::MethodCall(expr,ident,exprs) => Err("TODO: method call".to_string()),
-            Expr::Field(expr,ident) => Err("TODO: struct field selector".to_string()),
+            Expr::Field(expr,ident) => Ok(format!("{}.{}",self.emit_expr(expr)?,ident)),
             Expr::TupleIndex(expr,index) => Err("TODO: tuple index (struct field selector)".to_string()),
-            Expr::AnonTupleLit(index,exprs) => Err("TODO: anon tuple literal (struct literal)".to_string()),
+            Expr::AnonTupleLit(index,exprs) => {
+                let mut result = format!("Anon{:05} {{ ",*index);
+                for i in 0..self.module.anon_tuple_types[*index].len() {
+                    result += &format!("f{}: {}, ",i,self.emit_expr(&exprs[i])?);
+                }
+                result += "}}";
+                Ok(result)
+            },
             Expr::LocalRefOrParamRef(ident) => Ok(ident.to_string()),
             Expr::ConstRef(ident) => Ok(ident.to_string()),
             Expr::FunctionCall(ident,exprs) => Err("TODO: function call".to_string()),
             Expr::TupleLit(ident,exprs) => Err("TODO: tuple literal".to_string()),
             Expr::EnumDiscr(expr,index) => Err("TODO: enum discriminant".to_string()),
             Expr::EnumArg(expr,variant_index,index) => Err("TODO: enum variant argument".to_string()),
-            Expr::Constructor(type_,fields) => Err("TODO: constructor".to_string()),
+            Expr::Constructor(type_,fields) => {
+                let mut result = format!("{}(",self.emit_type(type_)?);
+                let mut first = true;
+                for field in fields.iter() {
+                    if !first {
+                        result += ",";
+                    }
+                    result += &format!("{}",self.emit_expr(&field.1)?);
+                    first = false;
+                }
+                result += ")";
+                Ok(result)
+            },
         }
     }
 
