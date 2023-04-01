@@ -398,6 +398,10 @@ impl Context {
                 if let Some(struct_) = found_struct {
                     return Ok(Type::StructRef(struct_.ident));
                 }
+                let found_struct = self.module.extern_structs.iter().find(|struct_| &struct_.ident == ident);
+                if let Some(struct_) = found_struct {
+                    return Ok(Type::StructRef(struct_.ident));
+                }
                 let found_tuple = self.module.tuples.iter().find(|tuple| &tuple.ident == ident);
                 if let Some(tuple) = found_tuple {
                     return Ok(Type::TupleRef(tuple.ident));
@@ -876,7 +880,67 @@ impl Context {
                         }    
                     },
                     _ => {
-                        Err(format!("unknown struct {}",ident))
+                        let mut new_fields: Vec<(&'static str,Expr)> = Vec::new();
+                        for field in fields.iter() {
+                            new_fields.push((field.0,self.expr(&field.1,&Type::Inferred)?));
+                        }
+                        match *ident {
+                            "Vec2<bool>" => Ok(Expr::Constructor(Type::Vec2Bool,new_fields)),
+                            "Vec2<u8>" => Ok(Expr::Constructor(Type::Vec2U8,new_fields)),
+                            "Vec2<i8>" => Ok(Expr::Constructor(Type::Vec2I8,new_fields)),
+                            "Vec2<u16>" => Ok(Expr::Constructor(Type::Vec2U16,new_fields)),
+                            "Vec2<i16>" => Ok(Expr::Constructor(Type::Vec2I16,new_fields)),
+                            "Vec2<u32>" => Ok(Expr::Constructor(Type::Vec2U32,new_fields)),
+                            "Vec2<i32>" => Ok(Expr::Constructor(Type::Vec2I32,new_fields)),
+                            "Vec2<u64>" => Ok(Expr::Constructor(Type::Vec2U64,new_fields)),
+                            "Vec2<i64>" => Ok(Expr::Constructor(Type::Vec2I64,new_fields)),
+                            "Vec2<f16>" => Ok(Expr::Constructor(Type::Vec2F16,new_fields)),
+                            "Vec2<f32>" => Ok(Expr::Constructor(Type::Vec2F32,new_fields)),
+                            "Vec2<f64>" => Ok(Expr::Constructor(Type::Vec2F64,new_fields)),
+                            "Vec3<bool>" => Ok(Expr::Constructor(Type::Vec3Bool,new_fields)),
+                            "Vec3<u8>" => Ok(Expr::Constructor(Type::Vec3U8,new_fields)),
+                            "Vec3<i8>" => Ok(Expr::Constructor(Type::Vec3I8,new_fields)),
+                            "Vec3<u16>" => Ok(Expr::Constructor(Type::Vec3U16,new_fields)),
+                            "Vec3<i16>" => Ok(Expr::Constructor(Type::Vec3I16,new_fields)),
+                            "Vec3<u32>" => Ok(Expr::Constructor(Type::Vec3U32,new_fields)),
+                            "Vec3<i32>" => Ok(Expr::Constructor(Type::Vec3I32,new_fields)),
+                            "Vec3<u64>" => Ok(Expr::Constructor(Type::Vec3U64,new_fields)),
+                            "Vec3<i64>" => Ok(Expr::Constructor(Type::Vec3I64,new_fields)),
+                            "Vec3<f16>" => Ok(Expr::Constructor(Type::Vec3F16,new_fields)),
+                            "Vec3<f32>" => Ok(Expr::Constructor(Type::Vec3F32,new_fields)),
+                            "Vec3<f64>" => Ok(Expr::Constructor(Type::Vec3F64,new_fields)),
+                            "Vec4<bool>" => Ok(Expr::Constructor(Type::Vec4Bool,new_fields)),
+                            "Vec4<u8>" => Ok(Expr::Constructor(Type::Vec4U8,new_fields)),
+                            "Vec4<i8>" => Ok(Expr::Constructor(Type::Vec4I8,new_fields)),
+                            "Vec4<u16>" => Ok(Expr::Constructor(Type::Vec4U16,new_fields)),
+                            "Vec4<i16>" => Ok(Expr::Constructor(Type::Vec4I16,new_fields)),
+                            "Vec4<u32>" => Ok(Expr::Constructor(Type::Vec4U32,new_fields)),
+                            "Vec4<i32>" => Ok(Expr::Constructor(Type::Vec4I32,new_fields)),
+                            "Vec4<u64>" => Ok(Expr::Constructor(Type::Vec4U64,new_fields)),
+                            "Vec4<i64>" => Ok(Expr::Constructor(Type::Vec4I64,new_fields)),
+                            "Vec4<f16>" => Ok(Expr::Constructor(Type::Vec4F16,new_fields)),
+                            "Vec4<f32>" => Ok(Expr::Constructor(Type::Vec4F32,new_fields)),
+                            "Vec4<f64>" => Ok(Expr::Constructor(Type::Vec4F64,new_fields)),
+                            "Mat2x2<f32>" => Ok(Expr::Constructor(Type::Mat2x2F32,new_fields)),
+                            "Mat2x2<f64>" => Ok(Expr::Constructor(Type::Mat2x2F64,new_fields)),
+                            "Mat2x3<f32>" => Ok(Expr::Constructor(Type::Mat2x3F32,new_fields)),
+                            "Mat2x3<f64>" => Ok(Expr::Constructor(Type::Mat2x3F64,new_fields)),
+                            "Mat2x4<f32>" => Ok(Expr::Constructor(Type::Mat2x4F32,new_fields)),
+                            "Mat2x4<f64>" => Ok(Expr::Constructor(Type::Mat2x4F64,new_fields)),
+                            "Mat3x2<f32>" => Ok(Expr::Constructor(Type::Mat3x2F32,new_fields)),
+                            "Mat3x2<f64>" => Ok(Expr::Constructor(Type::Mat3x2F64,new_fields)),
+                            "Mat3x3<f32>" => Ok(Expr::Constructor(Type::Mat3x3F32,new_fields)),
+                            "Mat3x3<f64>" => Ok(Expr::Constructor(Type::Mat3x3F64,new_fields)),
+                            "Mat3x4<f32>" => Ok(Expr::Constructor(Type::Mat3x4F32,new_fields)),
+                            "Mat3x4<f64>" => Ok(Expr::Constructor(Type::Mat3x4F64,new_fields)),
+                            "Mat4x2<f32>" => Ok(Expr::Constructor(Type::Mat4x2F32,new_fields)),
+                            "Mat4x2<f64>" => Ok(Expr::Constructor(Type::Mat4x2F64,new_fields)),
+                            "Mat4x3<f32>" => Ok(Expr::Constructor(Type::Mat4x3F32,new_fields)),
+                            "Mat4x3<f64>" => Ok(Expr::Constructor(Type::Mat4x3F64,new_fields)),
+                            "Mat4x4<f32>" => Ok(Expr::Constructor(Type::Mat4x4F32,new_fields)),
+                            "Mat4x4<f64>" => Ok(Expr::Constructor(Type::Mat4x4F64,new_fields)),
+                            _ => Err(format!("unknown struct {}",ident)),
+                        }
                     }
                 }
             },
@@ -1001,6 +1065,14 @@ impl Context {
             Expr::EnumArg(expr,variant_index,index) => {
                 let new_expr = self.expr(expr,&Type::Inferred)?;
                 Ok(Expr::EnumArg(Box::new(new_expr),*variant_index,*index))
+            },
+
+            Expr::Constructor(type_,fields) => {
+                let mut new_fields: Vec<(&'static str,Expr)> = Vec::new();
+                for field in fields.iter() {
+                    new_fields.push((field.0,self.expr(&field.1,&Type::Inferred)?));
+                }
+                Ok(Expr::Constructor(type_.clone(),new_fields))
             },
         }
     }

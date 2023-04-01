@@ -171,11 +171,9 @@ impl gpu::Gpu for Gpu {
 
         dprintln!("OpenGL Vertex Shader AST:\n{}",ast);
         let ast = gpu::sc::process(ast)?;
-        dprintln!("OpenGL Vertex Shader AST after preparing:\n{}",ast);
-        //let ast = gpu::sc::destructure_module(&ast)?;
-        //dprintln!("OpenGL Vertex Shader AST after destructuring:\n{}",ast);
-
-        //let module = resolve(ast);
+        dprintln!("OpenGL Vertex Shader AST after processing:\n{}",ast);
+        let glsl = gpu::sc::glsl::emit_module(&ast,gpu::sc::ShaderStyle::Vertex)?;
+        dprintln!("GLSL Vertex Shader:\n{}",glsl);
 
         /*
         let vs = unsafe { checkgl!(sys::glCreateShader(sys::GL_VERTEX_SHADER)) };
@@ -208,10 +206,8 @@ impl gpu::Gpu for Gpu {
         dprintln!("OpenGL Fragment Shader AST:\n{}",ast);
         let ast = gpu::sc::process(ast)?;
         dprintln!("OpenGL Fragment Shader AST after preparing:\n{}",ast);
-        //let ast = gpu::sc::destructure_module(&ast)?;
-        //dprintln!("OpenGL Fragment Shader AST after destructuring:\n{}",ast);
-
-        //let module = resolve(ast);
+        let glsl = gpu::sc::glsl::emit_module(&ast,gpu::sc::ShaderStyle::Fragment)?;
+        dprintln!("GLSL Fragment Shader:\n{}",glsl);
 
         /*
         let fs = unsafe { checkgl!(sys::glCreateShader(sys::GL_FRAGMENT_SHADER)) };

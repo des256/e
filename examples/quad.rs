@@ -15,14 +15,10 @@ struct MyVertex {
     color: Vec3<f32>,
 }
 
-#[vertex_shader]
+#[vertex_shader(MyVertex)]
 mod quad_vs {
-    struct MyVertex {
-        pos: Vec2<f32>,
-        color: Vec3<f32>,
-    }
     fn main(vertex: MyVertex) -> (Vec4<f32>,Vec3<f32>) {
-        (vertex.pos,vertex.color)
+        (Vec4::<f32> { x: vertex.pos.x,y: vertex.pos.y,z: 0.0,w: 1.0, },vertex.color)
     }
 }
 

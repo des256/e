@@ -472,7 +472,7 @@ impl Display for Expr {
                     write!(f,"f{}: {}",i,expr)?;
                     for expr in iter {
                         i += 1;
-                        write!(f,",{}: {}",i,expr)?;
+                        write!(f,",f{}: {}",i,expr)?;
                     }
                 }
                 write!(f," }}")
@@ -503,6 +503,17 @@ impl Display for Expr {
             },
             Expr::EnumDiscr(expr,index) => write!(f,"{} is {}",expr,index),
             Expr::EnumArg(expr,variant_index,index) => write!(f,"({} as {}).{}",expr,variant_index,index),
+            Expr::Constructor(type_,fields) => {
+                write!(f,"{}(",type_)?;
+                let mut iter = fields.iter();
+                if let Some(field) = iter.next() {
+                    write!(f,"{}: {}",field.0,field.1)?;
+                    for field in iter {
+                        write!(f,",{}: {}",field.0,field.1)?;
+                    }
+                }
+                write!(f,")")
+            },
         }
     }
 }
@@ -669,20 +680,24 @@ impl Display for ProcessedModule {
             write!(f,"{};\n",tuple)?;
         }
         for i in 0..self.anon_tuple_types.len() {
-            write!(f,"struct Anon{:05}(",i);
+            write!(f,"struct Anon{:05} {{ ",i)?;
             let mut first = true;
+            let mut k = 0usize;
             for type_ in self.anon_tuple_types[i].iter() {
                 if !first {
                     write!(f,",")?;
                 }
-                write!(f,"{}",type_)?;
+                write!(f,"f{}: {}",k,type_)?;
                 first = false;
+                k += 1;
             }
-            write!(f,")")?;
+            write!(f," }};\n")?;
         }
+        write!(f,"structs:\n")?;
         for struct_ in self.structs.iter() {
             write!(f,"{};\n",struct_)?;
         }
+        write!(f,"extern_structs:\n")?;
         for struct_ in self.extern_structs.iter() {
             write!(f,"{};\n",struct_)?;
         }

@@ -34,17 +34,19 @@ pub fn derive_vertex(stream: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn vertex_shader(_: TokenStream,item_stream: TokenStream) -> TokenStream {
+pub fn vertex_shader(arg_stream: TokenStream,item_stream: TokenStream) -> TokenStream {
     let module = Parser::new(item_stream).module().unwrap();
     //panic!("DONE:\n{}",module.render());
-    let compiled = format!("pub mod {} {{ pub fn ast() -> e::sc::Module {{ use e::sc::*; {} }} }}",module.ident,module.render());
+    let compiled = format!("pub mod {} {{ pub fn ast() -> e::sc::Module {{ use e::sc::*; {} }} }}",module.ident,module.render_root(arg_stream));
+    //panic!("DONE:\n{}",compiled);
     compiled.parse().unwrap()
 }
 
 #[proc_macro_attribute]
-pub fn fragment_shader(_: TokenStream,item_stream: TokenStream) -> TokenStream {
+pub fn fragment_shader(arg_stream: TokenStream,item_stream: TokenStream) -> TokenStream {
     let module = Parser::new(item_stream).module().unwrap();
     //panic!("DONE:\n{}",module.render());
-    let compiled = format!("pub mod {} {{ pub fn ast() -> e::sc::Module {{ use e::sc::*; {} }} }}",module.ident,module.render());
+    let compiled = format!("pub mod {} {{ pub fn ast() -> e::sc::Module {{ use e::sc::*; {} }} }}",module.ident,module.render_root(arg_stream));
+    //panic!("DONE:\n{}",compiled);
     compiled.parse().unwrap()
 }

@@ -9,12 +9,17 @@ pub use stdlib::*;
 mod process;
 pub use process::*;
 
+pub enum ShaderStyle {
+    Vertex,
+    Fragment,
+}
+
 //mod tac;
 //pub use tac::*;
 
 //mod rendertac;
 //pub use rendertac::*;
 
-//mod glsl;
+pub mod glsl;
 
-//mod spirv;
+pub mod spirv;

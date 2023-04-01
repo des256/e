@@ -268,6 +268,7 @@ pub enum Expr {
     TupleLit(&'static str,Vec<Expr>),
     EnumDiscr(Box<Expr>,usize),
     EnumArg(Box<Expr>,usize,usize),
+    Constructor(Type,Vec<(&'static str,Expr)>),
 }
 
 // ast::Stat describes statement expressions that appear in blocks
@@ -402,6 +403,7 @@ pub struct Module {
     pub functions: Vec<Function>,
 }
 
+#[derive(Clone)]
 pub struct ProcessedModule {
     pub ident: &'static str,
     pub tuples: Vec<Tuple>,

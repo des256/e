@@ -43,8 +43,8 @@ pub(crate) struct Parser {
 impl Parser {
 
     /// Create new Parser around a TokenStream.
-    pub(crate) fn new(stream: TokenStream) -> Parser {
-        let mut stream = stream.into_iter();
+    pub(crate) fn new(item_stream: TokenStream) -> Parser {
+        let mut stream = item_stream.into_iter();
         let current = stream.next();
         let next = stream.next();
         let nextnext = stream.next();

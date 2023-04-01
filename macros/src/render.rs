@@ -345,10 +345,16 @@ impl Render for Function {
     }
 }
 
-impl Render for Module {
-    fn render(&self) -> String {
+impl Module {
+    pub fn render_root(&self,arg_stream: TokenStream) -> String {
 
+        // just take all identifiers from arg_stream as external structs
         let mut extern_struct_idents: Vec<String> = Vec::new();
+        for token in arg_stream.into_iter() {
+            if let TokenTree::Ident(ident) = token {
+                extern_struct_idents.push(ident.to_string());
+            }
+        }
 
         let mut main_found = false;
         for function in self.functions.iter() {
@@ -388,10 +394,10 @@ impl Render for Module {
             r += "let mut structs: Vec<Struct> = Vec::new(); ";
         }
 
-        if self.extern_structs.len() > 0 {
+        if extern_struct_idents.len() > 0 {
             r += "let mut extern_structs: Vec<Struct> = Vec::new();";
-            for struct_ in self.extern_structs.iter() {
-                r += &format!("extern_structs.push(super::{}::ast());",struct_.ident);
+            for ident in extern_struct_idents.iter() {
+                r += &format!("extern_structs.push(super::{}::ast());",ident);
             }
         }
         else {
