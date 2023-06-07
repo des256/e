@@ -10,13 +10,44 @@ Use Tokio.
 
 ### Pipeline
 
+Flutter has 3 trees: WidgetTree -> ElementTree -> RenderObjectTree
+
+Flutter rendering pipeline: UI: [ Animate -> Build -> Layout -> Paint -> Submit ] -> LayerTree -> GPU: [ Rasterize -> Composite ]
+
+1. User Input on the currently visible rasterized UI
+2. Animation, changes due to timers
+3. Build, not entirely sure...
+4. Layout, figure out where the widget can render itself
+5. Paint, generate the rectangles to be composited (GPU)
+6. Composition, generate command buffer in proper draw order (GPU)
+7. Rasterize, render frame (GPU)
+
 1. user input: respond to input gestures
-2. animation: timed UI changes
+
+    Ultimately come from the system and refer to what the previous layout resulted in
+    This is also where the tree is modified
+
+    self = self.handle_event(event: &Event)
+
+2. animation: timed UI changes, similar result as 1.
 3. build: (re)build widgets from app code
 4. layout: positioning and sizing of elements on the screen
-5. paint: convert elements into visual representation
-6. composition: overlay visual elements in draw order
-7. rasterize: translate output into GPU instructions
+
+    Can be tiny adjustments, also modifying the tree
+
+    elements = self.animate_build_layout()
+
+5. paint (GPU): convert elements into visual representation
+
+    bunch of mostly reused/unchanged rectangles with pixels = elements.paint(previous bunch of reused/unchanged rectangles with pixels)
+
+6. composition (GPU): overlay visual elements in draw order
+
+    reordered bunch of reused/unchanged rectangles with pixels = bunch.compose()
+
+7. rasterize (GPU): translate output into GPU instructions
+
+    reordered.render()
 
 ### Trees
 

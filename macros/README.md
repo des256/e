@@ -239,11 +239,11 @@ else if material.variant == 1 {
 else if material.variant == 2 {
     let color = material._0;
     let shininess = material._1;
-    do_phong(color,shininess);
+    do_phong(color,shininess)
 }
 else if material.variant == 3 {
     let foobar = material._2;
-    do_brdf(foobar);
+    do_brdf(foobar)
 }
 ```
 
