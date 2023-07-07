@@ -12,7 +12,16 @@ Use Tokio.
 
 Flutter has 3 trees: WidgetTree -> ElementTree -> RenderObjectTree
 
+<Widget>: The configuration of the ElementTree.
+<Element>: The user interface.
+<RenderObject>: What actually gets rendered in the end.
+
 Flutter rendering pipeline: UI: [ Animate -> Build -> Layout -> Paint -> Submit ] -> LayerTree -> GPU: [ Rasterize -> Composite ]
+
+For user input and description, use Xelim-like function as Widget structure, including callbacks. This function describes the configuration of the UI elements.
+
+Whenever something changes, use setState() to propagate the change to the UI. This triggers calling of build() again, which creates a new Widget. From this new Widget, createElement or updateElement are then called to keep up the Element tree. Finally, createRenderObject or updateRenderObject gets called accordingly.
+
 
 1. User Input on the currently visible rasterized UI
 2. Animation, changes due to timers
