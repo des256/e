@@ -1,0 +1,16 @@
+[workspace]
+members = ["base","math"]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.1"
+authors = ["Desmond Germans, <desmond@germansmedia.nl>"]
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+debug = false
+codegen-units = 1
