@@ -1,14 +1,9 @@
 math
-collections
-single and multi core task spawner
-streaming interface
 data codecs for e, json, bson, pickle, yaml
 http server and client
-rendering
-compute, shaders
-deep learning ops
-2D
-font rendering
+websocket server and client
 image codecs for e, jpg, png, bmp, tga, webp
+rendering or wgpu
+basic windowing
 widget tree
 XR
