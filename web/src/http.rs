@@ -1,3 +1,9 @@
+//! HTTP/1.1 request parsing and response building.
+//!
+//! [`Request::parse`] incrementally parses from a byte buffer, returning
+//! [`ParseResult::Incomplete`] when more data is needed.  [`Response`] uses
+//! a fluent builder and serializes with [`to_bytes`](Response::to_bytes).
+
 use std::fmt::Write;
 
 /// HTTP request method.

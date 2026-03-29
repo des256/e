@@ -7,16 +7,23 @@
 //! # Examples
 //!
 //! ```no_run
+//! use std::net::SocketAddr;
 //! use web::*;
 //! use web::websocket::Message;
 //!
-//! // Inside a server ws_handler:
-//! // let mut ws = WebSocket::upgrade(stream, &request).unwrap();
-//! // ws.send_text("hello").unwrap();
-//! // match ws.recv().unwrap() {
-//! //     Message::Text(t) => println!("got: {t}"),
-//! //     Message::Binary(b) => println!("got {} bytes", b.len()),
-//! // }
+//! let addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+//! let handle = Server::new(addr, |_| Response::new(404))
+//!     .on_websocket(|mut ws, _req| {
+//!         ws.send_text("hello").unwrap();
+//!         while let Ok(msg) = ws.recv() {
+//!             match msg {
+//!                 Message::Text(t) => ws.send_text(&t).unwrap(),
+//!                 Message::Binary(b) => ws.send_binary(&b).unwrap(),
+//!             }
+//!         }
+//!     })
+//!     .start()
+//!     .unwrap();
 //! ```
 
 use crate::{

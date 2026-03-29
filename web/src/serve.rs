@@ -1,3 +1,5 @@
+//! Static file serving with MIME type detection and cache headers.
+
 use crate::*;
 use std::path::Path;
 
