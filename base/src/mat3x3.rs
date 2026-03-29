@@ -1,313 +1,103 @@
 use {
     crate::*,
     std::{
-        cmp::PartialEq,
         fmt::{Display, Formatter, Result},
         ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     },
 };
 
-/// 3x3 matrix of numbers.
+/// 3x3 column-major matrix, generic over the component type.
+///
+/// Columns are stored as [`Vec3`] fields `x`, `y`, and `z`. Supports matrix
+/// arithmetic, scalar scaling, matrix-vector and matrix-matrix multiplication,
+/// transpose, and for `f32`/`f64`: [`det`](Mat3x3::det) and [`inv`](Mat3x3::inv).
+///
+/// Can be constructed from [`Mat2x2`] (embed), [`Quat`] (rotation), or
+/// [`Euler`] angles.
+///
+/// # Examples
+///
+/// ```
+/// use base::*;
+///
+/// let q = Quat::<f32>::from_axis_angle(vec3(0.0, 0.0, 1.0), std::f32::consts::FRAC_PI_2);
+/// let m: Mat3x3<f32> = q.into();
+/// let v = m * vec3(1.0, 0.0, 0.0);
+/// assert!((v.y - 1.0).abs() < 1e-6);
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Mat3x3<T> {
+    /// First column.
     pub x: Vec3<T>,
+    /// Second column.
     pub y: Vec3<T>,
+    /// Third column.
     pub z: Vec3<T>,
 }
 
-impl<T> Mat3x3<T>
-where
-    T: Copy
-        + Zero
-        + One
-        + PartialEq
-        + Div<Output = T>
-        + Mul<Output = T>
-        + Sub<Output = T>
-        + Neg<Output = T>
-        + Add<Output = T>,
-{
-    /// Create translation matrix from vector.
-    pub fn from_vec2(value: Vec2<T>) -> Mat3x3<T> {
-        Mat3x3 {
-            x: Vec3::<T>::UNIT_X,
-            y: Vec3::<T>::UNIT_Y,
-            z: Vec3 {
-                x: value.x,
-                y: value.y,
-                z: T::ONE,
-            },
-        }
-    }
-
-    /// Compose matrix from 2x2 matrix and vector.
-    pub fn from_mv(m: Mat2x2<T>, v: Vec2<T>) -> Mat3x3<T> {
-        Mat3x3 {
-            x: Vec3 {
-                x: m.x.x,
-                y: m.x.y,
-                z: T::ZERO,
-            },
-            y: Vec3 {
-                x: m.y.x,
-                y: m.y.y,
-                z: T::ZERO,
-            },
-            z: Vec3 {
-                x: v.x,
-                y: v.y,
-                z: T::ONE,
-            },
-        }
-    }
-
-    /// Transpose the matrix.
-    pub fn transpose(self) -> Mat3x3<T> {
-        Mat3x3 {
-            x: Vec3 {
-                x: self.x.x,
-                y: self.y.x,
-                z: self.z.x,
-            },
-            y: Vec3 {
-                x: self.x.y,
-                y: self.y.y,
-                z: self.z.y,
-            },
-            z: Vec3 {
-                x: self.x.z,
-                y: self.y.z,
-                z: self.z.z,
-            },
-        }
-    }
-}
-
-impl<T> Zero for Mat3x3<T>
-where
-    Vec3<T>: Zero,
-{
-    const ZERO: Mat3x3<T> = Mat3x3 {
-        x: Vec3::ZERO,
-        y: Vec3::ZERO,
-        z: Vec3::ZERO,
-    };
-}
-
-impl<T> One for Mat3x3<T>
-where
-    T: Copy + Zero + One + Mul<Output = T> + Sub<Output = T> + Add<Output = T>,
-{
-    const ONE: Mat3x3<T> = Mat3x3 {
-        x: Vec3::UNIT_X,
-        y: Vec3::UNIT_Y,
-        z: Vec3::UNIT_Z,
-    };
-}
-
-impl<T> Display for Mat3x3<T>
-where
-    Vec3<T>: Display,
-{
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "[{},{},{}]", self.x, self.y, self.z)
-    }
-}
-
-/// Matrix + matrix.
-impl<T> Add<Mat3x3<T>> for Mat3x3<T>
-where
-    Vec3<T>: Add<Vec3<T>, Output = Vec3<T>>,
-{
-    type Output = Self;
-    fn add(self, other: Self) -> Self::Output {
-        Mat3x3 {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
-        }
-    }
-}
-
-/// Matrix += matrix.
-impl<T> AddAssign<Mat3x3<T>> for Mat3x3<T>
-where
-    Vec3<T>: AddAssign<Vec3<T>>,
-{
-    fn add_assign(&mut self, other: Self) {
-        self.x += other.x;
-        self.y += other.y;
-        self.z += other.z;
-    }
-}
-
-/// Matrix - matrix.
-impl<T> Sub<Mat3x3<T>> for Mat3x3<T>
-where
-    Vec3<T>: Sub<Vec3<T>, Output = Vec3<T>>,
-{
-    type Output = Self;
-    fn sub(self, other: Self) -> Self::Output {
-        Mat3x3 {
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z,
-        }
-    }
-}
-
-/// Matrix -= matrix.
-impl<T> SubAssign<Mat3x3<T>> for Mat3x3<T>
-where
-    Vec3<T>: SubAssign<Vec3<T>>,
-{
-    fn sub_assign(&mut self, other: Self) {
-        self.x -= other.x;
-        self.y -= other.y;
-        self.z -= other.z;
-    }
-}
-
-/// Matrix * scalar.
-impl<T> Mul<T> for Mat3x3<T>
-where
-    T: Copy,
-    Vec3<T>: Mul<T, Output = Vec3<T>>,
-{
-    type Output = Mat3x3<T>;
-    fn mul(self, other: T) -> Self::Output {
-        Mat3x3 {
-            x: self.x * other,
-            y: self.y * other,
-            z: self.z * other,
-        }
-    }
-}
-
-/// Matrix * vector.
-impl<T> Mul<Vec3<T>> for Mat3x3<T>
-where
-    T: Copy + Mul<Output = T> + Add<Output = T>,
-{
-    type Output = Vec3<T>;
-    fn mul(self, other: Vec3<T>) -> Self::Output {
-        Vec3 {
-            x: self.x.x * other.x + self.y.x * other.y + self.z.x * other.z,
-            y: self.x.y * other.x + self.y.y * other.y + self.z.y * other.z,
-            z: self.x.z * other.x + self.y.z * other.y + self.z.z * other.z,
-        }
-    }
-}
-
-// Vector * matrix is not defined.
-
-/// Matrix * matrix.
-impl<T> Mul<Mat3x3<T>> for Mat3x3<T>
-where
-    Mat3x3<T>: Copy + Mul<Vec3<T>, Output = Vec3<T>>,
-{
-    type Output = Mat3x3<T>;
-    fn mul(self, other: Mat3x3<T>) -> Self::Output {
-        Mat3x3 {
-            x: self * other.x,
-            y: self * other.y,
-            z: self * other.z,
-        }
-    }
-}
-
-/// Matrix *= scalar.
-impl<T> MulAssign<T> for Mat3x3<T>
-where
-    T: Copy,
-    Vec3<T>: MulAssign<T>,
-{
-    fn mul_assign(&mut self, other: T) {
-        self.x *= other;
-        self.y *= other;
-        self.z *= other;
-    }
-}
-
-/// Matrix *= matrix.
-impl<T> MulAssign<Mat3x3<T>> for Mat3x3<T>
-where
-    Mat3x3<T>: Copy + Mul<Mat3x3<T>, Output = Mat3x3<T>>,
-{
-    fn mul_assign(&mut self, other: Mat3x3<T>) {
-        let m = *self * other;
-        *self = m;
-    }
-}
-
-/// Matrix / scalar.
-impl<T> Div<T> for Mat3x3<T>
-where
-    T: Copy,
-    Vec3<T>: Div<T, Output = Vec3<T>>,
-{
-    type Output = Mat3x3<T>;
-    fn div(self, other: T) -> Self::Output {
-        Mat3x3 {
-            x: self.x / other,
-            y: self.y / other,
-            z: self.z / other,
-        }
-    }
-}
-
-/// Matrix /= scalar.
-impl<T> DivAssign<T> for Mat3x3<T>
-where
-    T: Copy,
-    Vec3<T>: DivAssign<T>,
-{
-    fn div_assign(&mut self, other: T) {
-        self.x /= other;
-        self.y /= other;
-        self.z /= other;
-    }
-}
-
-/// -Matrix.
-impl<T> Neg for Mat3x3<T>
-where
-    Vec3<T>: Neg<Output = Vec3<T>>,
-{
-    type Output = Mat3x3<T>;
-    fn neg(self) -> Self {
-        Mat3x3 {
-            x: -self.x,
-            y: -self.y,
-            z: -self.z,
-        }
-    }
+/// Create a new 3x3 matrix from column vectors.
+pub const fn mat3x3<T>(x: Vec3<T>, y: Vec3<T>, z: Vec3<T>) -> Mat3x3<T> {
+    Mat3x3 { x, y, z }
 }
 
 macro_rules! mat3x3_impl {
     ($($t:ty)+) => {
         $(
-            /// Scalar * matrix.
-            impl Mul<Mat3x3<$t>> for $t {
-                type Output = Mat3x3<$t>;
-                fn mul(self,other: Mat3x3<$t>) -> Self::Output {
+            impl Mat3x3<$t> {
+                /// Create translation matrix from vector.
+                pub fn from_vec2(value: Vec2<$t>) -> Mat3x3<$t> {
                     Mat3x3 {
-                        x: self * other.x,
-                        y: self * other.y,
-                        z: self * other.z,
+                        x: Vec3 { x: 1.0, y: 0.0, z: 0.0 },
+                        y: Vec3 { x: 0.0, y: 1.0, z: 0.0 },
+                        z: Vec3 {
+                            x: value.x,
+                            y: value.y,
+                            z: 1.0,
+                        },
                     }
                 }
-            }
-        )+
-    }
-}
 
-mat3x3_impl! { isize i8 i16 i32 i64 i128 f32 f64 }
+                /// Compose matrix from 2x2 matrix and vector.
+                pub fn from_mv(m: Mat2x2<$t>, v: Vec2<$t>) -> Mat3x3<$t> {
+                    Mat3x3 {
+                        x: Vec3 {
+                            x: m.x.x,
+                            y: m.x.y,
+                            z: 0.0,
+                        },
+                        y: Vec3 {
+                            x: m.y.x,
+                            y: m.y.y,
+                            z: 0.0,
+                        },
+                        z: Vec3 {
+                            x: v.x,
+                            y: v.y,
+                            z: 1.0,
+                        },
+                    }
+                }
 
-macro_rules! mat3x3_real_impl {
-    ($($t:ty)+) => {
-        $(
-            impl Mat3x3<$t> {
+                /// Transpose the matrix.
+                pub fn transpose(self) -> Mat3x3<$t> {
+                    Mat3x3 {
+                        x: Vec3 {
+                            x: self.x.x,
+                            y: self.y.x,
+                            z: self.z.x,
+                        },
+                        y: Vec3 {
+                            x: self.x.y,
+                            y: self.y.y,
+                            z: self.z.y,
+                        },
+                        z: Vec3 {
+                            x: self.x.z,
+                            y: self.y.z,
+                            z: self.z.z,
+                        },
+                    }
+                }
 
                 /// Calculate determinant of matrix.
                 pub fn det(self) -> $t {
@@ -351,17 +141,160 @@ macro_rules! mat3x3_real_impl {
                     let gbah = g * b - a * h;
                     let aedb = a * e - d * b;
                     Mat3x3 {
-                        x: Vec3 { x: eifh,y: hcbi,z: bfec, },
-                        y: Vec3 { x: gfdi,y: aigc,z: dcaf, },
-                        z: Vec3 { x: dhge,y: gbah,z: aedb, },
+                        x: Vec3 { x: eifh, y: hcbi, z: bfec },
+                        y: Vec3 { x: gfdi, y: aigc, z: dcaf },
+                        z: Vec3 { x: dhge, y: gbah, z: aedb },
                     } / det
+                }
+            }
+
+            impl Zero for Mat3x3<$t> {
+                const ZERO: Mat3x3<$t> = Mat3x3 {
+                    x: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+                    y: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+                    z: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+                };
+            }
+
+            impl One for Mat3x3<$t> {
+                const ONE: Mat3x3<$t> = Mat3x3 {
+                    x: Vec3 { x: 1.0, y: 0.0, z: 0.0 },
+                    y: Vec3 { x: 0.0, y: 1.0, z: 0.0 },
+                    z: Vec3 { x: 0.0, y: 0.0, z: 1.0 },
+                };
+            }
+
+            impl Display for Mat3x3<$t> {
+                fn fmt(&self, f: &mut Formatter) -> Result {
+                    write!(f, "[{},{},{}]", self.x, self.y, self.z)
+                }
+            }
+
+            /// Matrix + matrix.
+            impl Add<Mat3x3<$t>> for Mat3x3<$t> {
+                type Output = Self;
+                fn add(self, other: Self) -> Self::Output {
+                    Mat3x3 {
+                        x: self.x + other.x,
+                        y: self.y + other.y,
+                        z: self.z + other.z,
+                    }
+                }
+            }
+
+            /// Matrix += matrix.
+            impl AddAssign<Mat3x3<$t>> for Mat3x3<$t> {
+                fn add_assign(&mut self, other: Self) {
+                    self.x += other.x;
+                    self.y += other.y;
+                    self.z += other.z;
+                }
+            }
+
+            /// Matrix - matrix.
+            impl Sub<Mat3x3<$t>> for Mat3x3<$t> {
+                type Output = Self;
+                fn sub(self, other: Self) -> Self::Output {
+                    Mat3x3 {
+                        x: self.x - other.x,
+                        y: self.y - other.y,
+                        z: self.z - other.z,
+                    }
+                }
+            }
+
+            /// Matrix -= matrix.
+            impl SubAssign<Mat3x3<$t>> for Mat3x3<$t> {
+                fn sub_assign(&mut self, other: Self) {
+                    self.x -= other.x;
+                    self.y -= other.y;
+                    self.z -= other.z;
+                }
+            }
+
+            /// Scalar * matrix.
+            impl Mul<Mat3x3<$t>> for $t {
+                type Output = Mat3x3<$t>;
+                fn mul(self, other: Mat3x3<$t>) -> Self::Output {
+                    Mat3x3 {
+                        x: self * other.x,
+                        y: self * other.y,
+                        z: self * other.z,
+                    }
+                }
+            }
+
+            /// Matrix * scalar.
+            impl Mul<$t> for Mat3x3<$t> {
+                type Output = Mat3x3<$t>;
+                fn mul(self, other: $t) -> Self::Output {
+                    Mat3x3 {
+                        x: self.x * other,
+                        y: self.y * other,
+                        z: self.z * other,
+                    }
+                }
+            }
+
+            /// Matrix * vector.
+            impl Mul<Vec3<$t>> for Mat3x3<$t> {
+                type Output = Vec3<$t>;
+                fn mul(self, other: Vec3<$t>) -> Self::Output {
+                    Vec3 {
+                        x: self.x.x * other.x + self.y.x * other.y + self.z.x * other.z,
+                        y: self.x.y * other.x + self.y.y * other.y + self.z.y * other.z,
+                        z: self.x.z * other.x + self.y.z * other.y + self.z.z * other.z,
+                    }
+                }
+            }
+
+            // Vector * matrix is not defined.
+
+            /// Matrix * matrix.
+            impl Mul<Mat3x3<$t>> for Mat3x3<$t> {
+                type Output = Mat3x3<$t>;
+                fn mul(self, other: Mat3x3<$t>) -> Self::Output {
+                    Mat3x3 {
+                        x: self * other.x,
+                        y: self * other.y,
+                        z: self * other.z,
+                    }
+                }
+            }
+
+            /// Matrix *= scalar.
+            impl MulAssign<$t> for Mat3x3<$t> {
+                fn mul_assign(&mut self, other: $t) {
+                    self.x *= other;
+                    self.y *= other;
+                    self.z *= other;
+                }
+            }
+
+            /// Matrix *= matrix.
+            impl MulAssign<Mat3x3<$t>> for Mat3x3<$t> {
+                fn mul_assign(&mut self, other: Mat3x3<$t>) {
+                    let m = *self * other;
+                    *self = m;
+                }
+            }
+
+            /// Matrix / scalar.
+            impl Div<$t> for Mat3x3<$t> {
+                type Output = Mat3x3<$t>;
+                fn div(self, other: $t) -> Self::Output {
+                    Mat3x3 {
+                        x: self.x / other,
+                        y: self.y / other,
+                        z: self.z / other,
+                    }
                 }
             }
 
             /// Scalar / matrix.
             impl Div<Mat3x3<$t>> for $t {
                 type Output = Mat3x3<$t>;
-                fn div(self,other: Mat3x3<$t>) -> Self::Output {
+                fn div(self, other: Mat3x3<$t>) -> Self::Output {
                     self * other.inv()
                 }
             }
@@ -369,84 +302,99 @@ macro_rules! mat3x3_real_impl {
             /// Matrix / matrix.
             impl Div<Mat3x3<$t>> for Mat3x3<$t> {
                 type Output = Mat3x3<$t>;
-                fn div(self,other: Mat3x3<$t>) -> Self::Output {
+                fn div(self, other: Mat3x3<$t>) -> Self::Output {
                     self * other.inv()
+                }
+            }
+
+            /// Matrix /= scalar.
+            impl DivAssign<$t> for Mat3x3<$t> {
+                fn div_assign(&mut self, other: $t) {
+                    self.x /= other;
+                    self.y /= other;
+                    self.z /= other;
                 }
             }
 
             /// Matrix /= matrix.
             impl DivAssign<Mat3x3<$t>> for Mat3x3<$t> {
-                fn div_assign(&mut self,other: Mat3x3<$t>) {
+                fn div_assign(&mut self, other: Mat3x3<$t>) {
                     *self *= other.inv()
+                }
+            }
+
+            /// -Matrix.
+            impl Neg for Mat3x3<$t> {
+                type Output = Mat3x3<$t>;
+                fn neg(self) -> Self {
+                    Mat3x3 {
+                        x: -self.x,
+                        y: -self.y,
+                        z: -self.z,
+                    }
+                }
+            }
+
+            /// Extend 2x2 matrix into 3x3 matrix.
+            impl From<Mat2x2<$t>> for Mat3x3<$t> {
+                fn from(value: Mat2x2<$t>) -> Mat3x3<$t> {
+                    Mat3x3 {
+                        x: Vec3 {
+                            x: value.x.x,
+                            y: value.x.y,
+                            z: 0.0,
+                        },
+                        y: Vec3 {
+                            x: value.y.x,
+                            y: value.y.y,
+                            z: 0.0,
+                        },
+                        z: Vec3 { x: 0.0, y: 0.0, z: 1.0 },
+                    }
+                }
+            }
+
+            /// Create rotation matrix from quaternion.
+            impl From<Quat<$t>> for Mat3x3<$t> {
+                fn from(value: Quat<$t>) -> Mat3x3<$t> {
+                    let x2 = value.i + value.i;
+                    let y2 = value.j + value.j;
+                    let z2 = value.k + value.k;
+                    let xx2 = value.i * x2;
+                    let yy2 = value.j * y2;
+                    let zz2 = value.k * z2;
+                    let yz2 = value.j * z2;
+                    let wx2 = value.r * x2;
+                    let xy2 = value.i * y2;
+                    let wz2 = value.r * z2;
+                    let xz2 = value.i * z2;
+                    let wy2 = value.r * y2;
+                    Mat3x3 {
+                        x: Vec3 {
+                            x: 1.0 - yy2 - zz2,
+                            y: xy2 + wz2,
+                            z: xz2 - wy2,
+                        },
+                        y: Vec3 {
+                            x: xy2 - wz2,
+                            y: 1.0 - xx2 - zz2,
+                            z: yz2 + wx2,
+                        },
+                        z: Vec3 {
+                            x: xz2 + wy2,
+                            y: yz2 - wx2,
+                            z: 1.0 - xx2 - yy2,
+                        },
+                    }
                 }
             }
         )+
     }
 }
 
-mat3x3_real_impl! { f32 f64 }
+mat3x3_impl! { f32 f64 }
 
-impl<T> From<Mat2x2<T>> for Mat3x3<T>
-where
-    T: Copy + Zero + One + Mul<Output = T> + Sub<Output = T> + Add<Output = T>,
-{
-    /// Extend 2x2 matrix into 3x3 matrix.
-    fn from(value: Mat2x2<T>) -> Mat3x3<T> {
-        Mat3x3 {
-            x: Vec3 {
-                x: value.x.x,
-                y: value.x.y,
-                z: T::ZERO,
-            },
-            y: Vec3 {
-                x: value.y.x,
-                y: value.y.y,
-                z: T::ZERO,
-            },
-            z: Vec3::<T>::UNIT_Z,
-        }
-    }
-}
-
-impl<T> From<Quat<T>> for Mat3x3<T>
-where
-    T: Copy + One + Mul<Output = T> + Sub<Output = T> + Add<Output = T>,
-{
-    /// Create rotation matrix from quaternion.
-    fn from(value: Quat<T>) -> Mat3x3<T> {
-        let x2 = value.i + value.i;
-        let y2 = value.j + value.j;
-        let z2 = value.k + value.k;
-        let xx2 = value.i * x2;
-        let yy2 = value.j * y2;
-        let zz2 = value.k * z2;
-        let yz2 = value.j * z2;
-        let wx2 = value.r * x2;
-        let xy2 = value.i * y2;
-        let wz2 = value.r * z2;
-        let xz2 = value.i * z2;
-        let wy2 = value.r * y2;
-        Mat3x3 {
-            x: Vec3 {
-                x: T::ONE - yy2 - zz2,
-                y: xy2 + wz2,
-                z: xz2 - wy2,
-            },
-            y: Vec3 {
-                x: xy2 - wz2,
-                y: T::ONE - xx2 - zz2,
-                z: yz2 + wx2,
-            },
-            z: Vec3 {
-                x: xz2 + wy2,
-                y: yz2 - wx2,
-                z: T::ONE - xx2 - yy2,
-            },
-        }
-    }
-}
-
-// if `T as U` exists, `Mat3x3<U>::from(Mat3x3<T>)` should also exist
+// lossless conversions matching std::convert::From for the corresponding primitive types
 // generic implementation doesn't work because `From<T> for T` is already defined, so instantiate all of them
 macro_rules! mat3x3_from_impl {
     ($(($t:ty,$u:ty))+) => {
@@ -458,17 +406,14 @@ macro_rules! mat3x3_from_impl {
     }
 }
 
-mat3x3_from_impl! { (isize,i8) (isize,i16) (isize,i32) (isize,i64) (isize,i128) (isize,f32) (isize,f64) }
-mat3x3_from_impl! { (i8,isize) (i8,u16) (i8,i16) (i8,i32) (i8,i64) (i8,i128) (i8,f32) (i8,f64) }
-mat3x3_from_impl! { (i16,isize) (i16,i8) (i16,i32) (i16,i64) (i16,i128) (i16,f32) (i16,f64) }
-mat3x3_from_impl! { (i32,isize) (i32,i8) (i32,i16) (i32,i64) (i32,i128) (i32,f32) (i32,f64) }
-mat3x3_from_impl! { (i64,isize) (i64,i8) (i64,i16) (i64,i32) (i64,i128) (i64,f32) (i64,f64) }
-mat3x3_from_impl! { (i128,isize) (i128,i8) (i128,i16) (i128,i32) (i128,i64) (i128,f32) (i128,f64) }
-mat3x3_from_impl! { (f32,isize) (f32,i8) (f32,i16) (f32,i32) (f32,i64) (f32,i128) (f32,f64) }
-mat3x3_from_impl! { (f64,isize) (f64,i8) (f64,i16) (f64,i32) (f64,i64)(f64,i128) (f64,f32) }
+mat3x3_from_impl! { (i8,i16) (i8,i32) (i8,i64) (i8,i128) (i8,isize) }
+mat3x3_from_impl! { (i16,i32) (i16,i64) (i16,i128) (i16,isize) }
+mat3x3_from_impl! { (i32,i64) (i32,i128) }
+mat3x3_from_impl! { (i64,i128) }
+mat3x3_from_impl! { (f32,f64) (f64,f32) }
 
+#[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
     use super::*;
 
     #[test]

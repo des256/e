@@ -1,4 +1,11 @@
+/// Trait for types that have an additive identity (zero element).
+///
+/// Provides a `ZERO` constant representing the additive identity,
+/// where `x + ZERO == x` for all `x`.
+///
+/// Implemented for all primitive numeric types.
 pub trait Zero {
+    /// The additive identity element.
     const ZERO: Self;
 }
 

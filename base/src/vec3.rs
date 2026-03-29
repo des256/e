@@ -3,16 +3,65 @@ use {
     std::{
         cmp::PartialEq,
         fmt::{Display, Formatter, Result},
-        ops::{Add, AddAssign, BitOr, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+        ops::{Add, AddAssign, BitOr, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
     },
 };
 
-/// 3D vector of numbers.
+/// 3D vector, generic over the component type.
+///
+/// Supports arithmetic operators for vector addition, subtraction,
+/// scalar multiplication/division, negation, and indexing by component.
+///
+/// For `f32`/`f64` vectors, additional methods are available: [`length`](Vec3::length),
+/// [`normalized`](Vec3::normalized),
+/// [`length_squared`](Vec3::length_squared), [`angle_between`](Vec3::angle_between),
+/// and the `|` operator as a dot product alias.
+///
+/// # Examples
+///
+/// ```
+/// use base::*;
+///
+/// let a = vec3(1.0f32, 0.0, 0.0);
+/// let b = vec3(0.0, 1.0, 0.0);
+/// let c = a.cross(b);
+/// assert_eq!(c, vec3(0.0, 0.0, 1.0));
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec3<T> {
+    /// X component.
     pub x: T,
+    /// Y component.
     pub y: T,
+    /// Z component.
     pub z: T,
+}
+
+/// Create a new 3D vector.
+pub const fn vec3<T>(x: T, y: T, z: T) -> Vec3<T> {
+    Vec3 { x, y, z }
+}
+
+impl<T: Copy> Vec3<T> {
+    /// Project to Vec2 (drop z).
+    pub fn xy(self) -> Vec2<T> {
+        Vec2 { x: self.x, y: self.y }
+    }
+
+    /// Swizzle xz.
+    pub fn xz(self) -> Vec2<T> {
+        Vec2 { x: self.x, y: self.z }
+    }
+
+    /// Swizzle yz.
+    pub fn yz(self) -> Vec2<T> {
+        Vec2 { x: self.y, y: self.z }
+    }
+
+    /// Extend to [`Vec4`] by appending a W component.
+    pub fn extend(self, w: T) -> Vec4<T> {
+        Vec4 { x: self.x, y: self.y, z: self.z, w }
+    }
 }
 
 impl<T> Vec3<T>
@@ -41,16 +90,39 @@ where
     };
 
     /// Calculate dot product.
-    pub fn dot(self, other: &Vec3<T>) -> T {
+    pub fn dot(self, other: Vec3<T>) -> T {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
     /// Calculate cross product.
-    pub fn cross(self, other: &Vec3<T>) -> Vec3<T> {
+    pub fn cross(self, other: Vec3<T>) -> Vec3<T> {
         Vec3 {
             x: self.y * other.z - self.z * other.y,
             y: self.z * other.x - self.x * other.z,
             z: self.x * other.y - self.y * other.x,
+        }
+    }
+}
+
+impl<T> Index<usize> for Vec3<T> {
+    type Output = T;
+    fn index(&self, index: usize) -> &T {
+        match index {
+            0 => &self.x,
+            1 => &self.y,
+            2 => &self.z,
+            _ => panic!("Vec3 index out of range"),
+        }
+    }
+}
+
+impl<T> IndexMut<usize> for Vec3<T> {
+    fn index_mut(&mut self, index: usize) -> &mut T {
+        match index {
+            0 => &mut self.x,
+            1 => &mut self.y,
+            2 => &mut self.z,
+            _ => panic!("Vec3 index out of range"),
         }
     }
 }
@@ -216,27 +288,36 @@ macro_rules! vec3_impl {
     }
 }
 
-vec3_impl! { usize isize u8 i8 u16 i16 u32 i32 u64 i64 u128 i128 f32 f64 }
+vec3_impl! { usize isize u8 i8 u16 i16 u32 i32 u64 i64 u128 i128 F16 f32 f64 }
 
 macro_rules! vec3_real_impl {
     ($($t:ty)+) => {
         $(
             impl Vec3<$t> {
 
-                /// Calculate vector length.
-                pub fn length(&self) -> $t {
-                    self.dot(&self).sqrt()
+                /// Calculate squared vector length.
+                pub fn length_squared(&self) -> $t {
+                    self.x * self.x + self.y * self.y + self.z * self.z
                 }
 
-                /// Normalize vector.
-                pub fn normalize(&mut self) {
+                /// Calculate vector length.
+                pub fn length(&self) -> $t {
+                    self.length_squared().sqrt()
+                }
+
+                /// Return a normalized copy of the vector.
+                ///
+                /// Returns the original vector unchanged if its length is zero.
+                pub fn normalized(self) -> Self {
                     let d = self.length();
-                    if d != <$t>::ZERO {
-                        *self /= d;
-                    }
+                    if d != <$t>::ZERO { self / d } else { self }
                 }
             }
 
+            /// Dot product via the `|` operator.
+            ///
+            /// Alias for [`dot`](Vec3::dot); matches the geometric algebra
+            /// inner product notation used by [`MultiVec201`] and [`MultiVec301`].
             impl BitOr<Vec3<$t>> for Vec3<$t> {
                 type Output = $t;
                 fn bitor(self,other: Vec3<$t>) -> $t {
@@ -247,10 +328,10 @@ macro_rules! vec3_real_impl {
     }
 }
 
-vec3_real_impl! { f32 f64 }
+vec3_real_impl! { F16 f32 f64 }
 
-// if `T as U` exists, `Vec3<U>::from(Vec3<T>)` should also exist
-// generic implementation doesn't work because `From<T> for T`` is already defined, so instantiate all of them
+// lossless conversions matching std::convert::From for the corresponding primitive types
+// generic implementation doesn't work because `From<T> for T` is already defined, so instantiate all of them
 macro_rules! vec3_from_impl {
     ($(($t:ty,$u:ty))+) => {
         $(
@@ -261,17 +342,12 @@ macro_rules! vec3_from_impl {
     }
 }
 
-vec3_from_impl! { (usize,isize) (usize,u8) (usize,i8) (usize,u16) (usize,i16) (usize,u32) (usize,i32) (usize,u64) (usize,i64) (usize,u128) (usize,i128) (usize,f32) (usize,f64) }
-vec3_from_impl! { (isize,usize) (isize,u8) (isize,i8) (isize,u16) (isize,i16) (isize,u32) (isize,i32) (isize,u64) (isize,i64) (isize,u128) (isize,i128) (isize,f32) (isize,f64) }
-vec3_from_impl! { (u8,usize) (u8,isize) (u8,i8) (u8,u16) (u8,i16) (u8,u32) (u8,i32) (u8,u64) (u8,i64) (u8,u128) (u8,i128) (u8,f32) (u8,f64) }
-vec3_from_impl! { (i8,usize) (i8,isize) (i8,u8) (i8,u16) (i8,i16) (i8,u32) (i8,i32) (i8,u64) (i8,i64) (i8,u128) (i8,i128) (i8,f32) (i8,f64) }
-vec3_from_impl! { (u16,usize) (u16,isize) (u16,u8) (u16,i8) (u16,i16) (u16,u32) (u16,i32) (u16,u64) (u16,i64) (u16,u128) (u16,i128) (u16,f32) (u16,f64) }
-vec3_from_impl! { (i16,usize) (i16,isize) (i16,u8) (i16,i8) (i16,u16) (i16,u32) (i16,i32) (i16,u64) (i16,i64) (i16,u128) (i16,i128) (i16,f32) (i16,f64) }
-vec3_from_impl! { (u32,usize) (u32,isize) (u32,u8) (u32,i8) (u32,u16) (u32,i16) (u32,i32) (u32,u64) (u32,i64) (u32,u128) (u32,i128) (u32,f32) (u32,f64) }
-vec3_from_impl! { (i32,usize) (i32,isize) (i32,u8) (i32,i8) (i32,u16) (i32,i16) (i32,u32) (i32,u64) (i32,i64) (i32,u128) (i32,i128) (i32,f32) (i32,f64) }
-vec3_from_impl! { (u64,usize) (u64,isize) (u64,u8) (u64,i8) (u64,u16) (u64,i16) (u64,u32) (u64,i32) (u64,i64) (u64,u128) (u64,i128) (u64,f32) (u64,f64) }
-vec3_from_impl! { (i64,usize) (i64,isize) (i64,u8) (i64,i8) (i64,u16) (i64,i16) (i64,u32) (i64,i32) (i64,u64) (i64,u128) (i64,i128) (i64,f32) (i64,f64) }
-vec3_from_impl! { (u128,usize) (u128,isize) (u128,u8) (u128,i8) (u128,u16) (u128,i16) (u128,u32) (u128,i32) (u128,u64) (u128,i64) (u128,i128) (u128,f32) (u128,f64) }
-vec3_from_impl! { (i128,usize) (i128,isize) (i128,u8) (i128,i8) (i128,u16) (i128,i16) (i128,u32) (i128,i32) (i128,u64) (i128,i64) (i128,u128) (i128,f32) (i128,f64) }
-vec3_from_impl! { (f32,usize) (f32,isize) (f32,u8) (f32,i8) (f32,u16) (f32,i16) (f32,u32) (f32,i32) (f32,u64) (f32,i64) (f32,u128) (f32,i128) (f32,f64) }
-vec3_from_impl! { (f64,usize) (f64,isize) (f64,u8) (f64,i8) (f64,u16) (f64,i16) (f64,u32) (f64,i32) (f64,u64) (f64,i64) (f64,u128) (f64,i128) (f64,f32) }
+vec3_from_impl! { (u8,u16) (u8,u32) (u8,u64) (u8,u128) (u8,i16) (u8,i32) (u8,i64) (u8,i128) (u8,usize) }
+vec3_from_impl! { (i8,i16) (i8,i32) (i8,i64) (i8,i128) (i8,isize) }
+vec3_from_impl! { (u16,u32) (u16,u64) (u16,u128) (u16,i32) (u16,i64) (u16,i128) (u16,usize) }
+vec3_from_impl! { (i16,i32) (i16,i64) (i16,i128) (i16,isize) }
+vec3_from_impl! { (u32,u64) (u32,u128) (u32,i64) (u32,i128) }
+vec3_from_impl! { (i32,i64) (i32,i128) }
+vec3_from_impl! { (u64,u128) (u64,i128) }
+vec3_from_impl! { (i64,i128) }
+vec3_from_impl! { (f32,f64) (f64,f32) }

@@ -7,257 +7,58 @@ use {
     },
 };
 
-/// 2x2 matrix of numbers.
+/// 2x2 column-major matrix, generic over the component type.
+///
+/// Columns are stored as [`Vec2`] fields `x` and `y`. Supports matrix
+/// arithmetic (`+`, `-`, `*`, `/`), scalar scaling, matrix-vector
+/// multiplication, transpose, and for `f32`/`f64`: [`det`](Mat2x2::det)
+/// and [`inv`](Mat2x2::inv).
+///
+/// Can be constructed from a [`Complex`] number (rotation matrix).
+///
+/// # Examples
+///
+/// ```
+/// use base::*;
+///
+/// let m = Mat2x2::<f32>::ONE;
+/// let v = m * vec2(3.0, 4.0);
+/// assert_eq!(v, vec2(3.0, 4.0));
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Mat2x2<T> {
+    /// First column.
     pub x: Vec2<T>,
+    /// Second column.
     pub y: Vec2<T>,
 }
 
-impl<T> Mat2x2<T>
-where
-    T: Copy
-        + Zero
-        + PartialEq
-        + Div<Output = T>
-        + Mul<Output = T>
-        + Sub<Output = T>
-        + Neg<Output = T>,
-{
-    /// Transpose the matrix.
-    pub fn transpose(self) -> Self {
-        Mat2x2 {
-            x: Vec2 {
-                x: self.x.x,
-                y: self.y.x,
-            },
-            y: Vec2 {
-                x: self.x.y,
-                y: self.y.y,
-            },
-        }
-    }
-}
-
-impl<T> Zero for Mat2x2<T>
-where
-    Vec2<T>: Zero,
-{
-    const ZERO: Mat2x2<T> = Mat2x2 {
-        x: Vec2::ZERO,
-        y: Vec2::ZERO,
-    };
-}
-
-impl<T> One for Mat2x2<T>
-where
-    T: Copy + Zero + One + Mul<Output = T> + Add<Output = T>,
-{
-    const ONE: Mat2x2<T> = Mat2x2 {
-        x: Vec2::UNIT_X,
-        y: Vec2::UNIT_Y,
-    };
-}
-
-impl<T> Display for Mat2x2<T>
-where
-    Vec2<T>: Display,
-{
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "[{},{}]", self.x, self.y)
-    }
-}
-
-/// Matrix + matrix.
-impl<T> Add<Mat2x2<T>> for Mat2x2<T>
-where
-    Vec2<T>: Add<Vec2<T>, Output = Vec2<T>>,
-{
-    type Output = Self;
-    fn add(self, other: Self) -> Self::Output {
-        Mat2x2 {
-            x: self.x + other.x,
-            y: self.y + other.y,
-        }
-    }
-}
-
-/// Matrix += matrix.
-impl<T> AddAssign<Mat2x2<T>> for Mat2x2<T>
-where
-    Vec2<T>: AddAssign<Vec2<T>>,
-{
-    fn add_assign(&mut self, other: Self) {
-        self.x += other.x;
-        self.y += other.y;
-    }
-}
-
-/// Matrix - matrix.
-impl<T> Sub<Mat2x2<T>> for Mat2x2<T>
-where
-    Vec2<T>: Sub<Vec2<T>, Output = Vec2<T>>,
-{
-    type Output = Self;
-    fn sub(self, other: Self) -> Self::Output {
-        Mat2x2 {
-            x: self.x - other.x,
-            y: self.y - other.y,
-        }
-    }
-}
-
-/// Matrix -= matrix.
-impl<T> SubAssign<Mat2x2<T>> for Mat2x2<T>
-where
-    Vec2<T>: SubAssign<Vec2<T>>,
-{
-    fn sub_assign(&mut self, other: Self) {
-        self.x -= other.x;
-        self.y -= other.y;
-    }
-}
-
-/// Matrix * scalar.
-impl<T> Mul<T> for Mat2x2<T>
-where
-    Vec2<T>: Mul<T, Output = Vec2<T>>,
-    T: Copy,
-{
-    type Output = Mat2x2<T>;
-    fn mul(self, other: T) -> Self::Output {
-        Mat2x2 {
-            x: self.x * other,
-            y: self.y * other,
-        }
-    }
-}
-
-/// Matrix * vector.
-impl<T> Mul<Vec2<T>> for Mat2x2<T>
-where
-    T: Copy + Mul<Output = T> + Add<Output = T>,
-{
-    type Output = Vec2<T>;
-    fn mul(self, other: Vec2<T>) -> Self::Output {
-        Vec2 {
-            x: self.x.x * other.x + self.y.x * other.y,
-            y: self.x.y * other.x + self.y.y * other.y,
-        }
-    }
-}
-
-/// Matrix * matrix.
-impl<T> Mul<Mat2x2<T>> for Mat2x2<T>
-where
-    Mat2x2<T>: Copy + Mul<Vec2<T>, Output = Vec2<T>>,
-{
-    type Output = Mat2x2<T>;
-    fn mul(self, other: Mat2x2<T>) -> Self::Output {
-        Mat2x2 {
-            x: self * other.x,
-            y: self * other.y,
-        }
-    }
-}
-
-/// Matrix *= scalar.
-impl<T> MulAssign<T> for Mat2x2<T>
-where
-    Vec2<T>: MulAssign<T>,
-    T: Copy,
-{
-    fn mul_assign(&mut self, other: T) {
-        self.x *= other;
-        self.y *= other;
-    }
-}
-
-/// Matrix *= matrix.
-impl<T> MulAssign<Mat2x2<T>> for Mat2x2<T>
-where
-    Mat2x2<T>: Copy + Mul<Mat2x2<T>, Output = Mat2x2<T>>,
-{
-    fn mul_assign(&mut self, other: Mat2x2<T>) {
-        let m = *self * other;
-        *self = m;
-    }
-}
-
-/// Matrix / scalar.
-impl<T> Div<T> for Mat2x2<T>
-where
-    Vec2<T>: Div<T, Output = Vec2<T>>,
-    T: Copy,
-{
-    type Output = Mat2x2<T>;
-    fn div(self, other: T) -> Self::Output {
-        Mat2x2 {
-            x: self.x / other,
-            y: self.y / other,
-        }
-    }
-}
-
-/// Matrix /= scalar.
-impl<T> DivAssign<T> for Mat2x2<T>
-where
-    Vec2<T>: DivAssign<T>,
-    T: Copy,
-{
-    fn div_assign(&mut self, other: T) {
-        self.x /= other;
-        self.y /= other;
-    }
-}
-
-/// -Matrix
-impl<T> Neg for Mat2x2<T>
-where
-    Vec2<T>: Neg<Output = Vec2<T>>,
-{
-    type Output = Mat2x2<T>;
-    fn neg(self) -> Self::Output {
-        Mat2x2 {
-            x: -self.x,
-            y: -self.y,
-        }
-    }
+/// Create a new 2x2 matrix from column vectors.
+pub const fn mat2x2<T>(x: Vec2<T>, y: Vec2<T>) -> Mat2x2<T> {
+    Mat2x2 { x, y }
 }
 
 macro_rules! mat2x2_impl {
     ($($t:ty)+) => {
         $(
-            /// Scalar * matrix.
-            impl Mul<Mat2x2<$t>> for $t {
-                type Output = Mat2x2<$t>;
-                fn mul(self,other: Mat2x2<$t>) -> Self::Output {
+            impl Mat2x2<$t> {
+                /// Transpose the matrix.
+                pub fn transpose(self) -> Self {
                     Mat2x2 {
-                        x: self * other.x,
-                        y: self * other.y,
+                        x: Vec2 {
+                            x: self.x.x,
+                            y: self.y.x,
+                        },
+                        y: Vec2 {
+                            x: self.x.y,
+                            y: self.y.y,
+                        },
                     }
                 }
-            }
-        )+
-    }
-}
-
-mat2x2_impl! { isize i8 i16 i32 i64 i128 f32 f64 }
-
-macro_rules! mat2x2_real_impl {
-    ($($t:ty)+) => {
-        $(
-            impl Mat2x2<$t> {
 
                 /// Calculate determinant of matrix.
                 pub fn det(self) -> $t {
-                    let a = self.x.x;
-                    let b = self.y.x;
-                    let c = self.x.y;
-                    let d = self.y.y;
-                    let aa = d;
-                    let ab = c;
-                    a * aa - b * ab
+                    self.x.x * self.y.y - self.y.x * self.x.y
                 }
 
                 /// Calculate inverse of matrix.
@@ -271,16 +72,145 @@ macro_rules! mat2x2_real_impl {
                         return self;
                     }
                     Mat2x2 {
-                        x: Vec2 { x: d,y: -b, },
-                        y: Vec2 { x: -c,y: a, },
+                        x: Vec2 { x: d, y: -b },
+                        y: Vec2 { x: -c, y: a },
                     } / det
+                }
+            }
+
+            impl Zero for Mat2x2<$t> {
+                const ZERO: Mat2x2<$t> = Mat2x2 {
+                    x: Vec2 { x: 0.0, y: 0.0 },
+                    y: Vec2 { x: 0.0, y: 0.0 },
+                };
+            }
+
+            impl One for Mat2x2<$t> {
+                const ONE: Mat2x2<$t> = Mat2x2 {
+                    x: Vec2 { x: 1.0, y: 0.0 },
+                    y: Vec2 { x: 0.0, y: 1.0 },
+                };
+            }
+
+            impl Display for Mat2x2<$t> {
+                fn fmt(&self, f: &mut Formatter) -> Result {
+                    write!(f, "[{},{}]", self.x, self.y)
+                }
+            }
+
+            /// Matrix + matrix.
+            impl Add<Mat2x2<$t>> for Mat2x2<$t> {
+                type Output = Self;
+                fn add(self, other: Self) -> Self::Output {
+                    Mat2x2 {
+                        x: self.x + other.x,
+                        y: self.y + other.y,
+                    }
+                }
+            }
+
+            /// Matrix += matrix.
+            impl AddAssign<Mat2x2<$t>> for Mat2x2<$t> {
+                fn add_assign(&mut self, other: Self) {
+                    self.x += other.x;
+                    self.y += other.y;
+                }
+            }
+
+            /// Matrix - matrix.
+            impl Sub<Mat2x2<$t>> for Mat2x2<$t> {
+                type Output = Self;
+                fn sub(self, other: Self) -> Self::Output {
+                    Mat2x2 {
+                        x: self.x - other.x,
+                        y: self.y - other.y,
+                    }
+                }
+            }
+
+            /// Matrix -= matrix.
+            impl SubAssign<Mat2x2<$t>> for Mat2x2<$t> {
+                fn sub_assign(&mut self, other: Self) {
+                    self.x -= other.x;
+                    self.y -= other.y;
+                }
+            }
+
+            /// Matrix * scalar.
+            impl Mul<$t> for Mat2x2<$t> {
+                type Output = Mat2x2<$t>;
+                fn mul(self, other: $t) -> Self::Output {
+                    Mat2x2 {
+                        x: self.x * other,
+                        y: self.y * other,
+                    }
+                }
+            }
+
+            /// Scalar * matrix.
+            impl Mul<Mat2x2<$t>> for $t {
+                type Output = Mat2x2<$t>;
+                fn mul(self, other: Mat2x2<$t>) -> Self::Output {
+                    Mat2x2 {
+                        x: self * other.x,
+                        y: self * other.y,
+                    }
+                }
+            }
+
+            /// Matrix * vector.
+            impl Mul<Vec2<$t>> for Mat2x2<$t> {
+                type Output = Vec2<$t>;
+                fn mul(self, other: Vec2<$t>) -> Self::Output {
+                    Vec2 {
+                        x: self.x.x * other.x + self.y.x * other.y,
+                        y: self.x.y * other.x + self.y.y * other.y,
+                    }
+                }
+            }
+
+            /// Matrix * matrix.
+            impl Mul<Mat2x2<$t>> for Mat2x2<$t> {
+                type Output = Mat2x2<$t>;
+                fn mul(self, other: Mat2x2<$t>) -> Self::Output {
+                    Mat2x2 {
+                        x: self * other.x,
+                        y: self * other.y,
+                    }
+                }
+            }
+
+            /// Matrix *= scalar.
+            impl MulAssign<$t> for Mat2x2<$t> {
+                fn mul_assign(&mut self, other: $t) {
+                    self.x *= other;
+                    self.y *= other;
+                }
+            }
+
+            /// Matrix *= matrix.
+            impl MulAssign<Mat2x2<$t>> for Mat2x2<$t> {
+                fn mul_assign(&mut self, other: Mat2x2<$t>) {
+                    let m = *self * other;
+                    *self = m;
+                }
+            }
+
+            /// Matrix / scalar.
+            impl Div<$t> for Mat2x2<$t> {
+                type Output = Mat2x2<$t>;
+                fn div(self, other: $t) -> Self::Output {
+                    Mat2x2 {
+                        x: self.x / other,
+                        y: self.y / other,
+                    }
                 }
             }
 
             /// Scalar / matrix.
             impl Div<Mat2x2<$t>> for $t {
                 type Output = Mat2x2<$t>;
-                fn div(self,other: Mat2x2<$t>) -> Self::Output {
+                fn div(self, other: Mat2x2<$t>) -> Self::Output {
                     self * other.inv()
                 }
             }
@@ -288,40 +218,56 @@ macro_rules! mat2x2_real_impl {
             /// Matrix / matrix.
             impl Div<Mat2x2<$t>> for Mat2x2<$t> {
                 type Output = Mat2x2<$t>;
-                fn div(self,other: Mat2x2<$t>) -> Self::Output {
+                fn div(self, other: Mat2x2<$t>) -> Self::Output {
                     self * other.inv()
+                }
+            }
+
+            /// Matrix /= scalar.
+            impl DivAssign<$t> for Mat2x2<$t> {
+                fn div_assign(&mut self, other: $t) {
+                    self.x /= other;
+                    self.y /= other;
                 }
             }
 
             /// Matrix /= matrix.
             impl DivAssign<Mat2x2<$t>> for Mat2x2<$t> {
-                fn div_assign(&mut self,other: Mat2x2<$t>) {
+                fn div_assign(&mut self, other: Mat2x2<$t>) {
                     *self *= other.inv()
+                }
+            }
+
+            /// -Matrix
+            impl Neg for Mat2x2<$t> {
+                type Output = Mat2x2<$t>;
+                fn neg(self) -> Self::Output {
+                    Mat2x2 {
+                        x: -self.x,
+                        y: -self.y,
+                    }
+                }
+            }
+
+            /// Convert complex number into rotation matrix (TODO: needs testing).
+            impl From<Complex<$t>> for Mat2x2<$t> {
+                fn from(value: Complex<$t>) -> Self {
+                    let x2 = value.i + value.i;
+                    let a = 1.0 - value.i * x2;
+                    let b = value.r * x2;
+                    Mat2x2 {
+                        x: Vec2 { x: a, y: b },
+                        y: Vec2 { x: -b, y: a },
+                    }
                 }
             }
         )+
     }
 }
 
-mat2x2_real_impl! { f32 f64 }
+mat2x2_impl! { f32 f64 }
 
-impl<T> From<Complex<T>> for Mat2x2<T>
-where
-    T: Copy + One + Mul<Output = T> + Neg<Output = T> + Sub<Output = T> + Add<Output = T>,
-{
-    /// Convert complex number into rotation matrix (TODO: needs testing).
-    fn from(value: Complex<T>) -> Self {
-        let x2 = value.i + value.i;
-        let a = T::ONE - value.i * x2;
-        let b = value.r * x2;
-        Mat2x2 {
-            x: Vec2 { x: a, y: b },
-            y: Vec2 { x: -b, y: a },
-        }
-    }
-}
-
-// if `T as U` exists, `Mat2x2<U>::from(Mat2x2<T>)` should also exist
+// lossless conversions matching std::convert::From for the corresponding primitive types
 // generic implementation doesn't work because `From<T> for T` is already defined, so instantiate all of them
 macro_rules! mat2x2_from_impl {
     ($(($t:ty,$u:ty))+) => {
@@ -333,17 +279,14 @@ macro_rules! mat2x2_from_impl {
     }
 }
 
-mat2x2_from_impl! { (isize,i8) (isize,i16) (isize,i32) (isize,i64) (isize,i128) (isize,f32) (isize,f64) }
-mat2x2_from_impl! { (i8,isize) (i8,u16) (i8,i16) (i8,i32) (i8,i64) (i8,i128) (i8,f32) (i8,f64) }
-mat2x2_from_impl! { (i16,isize) (i16,i8) (i16,i32) (i16,i64) (i16,i128) (i16,f32) (i16,f64) }
-mat2x2_from_impl! { (i32,isize) (i32,i8) (i32,i16) (i32,i64) (i32,i128) (i32,f32) (i32,f64) }
-mat2x2_from_impl! { (i64,isize) (i64,i8) (i64,i16) (i64,i32) (i64,i128) (i64,f32) (i64,f64) }
-mat2x2_from_impl! { (i128,isize) (i128,i8) (i128,i16) (i128,i32) (i128,i64) (i128,f32) (i128,f64) }
-mat2x2_from_impl! { (f32,isize) (f32,i8) (f32,i16) (f32,i32) (f32,i64) (f32,i128) (f32,f64) }
-mat2x2_from_impl! { (f64,isize) (f64,i8) (f64,i16) (f64,i32) (f64,i64)(f64,i128) (f64,f32) }
+mat2x2_from_impl! { (i8,i16) (i8,i32) (i8,i64) (i8,i128) (i8,isize) }
+mat2x2_from_impl! { (i16,i32) (i16,i64) (i16,i128) (i16,isize) }
+mat2x2_from_impl! { (i32,i64) (i32,i128) }
+mat2x2_from_impl! { (i64,i128) }
+mat2x2_from_impl! { (f32,f64) (f64,f32) }
 
+#[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
     use super::*;
 
     #[test]

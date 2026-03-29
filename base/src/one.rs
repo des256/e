@@ -1,4 +1,11 @@
+/// Trait for types that have a multiplicative identity (one element).
+///
+/// Provides a `ONE` constant representing the multiplicative identity,
+/// where `x * ONE == x` for all `x`.
+///
+/// Implemented for all primitive numeric types.
 pub trait One {
+    /// The multiplicative identity element.
     const ONE: Self;
 }
 

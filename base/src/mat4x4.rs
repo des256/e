@@ -7,315 +7,102 @@ use {
     },
 };
 
-/// 4x4 matrix of numbers.
+/// 4x4 column-major matrix, generic over the component type.
+///
+/// Columns are stored as [`Vec4`] fields `x`, `y`, `z`, and `w`. Supports matrix
+/// arithmetic, scalar scaling, matrix-vector and matrix-matrix multiplication,
+/// transpose, and for `f32`/`f64`: [`det`](Mat4x4::det), [`inv`](Mat4x4::inv),
+/// [`perspective`](Mat4x4::perspective), [`ortho`](Mat4x4::ortho),
+/// [`look_at`](Mat4x4::look_at), [`frustum`](Mat4x4::frustum), and
+/// decomposition methods [`translation`](Mat4x4::translation),
+/// [`rotation`](Mat4x4::rotation), [`scale`](Mat4x4::scale).
+///
+/// Can be constructed from [`Quat`], [`Pose`], [`Vec3`] (translation),
+/// or [`Mat3x3`] (embed).
+///
+/// # Examples
+///
+/// ```
+/// use base::*;
+///
+/// let view = Mat4x4::<f32>::look_at(
+///     vec3(0.0, 0.0, 5.0),
+///     vec3(0.0, 0.0, 0.0),
+///     vec3(0.0, 1.0, 0.0),
+/// );
+/// let origin = view * vec4(0.0, 0.0, 0.0, 1.0);
+/// assert!((origin.z + 5.0).abs() < 1e-6);
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Mat4x4<T> {
+    /// First column.
     pub x: Vec4<T>,
+    /// Second column.
     pub y: Vec4<T>,
+    /// Third column.
     pub z: Vec4<T>,
+    /// Fourth column.
     pub w: Vec4<T>,
 }
 
-impl<T> Mat4x4<T>
-where
-    T: Copy
-        + Zero
-        + One
-        + Div<Output = T>
-        + Mul<Output = T>
-        + Neg<Output = T>
-        + Sub<Output = T>
-        + Add<Output = T>
-        + PartialEq,
-{
-    /// Transpose the matrix.
-    pub fn transpose(self) -> Mat4x4<T> {
-        Mat4x4 {
-            x: Vec4 {
-                x: self.x.x,
-                y: self.y.x,
-                z: self.z.x,
-                w: self.w.x,
-            },
-            y: Vec4 {
-                x: self.x.y,
-                y: self.y.y,
-                z: self.z.y,
-                w: self.w.y,
-            },
-            z: Vec4 {
-                x: self.x.z,
-                y: self.y.z,
-                z: self.z.z,
-                w: self.w.z,
-            },
-            w: Vec4 {
-                x: self.x.w,
-                y: self.y.w,
-                z: self.z.w,
-                w: self.w.w,
-            },
-        }
-    }
-}
-
-impl<T> Zero for Mat4x4<T>
-where
-    Vec4<T>: Zero,
-{
-    const ZERO: Mat4x4<T> = Mat4x4 {
-        x: Vec4::ZERO,
-        y: Vec4::ZERO,
-        z: Vec4::ZERO,
-        w: Vec4::ZERO,
-    };
-}
-
-impl<T> One for Mat4x4<T>
-where
-    T: Copy + Zero + One + Mul<Output = T> + Sub<Output = T> + Add<Output = T>,
-{
-    const ONE: Mat4x4<T> = Mat4x4 {
-        x: Vec4::UNIT_X,
-        y: Vec4::UNIT_Y,
-        z: Vec4::UNIT_Z,
-        w: Vec4::UNIT_W,
-    };
-}
-
-impl<T> Display for Mat4x4<T>
-where
-    Vec4<T>: Display,
-{
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "[{},{},{},{}]", self.x, self.y, self.z, self.w)
-    }
-}
-
-/// Matrix + matrix.
-impl<T> Add<Mat4x4<T>> for Mat4x4<T>
-where
-    Vec4<T>: Add<Vec4<T>, Output = Vec4<T>>,
-{
-    type Output = Self;
-    fn add(self, other: Self) -> Self::Output {
-        Mat4x4 {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
-            w: self.w + other.w,
-        }
-    }
-}
-
-/// Matrix += matrix.
-impl<T> AddAssign<Mat4x4<T>> for Mat4x4<T>
-where
-    Vec4<T>: AddAssign<Vec4<T>>,
-{
-    fn add_assign(&mut self, other: Self) {
-        self.x += other.x;
-        self.y += other.y;
-        self.z += other.z;
-        self.w += other.w;
-    }
-}
-
-/// Matrix - matrix.
-impl<T> Sub<Mat4x4<T>> for Mat4x4<T>
-where
-    Vec4<T>: Sub<Vec4<T>, Output = Vec4<T>>,
-{
-    type Output = Self;
-    fn sub(self, other: Self) -> Self::Output {
-        Mat4x4 {
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z,
-            w: self.w - other.w,
-        }
-    }
-}
-
-/// Matrix -= matrix.
-impl<T> SubAssign<Mat4x4<T>> for Mat4x4<T>
-where
-    Vec4<T>: SubAssign<Vec4<T>>,
-{
-    fn sub_assign(&mut self, other: Self) {
-        self.x -= other.x;
-        self.y -= other.y;
-        self.z -= other.z;
-        self.w -= other.w;
-    }
-}
-
-/// Matrix * scalar.
-impl<T> Mul<T> for Mat4x4<T>
-where
-    T: Copy,
-    Vec4<T>: Mul<T, Output = Vec4<T>>,
-{
-    type Output = Mat4x4<T>;
-    fn mul(self, other: T) -> Self::Output {
-        Mat4x4 {
-            x: self.x * other,
-            y: self.y * other,
-            z: self.z * other,
-            w: self.w * other,
-        }
-    }
-}
-
-/// Matrix * vector.
-impl<T> Mul<Vec4<T>> for Mat4x4<T>
-where
-    T: Copy + Mul<Output = T> + Add<Output = T>,
-{
-    type Output = Vec4<T>;
-    fn mul(self, other: Vec4<T>) -> Self::Output {
-        Vec4 {
-            x: self.x.x * other.x + self.y.x * other.y + self.z.x * other.z + self.w.x * other.w,
-            y: self.x.y * other.x + self.y.y * other.y + self.z.y * other.z + self.w.y * other.w,
-            z: self.x.z * other.x + self.y.z * other.y + self.z.z * other.z + self.w.z * other.w,
-            w: self.x.w * other.x + self.y.w * other.y + self.z.w * other.z + self.w.w * other.w,
-        }
-    }
-}
-
-/// Matrix * matrix.
-impl<T> Mul<Mat4x4<T>> for Mat4x4<T>
-where
-    Mat4x4<T>: Copy + Mul<Vec4<T>, Output = Vec4<T>>,
-{
-    type Output = Mat4x4<T>;
-    fn mul(self, other: Mat4x4<T>) -> Self::Output {
-        Mat4x4 {
-            x: self * other.x,
-            y: self * other.y,
-            z: self * other.z,
-            w: self * other.w,
-        }
-    }
-}
-
-/// Matrix *= scalar.
-impl<T> MulAssign<T> for Mat4x4<T>
-where
-    T: Copy,
-    Vec4<T>: MulAssign<T>,
-{
-    fn mul_assign(&mut self, other: T) {
-        self.x *= other;
-        self.y *= other;
-        self.z *= other;
-        self.w *= other;
-    }
-}
-
-/// Matrix *= matrix.
-impl<T> MulAssign<Mat4x4<T>> for Mat4x4<T>
-where
-    Mat4x4<T>: Copy + Mul<Mat4x4<T>, Output = Mat4x4<T>>,
-{
-    fn mul_assign(&mut self, other: Mat4x4<T>) {
-        let m = *self * other;
-        *self = m;
-    }
-}
-
-/// Matrix / scalar.
-impl<T> Div<T> for Mat4x4<T>
-where
-    T: Copy,
-    Vec4<T>: Div<T, Output = Vec4<T>>,
-{
-    type Output = Mat4x4<T>;
-    fn div(self, other: T) -> Self::Output {
-        Mat4x4 {
-            x: self.x / other,
-            y: self.y / other,
-            z: self.z / other,
-            w: self.w / other,
-        }
-    }
-}
-
-/// Matrix /= scalar.
-impl<T> DivAssign<T> for Mat4x4<T>
-where
-    T: Copy,
-    Vec4<T>: DivAssign<T>,
-{
-    fn div_assign(&mut self, other: T) {
-        self.x /= other;
-        self.y /= other;
-        self.z /= other;
-        self.w /= other;
-    }
-}
-
-/// -Matrix.
-impl<T> Neg for Mat4x4<T>
-where
-    Vec4<T>: Neg<Output = Vec4<T>>,
-{
-    type Output = Mat4x4<T>;
-    fn neg(self) -> Self::Output {
-        Mat4x4 {
-            x: -self.x,
-            y: -self.y,
-            z: -self.z,
-            w: -self.w,
-        }
-    }
+/// Create a new 4x4 matrix from column vectors.
+pub const fn mat4x4<T>(x: Vec4<T>, y: Vec4<T>, z: Vec4<T>, w: Vec4<T>) -> Mat4x4<T> {
+    Mat4x4 { x, y, z, w }
 }
 
 macro_rules! mat4x4_impl {
     ($($t:ty)+) => {
         $(
-            /// Scalar * matrix.
-            impl Mul<Mat4x4<$t>> for $t {
-                type Output = Mat4x4<$t>;
-                fn mul(self,other: Mat4x4<$t>) -> Self::Output {
-                    Mat4x4 {
-                        x: self * other.x,
-                        y: self * other.y,
-                        z: self * other.z,
-                        w: self * other.w,
-                    }
-                }
-            }
-        )+
-    }
-}
-
-mat4x4_impl! { isize i8 i16 i32 i64 i128 f32 f64 }
-
-macro_rules! mat4x4_real_impl {
-    ($($t:ty)+) => {
-        $(
             impl Mat4x4<$t> {
 
+                /// Transpose the matrix.
+                pub fn transpose(self) -> Mat4x4<$t> {
+                    Mat4x4 {
+                        x: Vec4 {
+                            x: self.x.x,
+                            y: self.y.x,
+                            z: self.z.x,
+                            w: self.w.x,
+                        },
+                        y: Vec4 {
+                            x: self.x.y,
+                            y: self.y.y,
+                            z: self.z.y,
+                            w: self.w.y,
+                        },
+                        z: Vec4 {
+                            x: self.x.z,
+                            y: self.y.z,
+                            z: self.z.z,
+                            w: self.w.z,
+                        },
+                        w: Vec4 {
+                            x: self.x.w,
+                            y: self.y.w,
+                            z: self.z.w,
+                            w: self.w.w,
+                        },
+                    }
+                }
+
                 /// Create perspective projection matrix.
-                pub fn perspective(fovy: $t,aspect: $t,n: $t,f: $t) -> Mat4x4<$t> {
+                pub fn perspective(fovy: $t, aspect: $t, n: $t, f: $t) -> Mat4x4<$t> {
                     let ymax = n * (0.5 * fovy).tan();
                     let xmax = ymax * aspect;
-                    Self::frustum(-xmax,xmax,-ymax,ymax,n,f)
+                    Self::frustum(-xmax, xmax, -ymax, ymax, n, f)
                 }
 
                 /// Create frustum projection matrix based on FOV and aspect ratio.
-                pub fn perspective_from_fov(fov: Fov<$t>,n: $t,f: $t) -> Mat4x4<$t> {
-
+                pub fn perspective_from_fov(fov: Fov<$t>, n: $t, f: $t) -> Mat4x4<$t> {
                     let l = n * fov.l.tan();
                     let r = n * fov.r.tan();
                     let b = n * fov.b.tan();
                     let t = n * fov.t.tan();
-                    Self::frustum(l,r,b,t,n,f)
+                    Self::frustum(l, r, b, t, n, f)
                 }
 
                 /// Create frustum projection matrix.
-                pub fn frustum(l: $t,r: $t,b: $t,t: $t,n: $t,f: $t) -> Mat4x4<$t> {
+                pub fn frustum(l: $t, r: $t, b: $t, t: $t, n: $t, f: $t) -> Mat4x4<$t> {
                     Mat4x4 {
                         x: Vec4 {
                             x: 2.0 * n / (r - l),
@@ -404,11 +191,89 @@ macro_rules! mat4x4_real_impl {
                     let bp = i * bgfc - j * agec + k * afeb;
 
                     Mat4x4 {
-                        x: Vec4 { x: ba,y: be,z: bi,w: bm, },
-                        y: Vec4 { x: bb,y: bf,z: bj,w: bn, },
-                        z: Vec4 { x: bc,y: bg,z: bk,w: bo, },
-                        w: Vec4 { x: bd,y: bh,z: bl,w: bp, },
+                        x: Vec4 { x: ba, y: be, z: bi, w: bm, },
+                        y: Vec4 { x: bb, y: bf, z: bj, w: bn, },
+                        z: Vec4 { x: bc, y: bg, z: bk, w: bo, },
+                        w: Vec4 { x: bd, y: bh, z: bl, w: bp, },
                     } / det
+                }
+
+                /// Create an orthographic projection matrix.
+                ///
+                /// Parameters define the view volume: `l`/`r` (left/right),
+                /// `b`/`t` (bottom/top), `n`/`f` (near/far).
+                pub fn ortho(l: $t, r: $t, b: $t, t: $t, n: $t, f: $t) -> Mat4x4<$t> {
+                    Mat4x4 {
+                        x: Vec4 { x: 2.0 / (r - l), y: 0.0, z: 0.0, w: 0.0 },
+                        y: Vec4 { x: 0.0, y: 2.0 / (t - b), z: 0.0, w: 0.0 },
+                        z: Vec4 { x: 0.0, y: 0.0, z: -2.0 / (f - n), w: 0.0 },
+                        w: Vec4 { x: -(r + l) / (r - l), y: -(t + b) / (t - b), z: -(f + n) / (f - n), w: 1.0 },
+                    }
+                }
+
+                /// Create a right-handed look-at view matrix.
+                ///
+                /// Builds a view matrix that positions the camera at `eye`,
+                /// looking towards `target`, with the given `up` direction.
+                pub fn look_at(eye: Vec3<$t>, target: Vec3<$t>, up: Vec3<$t>) -> Mat4x4<$t> {
+                    let f = vec3(
+                        target.x - eye.x,
+                        target.y - eye.y,
+                        target.z - eye.z,
+                    ).normalized();
+                    let s = f.cross(up).normalized();
+                    let u = s.cross(f);
+                    Mat4x4 {
+                        x: Vec4 { x: s.x, y: u.x, z: -f.x, w: 0.0 },
+                        y: Vec4 { x: s.y, y: u.y, z: -f.y, w: 0.0 },
+                        z: Vec4 { x: s.z, y: u.z, z: -f.z, w: 0.0 },
+                        w: Vec4 {
+                            x: -(s.x * eye.x + s.y * eye.y + s.z * eye.z),
+                            y: -(u.x * eye.x + u.y * eye.y + u.z * eye.z),
+                            z: f.x * eye.x + f.y * eye.y + f.z * eye.z,
+                            w: 1.0,
+                        },
+                    }
+                }
+
+                /// Create uniform scaling matrix.
+                pub fn from_scale(s: Vec3<$t>) -> Mat4x4<$t> {
+                    Mat4x4 {
+                        x: Vec4 { x: s.x, y: 0.0, z: 0.0, w: 0.0 },
+                        y: Vec4 { x: 0.0, y: s.y, z: 0.0, w: 0.0 },
+                        z: Vec4 { x: 0.0, y: 0.0, z: s.z, w: 0.0 },
+                        w: Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
+                    }
+                }
+
+                /// Extract translation component.
+                pub fn translation(&self) -> Vec3<$t> {
+                    Vec3 { x: self.w.x, y: self.w.y, z: self.w.z }
+                }
+
+                /// Extract scale factors (column lengths).
+                pub fn scale(&self) -> Vec3<$t> {
+                    Vec3 {
+                        x: (self.x.x * self.x.x + self.x.y * self.x.y + self.x.z * self.x.z).sqrt(),
+                        y: (self.y.x * self.y.x + self.y.y * self.y.y + self.y.z * self.y.z).sqrt(),
+                        z: (self.z.x * self.z.x + self.z.y * self.z.y + self.z.z * self.z.z).sqrt(),
+                    }
+                }
+
+                /// Extract the upper-left 3x3 rotation matrix (scale removed).
+                ///
+                /// Divides each column by its length to strip scaling. Returns a
+                /// zero column if the corresponding scale factor is zero.
+                pub fn rotation(&self) -> Mat3x3<$t> {
+                    let s = self.scale();
+                    let sx = if s.x != 0.0 { 1.0 / s.x } else { 0.0 };
+                    let sy = if s.y != 0.0 { 1.0 / s.y } else { 0.0 };
+                    let sz = if s.z != 0.0 { 1.0 / s.z } else { 0.0 };
+                    Mat3x3 {
+                        x: Vec3 { x: self.x.x * sx, y: self.x.y * sx, z: self.x.z * sx },
+                        y: Vec3 { x: self.y.x * sy, y: self.y.y * sy, z: self.y.z * sy },
+                        z: Vec3 { x: self.z.x * sz, y: self.z.y * sz, z: self.z.z * sz },
+                    }
                 }
 
                 /// Calculate determinant of matrix.
@@ -447,132 +312,296 @@ macro_rules! mat4x4_real_impl {
                 }
             }
 
-            // Scalar / matrix.
+            impl Zero for Mat4x4<$t> {
+                const ZERO: Mat4x4<$t> = Mat4x4 {
+                    x: Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 0.0 },
+                    y: Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 0.0 },
+                    z: Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 0.0 },
+                    w: Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 0.0 },
+                };
+            }
+
+            impl One for Mat4x4<$t> {
+                const ONE: Mat4x4<$t> = Mat4x4 {
+                    x: Vec4 { x: 1.0, y: 0.0, z: 0.0, w: 0.0 },
+                    y: Vec4 { x: 0.0, y: 1.0, z: 0.0, w: 0.0 },
+                    z: Vec4 { x: 0.0, y: 0.0, z: 1.0, w: 0.0 },
+                    w: Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
+                };
+            }
+
+            impl Display for Mat4x4<$t> {
+                fn fmt(&self, f: &mut Formatter) -> Result {
+                    write!(f, "[{},{},{},{}]", self.x, self.y, self.z, self.w)
+                }
+            }
+
+            /// Matrix + matrix.
+            impl Add<Mat4x4<$t>> for Mat4x4<$t> {
+                type Output = Self;
+                fn add(self, other: Self) -> Self::Output {
+                    Mat4x4 {
+                        x: self.x + other.x,
+                        y: self.y + other.y,
+                        z: self.z + other.z,
+                        w: self.w + other.w,
+                    }
+                }
+            }
+
+            /// Matrix += matrix.
+            impl AddAssign<Mat4x4<$t>> for Mat4x4<$t> {
+                fn add_assign(&mut self, other: Self) {
+                    self.x += other.x;
+                    self.y += other.y;
+                    self.z += other.z;
+                    self.w += other.w;
+                }
+            }
+
+            /// Matrix - matrix.
+            impl Sub<Mat4x4<$t>> for Mat4x4<$t> {
+                type Output = Self;
+                fn sub(self, other: Self) -> Self::Output {
+                    Mat4x4 {
+                        x: self.x - other.x,
+                        y: self.y - other.y,
+                        z: self.z - other.z,
+                        w: self.w - other.w,
+                    }
+                }
+            }
+
+            /// Matrix -= matrix.
+            impl SubAssign<Mat4x4<$t>> for Mat4x4<$t> {
+                fn sub_assign(&mut self, other: Self) {
+                    self.x -= other.x;
+                    self.y -= other.y;
+                    self.z -= other.z;
+                    self.w -= other.w;
+                }
+            }
+
+            /// Matrix * scalar.
+            impl Mul<$t> for Mat4x4<$t> {
+                type Output = Mat4x4<$t>;
+                fn mul(self, other: $t) -> Self::Output {
+                    Mat4x4 {
+                        x: self.x * other,
+                        y: self.y * other,
+                        z: self.z * other,
+                        w: self.w * other,
+                    }
+                }
+            }
+
+            /// Scalar * matrix.
+            impl Mul<Mat4x4<$t>> for $t {
+                type Output = Mat4x4<$t>;
+                fn mul(self, other: Mat4x4<$t>) -> Self::Output {
+                    Mat4x4 {
+                        x: self * other.x,
+                        y: self * other.y,
+                        z: self * other.z,
+                        w: self * other.w,
+                    }
+                }
+            }
+
+            /// Matrix * vector.
+            impl Mul<Vec4<$t>> for Mat4x4<$t> {
+                type Output = Vec4<$t>;
+                fn mul(self, other: Vec4<$t>) -> Self::Output {
+                    Vec4 {
+                        x: self.x.x * other.x + self.y.x * other.y + self.z.x * other.z + self.w.x * other.w,
+                        y: self.x.y * other.x + self.y.y * other.y + self.z.y * other.z + self.w.y * other.w,
+                        z: self.x.z * other.x + self.y.z * other.y + self.z.z * other.z + self.w.z * other.w,
+                        w: self.x.w * other.x + self.y.w * other.y + self.z.w * other.z + self.w.w * other.w,
+                    }
+                }
+            }
+
+            /// Matrix * matrix.
+            impl Mul<Mat4x4<$t>> for Mat4x4<$t> {
+                type Output = Mat4x4<$t>;
+                fn mul(self, other: Mat4x4<$t>) -> Self::Output {
+                    Mat4x4 {
+                        x: self * other.x,
+                        y: self * other.y,
+                        z: self * other.z,
+                        w: self * other.w,
+                    }
+                }
+            }
+
+            /// Matrix *= scalar.
+            impl MulAssign<$t> for Mat4x4<$t> {
+                fn mul_assign(&mut self, other: $t) {
+                    self.x *= other;
+                    self.y *= other;
+                    self.z *= other;
+                    self.w *= other;
+                }
+            }
+
+            /// Matrix *= matrix.
+            impl MulAssign<Mat4x4<$t>> for Mat4x4<$t> {
+                fn mul_assign(&mut self, other: Mat4x4<$t>) {
+                    let m = *self * other;
+                    *self = m;
+                }
+            }
+
+            /// Matrix / scalar.
+            impl Div<$t> for Mat4x4<$t> {
+                type Output = Mat4x4<$t>;
+                fn div(self, other: $t) -> Self::Output {
+                    Mat4x4 {
+                        x: self.x / other,
+                        y: self.y / other,
+                        z: self.z / other,
+                        w: self.w / other,
+                    }
+                }
+            }
+
+            /// Scalar / matrix.
             impl Div<Mat4x4<$t>> for $t {
                 type Output = Mat4x4<$t>;
-                fn div(self,other: Mat4x4<$t>) -> Self::Output {
+                fn div(self, other: Mat4x4<$t>) -> Self::Output {
                     self * other.inv()
                 }
             }
 
-            // Matrix / matrix.
+            /// Matrix / matrix.
             impl Div<Mat4x4<$t>> for Mat4x4<$t> {
                 type Output = Mat4x4<$t>;
-                fn div(self,other: Mat4x4<$t>) -> Self::Output {
+                fn div(self, other: Mat4x4<$t>) -> Self::Output {
                     self * other.inv()
                 }
             }
 
-            // Matrix /= matrix.
+            /// Matrix /= scalar.
+            impl DivAssign<$t> for Mat4x4<$t> {
+                fn div_assign(&mut self, other: $t) {
+                    self.x /= other;
+                    self.y /= other;
+                    self.z /= other;
+                    self.w /= other;
+                }
+            }
+
+            /// Matrix /= matrix.
             impl DivAssign<Mat4x4<$t>> for Mat4x4<$t> {
-                fn div_assign(&mut self,other: Mat4x4<$t>) {
+                fn div_assign(&mut self, other: Mat4x4<$t>) {
                     *self *= other.inv()
+                }
+            }
+
+            /// -Matrix.
+            impl Neg for Mat4x4<$t> {
+                type Output = Mat4x4<$t>;
+                fn neg(self) -> Self::Output {
+                    Mat4x4 {
+                        x: -self.x,
+                        y: -self.y,
+                        z: -self.z,
+                        w: -self.w,
+                    }
+                }
+            }
+
+            /// Convert quaternion to 4x4 matrix.
+            impl From<Quat<$t>> for Mat4x4<$t> {
+                fn from(value: Quat<$t>) -> Mat4x4<$t> {
+                    let m: Mat3x3<$t> = value.into();
+                    m.into()
+                }
+            }
+
+            /// Compose matrix from pose.
+            impl From<Pose<$t>> for Mat4x4<$t> {
+                fn from(value: Pose<$t>) -> Mat4x4<$t> {
+                    let rotation: Mat3x3<$t> = value.o.into();
+                    Mat4x4 {
+                        x: Vec4 {
+                            x: rotation.x.x,
+                            y: rotation.x.y,
+                            z: rotation.x.z,
+                            w: 0.0,
+                        },
+                        y: Vec4 {
+                            x: rotation.y.x,
+                            y: rotation.y.y,
+                            z: rotation.y.z,
+                            w: 0.0,
+                        },
+                        z: Vec4 {
+                            x: rotation.z.x,
+                            y: rotation.z.y,
+                            z: rotation.z.z,
+                            w: 0.0,
+                        },
+                        w: Vec4 {
+                            x: value.p.x,
+                            y: value.p.y,
+                            z: value.p.z,
+                            w: 1.0,
+                        },
+                    }
+                }
+            }
+
+            /// Create translation matrix from vector.
+            impl From<Vec3<$t>> for Mat4x4<$t> {
+                fn from(value: Vec3<$t>) -> Mat4x4<$t> {
+                    Mat4x4 {
+                        x: Vec4 { x: 1.0, y: 0.0, z: 0.0, w: 0.0 },
+                        y: Vec4 { x: 0.0, y: 1.0, z: 0.0, w: 0.0 },
+                        z: Vec4 { x: 0.0, y: 0.0, z: 1.0, w: 0.0 },
+                        w: Vec4 {
+                            x: value.x,
+                            y: value.y,
+                            z: value.z,
+                            w: 1.0,
+                        },
+                    }
+                }
+            }
+
+            /// Extend 3x3 matrix to 4x4 matrix.
+            impl From<Mat3x3<$t>> for Mat4x4<$t> {
+                fn from(value: Mat3x3<$t>) -> Mat4x4<$t> {
+                    Mat4x4 {
+                        x: Vec4 {
+                            x: value.x.x,
+                            y: value.x.y,
+                            z: value.x.z,
+                            w: 0.0,
+                        },
+                        y: Vec4 {
+                            x: value.y.x,
+                            y: value.y.y,
+                            z: value.y.z,
+                            w: 0.0,
+                        },
+                        z: Vec4 {
+                            x: value.z.x,
+                            y: value.z.y,
+                            z: value.z.z,
+                            w: 0.0,
+                        },
+                        w: Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
+                    }
                 }
             }
         )+
     }
 }
 
-mat4x4_real_impl! { f32 f64 }
+mat4x4_impl! { f32 f64 }
 
-impl<T> From<Quat<T>> for Mat4x4<T>
-where
-    T: Copy + Zero + One + Mul<Output = T> + Sub<Output = T> + Add<Output = T>,
-{
-    /// Convert quaternion to 4x4 matrix.
-    fn from(value: Quat<T>) -> Mat4x4<T> {
-        let m: Mat3x3<T> = value.into();
-        m.into()
-    }
-}
-
-impl<T> From<Pose<T>> for Mat4x4<T>
-where
-    T: Copy + Zero + One + Mul<Output = T> + Sub<Output = T> + Add<Output = T>,
-{
-    /// Compose matrix from pose.
-    fn from(value: Pose<T>) -> Mat4x4<T> {
-        let rotation: Mat3x3<T> = value.o.into();
-        Mat4x4 {
-            x: Vec4 {
-                x: rotation.x.x,
-                y: rotation.x.y,
-                z: rotation.x.z,
-                w: T::ZERO,
-            },
-            y: Vec4 {
-                x: rotation.y.x,
-                y: rotation.y.y,
-                z: rotation.y.z,
-                w: T::ZERO,
-            },
-            z: Vec4 {
-                x: rotation.z.x,
-                y: rotation.z.y,
-                z: rotation.z.z,
-                w: T::ZERO,
-            },
-            w: Vec4 {
-                x: value.p.x,
-                y: value.p.y,
-                z: value.p.z,
-                w: T::ONE,
-            },
-        }
-    }
-}
-
-impl<T> From<Vec3<T>> for Mat4x4<T>
-where
-    T: Copy + Zero + One + Mul<Output = T> + Sub<Output = T> + Add<Output = T>,
-{
-    /// Create translation matrix from vector.
-    fn from(value: Vec3<T>) -> Mat4x4<T> {
-        Mat4x4 {
-            x: Vec4::<T>::UNIT_X,
-            y: Vec4::<T>::UNIT_Y,
-            z: Vec4::<T>::UNIT_Z,
-            w: Vec4 {
-                x: value.x,
-                y: value.y,
-                z: value.z,
-                w: T::ONE,
-            },
-        }
-    }
-}
-
-impl<T> From<Mat3x3<T>> for Mat4x4<T>
-where
-    T: Copy + Zero + One + Mul<Output = T> + Sub<Output = T> + Add<Output = T>,
-{
-    /// Extend 3x3 matrix to 4x4 matrix.
-    fn from(value: Mat3x3<T>) -> Mat4x4<T> {
-        Mat4x4 {
-            x: Vec4 {
-                x: value.x.x,
-                y: value.x.y,
-                z: value.x.z,
-                w: T::ZERO,
-            },
-            y: Vec4 {
-                x: value.y.x,
-                y: value.y.y,
-                z: value.y.z,
-                w: T::ZERO,
-            },
-            z: Vec4 {
-                x: value.z.x,
-                y: value.z.y,
-                z: value.z.z,
-                w: T::ZERO,
-            },
-            w: Vec4::<T>::UNIT_W,
-        }
-    }
-}
-
-// if `T as U` exists, `Mat4x4<U>::from(Mat4x4<T>)` should also exist
+// lossless conversions matching std::convert::From for the corresponding primitive types
 // generic implementation doesn't work because `From<T> for T` is already defined, so instantiate all of them
 macro_rules! mat4x4_from_impl {
     ($(($t:ty,$u:ty))+) => {
@@ -584,17 +613,10 @@ macro_rules! mat4x4_from_impl {
     }
 }
 
-mat4x4_from_impl! { (isize,i8) (isize,i16) (isize,i32) (isize,i64) (isize,i128) (isize,f32) (isize,f64) }
-mat4x4_from_impl! { (i8,isize) (i8,u16) (i8,i16) (i8,i32) (i8,i64) (i8,i128) (i8,f32) (i8,f64) }
-mat4x4_from_impl! { (i16,isize) (i16,i8) (i16,i32) (i16,i64) (i16,i128) (i16,f32) (i16,f64) }
-mat4x4_from_impl! { (i32,isize) (i32,i8) (i32,i16) (i32,i64) (i32,i128) (i32,f32) (i32,f64) }
-mat4x4_from_impl! { (i64,isize) (i64,i8) (i64,i16) (i64,i32) (i64,i128) (i64,f32) (i64,f64) }
-mat4x4_from_impl! { (i128,isize) (i128,i8) (i128,i16) (i128,i32) (i128,i64) (i128,f32) (i128,f64) }
-mat4x4_from_impl! { (f32,isize) (f32,i8) (f32,i16) (f32,i32) (f32,i64) (f32,i128) (f32,f64) }
-mat4x4_from_impl! { (f64,isize) (f64,i8) (f64,i16) (f64,i32) (f64,i64)(f64,i128) (f64,f32) }
+mat4x4_from_impl! { (f32,f64) (f64,f32) }
 
+#[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
     use super::*;
 
     #[test]
