@@ -1,0 +1,5 @@
+[package]
+name = "webui"
+version.workspace = true
+authors.workspace = true
+edition = "2021"
