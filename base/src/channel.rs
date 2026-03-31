@@ -3,7 +3,7 @@ use std::{
     fmt,
     future::Future,
     pin::Pin,
-    sync::{Arc, Mutex},
+    sync::{Arc, Condvar, Mutex},
     task::{Context, Poll, Waker},
 };
 
@@ -12,6 +12,7 @@ struct Inner<T> {
     recv_waker: Option<Waker>,
     sender_count: usize,
     receiver_alive: bool,
+    condvar: Arc<Condvar>,
 }
 
 /// Error returned by [`Sender::send`] when the [`Receiver`] has been dropped.
@@ -32,6 +33,14 @@ impl<T: fmt::Debug> fmt::Debug for SendError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("SendError").field(&self.0).finish()
     }
+}
+
+/// Error returned by [`Receiver::recv`].
+#[derive(Debug, PartialEq, Eq)]
+pub enum RecvError {
+    /// All [`Sender`]s have been dropped and the buffer has been drained.
+    /// No further values will ever be received.
+    Disconnected,
 }
 
 /// Error returned by [`Receiver::try_recv`].
@@ -87,6 +96,7 @@ impl<T> Drop for Sender<T> {
             if let Some(waker) = inner.recv_waker.take() {
                 waker.wake();
             }
+            inner.condvar.notify_one();
         }
     }
 }
@@ -118,6 +128,7 @@ impl<T> Sender<T> {
         if let Some(waker) = inner.recv_waker.take() {
             waker.wake();
         }
+        inner.condvar.notify_one();
         Ok(())
     }
 }
@@ -188,6 +199,41 @@ impl<T> Receiver<T> {
     /// ```
     pub fn recv(&self) -> impl Future<Output = Option<T>> + '_ {
         Recv { receiver: self }
+    }
+
+    /// Blocks the calling thread until a value is available or all
+    /// [`Sender`]s have been dropped.
+    ///
+    /// Returns `Some(value)` when a value is received, or `None` when all
+    /// senders have been dropped and the buffer is drained.
+    ///
+    /// This method is intended for synchronous (non-async) contexts. Do not
+    /// call it from within an async task — use [`recv`](Receiver::recv)
+    /// instead.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use base::*;
+    ///
+    /// let (tx, rx) = channel();
+    /// std::thread::spawn(move || {
+    ///     tx.send(42).unwrap();
+    /// });
+    /// assert_eq!(rx.blocking_recv(), Some(42));
+    /// assert_eq!(rx.blocking_recv(), None);
+    /// ```
+    pub fn blocking_recv(&self) -> Option<T> {
+        let mut inner = self.inner.lock().unwrap();
+        loop {
+            if let Some(value) = inner.buffer.pop_front() {
+                return Some(value);
+            }
+            if inner.sender_count == 0 {
+                return None;
+            }
+            inner = inner.condvar.clone().wait(inner).unwrap();
+        }
     }
 
     /// Attempts to receive a value without parking the current task.
@@ -285,11 +331,13 @@ impl<T> Future for Recv<'_, T> {
 /// });
 /// ```
 pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
+    let condvar = Arc::new(Condvar::new());
     let inner = Arc::new(Mutex::new(Inner {
         buffer: VecDeque::new(),
         recv_waker: None,
         sender_count: 1,
         receiver_alive: true,
+        condvar,
     }));
     (
         Sender {
@@ -457,5 +505,73 @@ mod tests {
             values
         });
         assert_eq!(result, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn blocking_recv_immediate() {
+        let (tx, rx) = channel();
+        tx.send(42).unwrap();
+        assert_eq!(rx.blocking_recv(), Some(42));
+    }
+
+    #[test]
+    fn blocking_recv_disconnected() {
+        let (tx, rx) = channel::<i32>();
+        drop(tx);
+        assert_eq!(rx.blocking_recv(), None);
+    }
+
+    #[test]
+    fn blocking_recv_drain_then_disconnect() {
+        let (tx, rx) = channel();
+        tx.send(1).unwrap();
+        tx.send(2).unwrap();
+        drop(tx);
+        assert_eq!(rx.blocking_recv(), Some(1));
+        assert_eq!(rx.blocking_recv(), Some(2));
+        assert_eq!(rx.blocking_recv(), None);
+    }
+
+    #[test]
+    fn blocking_recv_from_thread() {
+        let (tx, rx) = channel();
+        std::thread::spawn(move || {
+            tx.send(99).unwrap();
+        });
+        assert_eq!(rx.blocking_recv(), Some(99));
+        assert_eq!(rx.blocking_recv(), None);
+    }
+
+    #[test]
+    fn blocking_recv_multiple_from_thread() {
+        let (tx, rx) = channel();
+        std::thread::spawn(move || {
+            for i in 0..5 {
+                tx.send(i).unwrap();
+            }
+        });
+        let mut values = Vec::new();
+        while let Some(v) = rx.blocking_recv() {
+            values.push(v);
+        }
+        assert_eq!(values, vec![0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn blocking_recv_multiple_sender_threads() {
+        let (tx, rx) = channel();
+        for i in 0..3 {
+            let sender = tx.clone();
+            std::thread::spawn(move || {
+                sender.send(i).unwrap();
+            });
+        }
+        drop(tx);
+        let mut values = Vec::new();
+        while let Some(v) = rx.blocking_recv() {
+            values.push(v);
+        }
+        values.sort();
+        assert_eq!(values, vec![0, 1, 2]);
     }
 }

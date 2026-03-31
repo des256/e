@@ -1,5 +1,5 @@
 [workspace]
-members = ["base", "http", "webui"]
+members = ["audio", "base", "http", "webui"]
 resolver = "2"
 
 [workspace.package]
