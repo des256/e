@@ -148,3 +148,7 @@ pub use pixel::*;
 
 mod image;
 pub use image::*;
+
+// -- codec --
+
+pub use codec::{Codec, CodecError};
