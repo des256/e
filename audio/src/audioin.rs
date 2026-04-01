@@ -1,11 +1,6 @@
 use {
+    crate::pulse::{BufferAttr, SampleFormat, SampleSpec, Simple, StreamDirection},
     base::{channel, Receiver, RecvError, Sender, TryRecvError},
-    libpulse_binding::{
-        def::BufferAttr,
-        sample::{Format, Spec},
-        stream::Direction,
-    },
-    libpulse_simple_binding::Simple,
     std::time::Duration,
 };
 
@@ -74,8 +69,8 @@ pub fn create(config: AudioInConfig) -> (Handle, Listener) {
 
                 // if no pulse, open one from the current config
                 if pulse.is_none() {
-                    let spec = Spec {
-                        format: Format::F32le,
+                    let spec = SampleSpec {
+                        format: SampleFormat::F32le,
                         channels: config.channels as u8,
                         rate: config.sample_rate as u32,
                     };
@@ -92,11 +87,10 @@ pub fn create(config: AudioInConfig) -> (Handle, Listener) {
                     pulse = match Simple::new(
                         None,
                         "e-audioin",
-                        Direction::Record,
+                        StreamDirection::Record,
                         config.device_name.as_deref(),
                         "audio-capture",
                         &spec,
-                        None,
                         Some(&buffer_attr),
                     ) {
                         Ok(pulse) => Some(pulse),

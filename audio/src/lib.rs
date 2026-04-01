@@ -8,3 +8,5 @@
 pub mod audioin;
 /// Audio playback to a PulseAudio sink.
 pub mod audioout;
+
+mod pulse;

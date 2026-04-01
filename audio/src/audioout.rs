@@ -1,10 +1,6 @@
 use {
+    crate::pulse::{SampleFormat, SampleSpec, Simple, StreamDirection},
     base::{channel, Epoch, Receiver, RecvError, Sender, TryRecvError},
-    libpulse_binding::{
-        sample::{Format, Spec},
-        stream::Direction,
-    },
-    libpulse_simple_binding::Simple,
     std::{sync::Arc, time::Duration},
 };
 
@@ -118,8 +114,8 @@ pub fn create<T: Clone + Send + 'static>(
 
                 // if no pulse, open one from the current config
                 if pulse.is_none() {
-                    let spec = Spec {
-                        format: Format::F32le,
+                    let spec = SampleSpec {
+                        format: SampleFormat::F32le,
                         channels: config.channels as u8,
                         rate: config.sample_rate as u32,
                     };
@@ -128,11 +124,10 @@ pub fn create<T: Clone + Send + 'static>(
                     pulse = match Simple::new(
                         None,
                         "e-audioout",
-                        Direction::Playback,
+                        StreamDirection::Playback,
                         config.device_name.as_deref(),
                         "audio-playback",
                         &spec,
-                        None,
                         None,
                     ) {
                         Ok(pulse) => Some(pulse),

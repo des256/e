@@ -1,0 +1,2 @@
+[alias]
+docs = "doc --workspace --exclude exploreui-backend --exclude exploreui-frontend --exclude exploreui-shared"
