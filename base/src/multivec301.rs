@@ -26,22 +26,38 @@ use {
 /// [`from_plane_equation`](MultiVec301::from_plane_equation).
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub struct MultiVec301<T> {
-    pub s: T,     // scalar
-    pub e0: T,    // ^2 = 0, inf. plane, plane distance to origin
-    pub e1: T,    // ^2 = 1, X-perp. plane
-    pub e2: T,    // ^2 = 1, Y-perp. plane
-    pub e3: T,    // ^2 = 1, Z-perp. plane
-    pub e01: T,   // ^2 = 0, inf. X-perp. horizon
-    pub e02: T,   // ^2 = 0, inf. Y-perp. horizon
-    pub e03: T,   // ^2 = 0, inf. Z-perp. horizon
-    pub e12: T,   // ^2 = -1, Z-axis
-    pub e31: T,   // ^2 = -1, Y-axis
-    pub e23: T,   // ^2 = -1, X-axis
-    pub e021: T,  // ^2 = 0, inf. Z-point, Z distance to origin
-    pub e013: T,  // ^2 = 0, inf. Y-point, Y distance to origin
-    pub e032: T,  // ^2 = 0, inf. X-point, X distance to origin
-    pub e123: T,  // ^2 = -1, origin
-    pub e0123: T, // all volume pseudoscalar
+    /// Scalar (grade 0).
+    pub s: T,
+    /// `e0` basis vector (`e0² = 0`): ideal plane / plane distance to origin.
+    pub e0: T,
+    /// `e1` basis vector (`e1² = 1`): X-perpendicular plane.
+    pub e1: T,
+    /// `e2` basis vector (`e2² = 1`): Y-perpendicular plane.
+    pub e2: T,
+    /// `e3` basis vector (`e3² = 1`): Z-perpendicular plane.
+    pub e3: T,
+    /// `e01` bivector (`e01² = 0`): ideal X-perpendicular horizon line.
+    pub e01: T,
+    /// `e02` bivector (`e02² = 0`): ideal Y-perpendicular horizon line.
+    pub e02: T,
+    /// `e03` bivector (`e03² = 0`): ideal Z-perpendicular horizon line.
+    pub e03: T,
+    /// `e12` bivector (`e12² = -1`): Z-axis line.
+    pub e12: T,
+    /// `e31` bivector (`e31² = -1`): Y-axis line.
+    pub e31: T,
+    /// `e23` bivector (`e23² = -1`): X-axis line.
+    pub e23: T,
+    /// `e021` trivector (`e021² = 0`): ideal Z-point / Z distance to origin.
+    pub e021: T,
+    /// `e013` trivector (`e013² = 0`): ideal Y-point / Y distance to origin.
+    pub e013: T,
+    /// `e032` trivector (`e032² = 0`): ideal X-point / X distance to origin.
+    pub e032: T,
+    /// `e123` trivector (`e123² = -1`): origin point.
+    pub e123: T,
+    /// `e0123` quadvector: pseudoscalar (full volume element).
+    pub e0123: T,
 }
 
 macro_rules! multivec301_impl {

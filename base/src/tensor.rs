@@ -645,26 +645,32 @@ pub struct TensorView<'a, T> {
 }
 
 impl<'a, T: TensorElement> TensorView<'a, T> {
+    /// Dimension sizes.
     pub fn shape(&self) -> &[usize] {
         &self.shape
     }
 
+    /// Per-dimension element strides (not byte strides).
     pub fn strides(&self) -> &[usize] {
         &self.strides
     }
 
+    /// Number of dimensions.
     pub fn ndim(&self) -> usize {
         self.shape.len()
     }
 
+    /// Total number of elements.
     pub fn numel(&self) -> usize {
         self.shape.iter().product()
     }
 
+    /// Whether the data is row-major contiguous.
     pub fn is_contiguous(&self) -> bool {
         self.strides == compute_strides(&self.shape)
     }
 
+    /// Whether this is a 0-dimensional (scalar) view.
     pub fn is_scalar(&self) -> bool {
         self.shape.is_empty()
     }

@@ -7,13 +7,21 @@ use crate::F16;
 /// Maps to equivalent formats in wgpu, Vulkan, Metal, etc.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum GpuFormat {
+    /// 8-bit RGBA, unsigned normalized linear.
     Rgba8Unorm,
+    /// 8-bit RGBA, sRGB encoded.
     Rgba8Srgb,
+    /// 8-bit BGRA, unsigned normalized linear.
     Bgra8Unorm,
+    /// 8-bit BGRA, sRGB encoded.
     Bgra8Srgb,
+    /// 16-bit RGBA, half-float.
     Rgba16Float,
+    /// 32-bit RGBA, full-float.
     Rgba32Float,
+    /// 8-bit single-channel, unsigned normalized.
     R8Unorm,
+    /// 8-bit two-channel, unsigned normalized.
     Rg8Unorm,
 }
 
@@ -81,9 +89,13 @@ pub trait PlanarFormat: UncompressedFormat {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct Rgba8Pixel {
+    /// Red channel.
     pub r: u8,
+    /// Green channel.
     pub g: u8,
+    /// Blue channel.
     pub b: u8,
+    /// Alpha channel.
     pub a: u8,
 }
 
@@ -113,9 +125,13 @@ impl LinearFormat for Rgba8 {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct Argb8Pixel {
+    /// Alpha channel.
     pub a: u8,
+    /// Red channel.
     pub r: u8,
+    /// Green channel.
     pub g: u8,
+    /// Blue channel.
     pub b: u8,
 }
 
@@ -145,9 +161,13 @@ impl LinearFormat for Argb8 {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct Bgra8Pixel {
+    /// Blue channel.
     pub b: u8,
+    /// Green channel.
     pub g: u8,
+    /// Red channel.
     pub r: u8,
+    /// Alpha channel.
     pub a: u8,
 }
 
@@ -179,9 +199,13 @@ impl LinearFormat for Bgra8 {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct Srgba8Pixel {
+    /// Red channel (sRGB encoded).
     pub r: u8,
+    /// Green channel (sRGB encoded).
     pub g: u8,
+    /// Blue channel (sRGB encoded).
     pub b: u8,
+    /// Alpha channel (linear).
     pub a: u8,
 }
 
@@ -211,9 +235,13 @@ impl LinearFormat for Srgba8 {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct RgbaF16Pixel {
+    /// Red channel.
     pub r: F16,
+    /// Green channel.
     pub g: F16,
+    /// Blue channel.
     pub b: F16,
+    /// Alpha channel.
     pub a: F16,
 }
 
@@ -243,9 +271,13 @@ impl LinearFormat for RgbaF16 {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct RgbaF32Pixel {
+    /// Red channel.
     pub r: f32,
+    /// Green channel.
     pub g: f32,
+    /// Blue channel.
     pub b: f32,
+    /// Alpha channel.
     pub a: f32,
 }
 
@@ -279,6 +311,7 @@ impl LinearFormat for RgbaF32 {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct Y8Pixel {
+    /// Luminance value.
     pub y: u8,
 }
 
@@ -308,7 +341,9 @@ impl LinearFormat for Y8 {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct Uv8Pixel {
+    /// Blue-difference chroma (Cb).
     pub u: u8,
+    /// Red-difference chroma (Cr).
     pub v: u8,
 }
 
@@ -345,9 +380,13 @@ impl LinearFormat for Uv8 {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct Yuyv8Macropixel {
+    /// Luminance of the left pixel.
     pub y0: u8,
+    /// Shared blue-difference chroma (Cb).
     pub u: u8,
+    /// Luminance of the right pixel.
     pub y1: u8,
+    /// Shared red-difference chroma (Cr).
     pub v: u8,
 }
 

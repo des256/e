@@ -111,12 +111,18 @@ impl<P: UncompressedFormat> Image<P> {
 // -- dimensions & byte access --
 
 impl<P: PixelFormat> Image<P> {
+    /// Image width in pixels.
     pub fn width(&self) -> u32 { self.width }
+    /// Image height in pixels.
     pub fn height(&self) -> u32 { self.height }
+    /// Bytes per row (may exceed `width × bytes_per_pixel` due to padding).
     pub fn stride(&self) -> u32 { self.stride }
 
+    /// Raw byte buffer (read-only).
     pub fn as_bytes(&self) -> &[u8] { &self.data }
+    /// Raw byte buffer (mutable).
     pub fn as_bytes_mut(&mut self) -> &mut [u8] { &mut self.data }
+    /// Consume the image and return the underlying byte buffer.
     pub fn into_bytes(self) -> Vec<u8> { self.data }
 }
 
@@ -145,6 +151,7 @@ impl<P: UncompressedFormat> Image<P> {
 // -- view creation --
 
 impl<P: PixelFormat> Image<P> {
+    /// Borrow the image as a read-only [`ImageView`].
     pub fn view(&self) -> ImageView<'_, P> {
         ImageView {
             width: self.width,
@@ -155,6 +162,7 @@ impl<P: PixelFormat> Image<P> {
         }
     }
 
+    /// Borrow the image as a mutable [`ImageViewMut`].
     pub fn view_mut(&mut self) -> ImageViewMut<'_, P> {
         ImageViewMut {
             width: self.width,
@@ -182,9 +190,13 @@ pub struct ImageView<'a, P: PixelFormat> {
 }
 
 impl<'a, P: PixelFormat> ImageView<'a, P> {
+    /// Image width in pixels.
     pub fn width(&self) -> u32 { self.width }
+    /// Image height in pixels.
     pub fn height(&self) -> u32 { self.height }
+    /// Bytes per row.
     pub fn stride(&self) -> u32 { self.stride }
+    /// Raw byte slice.
     pub fn as_bytes(&self) -> &[u8] { self.data }
 }
 
@@ -195,6 +207,7 @@ impl<'a, P: UncompressedFormat> ImageView<'a, P> {
     ///
     /// Panics if stride or data size constraints are violated.
     pub fn from_raw(width: u32, height: u32, stride: u32, data: &'a [u8]) -> Self {
+
         assert!(
             stride >= P::min_stride(width),
             "ImageView::from_raw: stride {} < min_stride {} for {}",
@@ -209,6 +222,7 @@ impl<'a, P: UncompressedFormat> ImageView<'a, P> {
         ImageView { width, height, stride, data, _format: PhantomData }
     }
 
+    /// Byte slice for row `y` (stride-wide).
     pub fn row(&self, y: u32) -> &[u8] {
         assert!(y < self.height, "row: y={} >= height={}", y, self.height);
         let start = y as usize * self.stride as usize;
@@ -230,20 +244,27 @@ pub struct ImageViewMut<'a, P: PixelFormat> {
 }
 
 impl<'a, P: PixelFormat> ImageViewMut<'a, P> {
+    /// Image width in pixels.
     pub fn width(&self) -> u32 { self.width }
+    /// Image height in pixels.
     pub fn height(&self) -> u32 { self.height }
+    /// Bytes per row.
     pub fn stride(&self) -> u32 { self.stride }
+    /// Raw byte slice.
     pub fn as_bytes(&self) -> &[u8] { self.data }
+    /// Raw byte slice (mutable).
     pub fn as_bytes_mut(&mut self) -> &mut [u8] { self.data }
 }
 
 impl<'a, P: UncompressedFormat> ImageViewMut<'a, P> {
+    /// Byte slice for row `y` (stride-wide).
     pub fn row(&self, y: u32) -> &[u8] {
         assert!(y < self.height, "row: y={} >= height={}", y, self.height);
         let start = y as usize * self.stride as usize;
         &self.data[start..start + self.stride as usize]
     }
 
+    /// Mutable byte slice for row `y` (stride-wide).
     pub fn row_mut(&mut self, y: u32) -> &mut [u8] {
         assert!(y < self.height, "row_mut: y={} >= height={}", y, self.height);
         let start = y as usize * self.stride as usize;
@@ -284,6 +305,7 @@ impl<P: LinearFormat> Image<P> {
 }
 
 impl<'a, P: LinearFormat> ImageView<'a, P> {
+    /// Read a pixel by (x, y) coordinate.
     pub fn pixel(&self, x: u32, y: u32) -> &P::Pixel {
         assert!(x < self.width && y < self.height,
             "pixel: ({},{}) out of bounds for {}x{}", x, y, self.width, self.height);
@@ -296,6 +318,7 @@ impl<'a, P: LinearFormat> ImageView<'a, P> {
 }
 
 impl<'a, P: LinearFormat> ImageViewMut<'a, P> {
+    /// Read a pixel by (x, y) coordinate.
     pub fn pixel(&self, x: u32, y: u32) -> &P::Pixel {
         assert!(x < self.width && y < self.height,
             "pixel: ({},{}) out of bounds for {}x{}", x, y, self.width, self.height);
@@ -306,6 +329,7 @@ impl<'a, P: LinearFormat> ImageViewMut<'a, P> {
         unsafe { &*(ptr as *const P::Pixel) }
     }
 
+    /// Write a pixel by (x, y) coordinate.
     pub fn pixel_mut(&mut self, x: u32, y: u32) -> &mut P::Pixel {
         assert!(x < self.width && y < self.height,
             "pixel_mut: ({},{}) out of bounds for {}x{}", x, y, self.width, self.height);
@@ -331,6 +355,7 @@ impl<P: PackedFormat> Image<P> {
         unsafe { &*(self.data[offset..].as_ptr() as *const P::Macropixel) }
     }
 
+    /// Write a macropixel by (mx, y) where mx is the macropixel index.
     pub fn macropixel_mut(&mut self, mx: u32, y: u32) -> &mut P::Macropixel {
         let max_mx = self.width / P::PIXELS_PER_MACROPIXEL as u32;
         assert!(mx < max_mx && y < self.height,
@@ -341,6 +366,7 @@ impl<P: PackedFormat> Image<P> {
 }
 
 impl<'a, P: PackedFormat> ImageView<'a, P> {
+    /// Read a macropixel by (mx, y) where mx is the macropixel index.
     pub fn macropixel(&self, mx: u32, y: u32) -> &P::Macropixel {
         let max_mx = self.width / P::PIXELS_PER_MACROPIXEL as u32;
         assert!(mx < max_mx && y < self.height,
@@ -382,6 +408,7 @@ impl Image<Nv12> {
         }
     }
 
+    /// Mutable Y luminance plane as an `ImageViewMut<Y8>`.
     pub fn y_plane_mut(&mut self) -> ImageViewMut<'_, Y8> {
         let y_size = self.stride as usize * self.height as usize;
         ImageViewMut {
@@ -393,6 +420,7 @@ impl Image<Nv12> {
         }
     }
 
+    /// Mutable interleaved UV chroma plane as an `ImageViewMut<Uv8>`.
     pub fn uv_plane_mut(&mut self) -> ImageViewMut<'_, Uv8> {
         let y_size = self.stride as usize * self.height as usize;
         let uv_height = self.height / 2;
@@ -409,6 +437,7 @@ impl Image<Nv12> {
 }
 
 impl<'a> ImageView<'a, Nv12> {
+    /// Y luminance plane as an `ImageView<Y8>`.
     pub fn y_plane(&self) -> ImageView<'a, Y8> {
         let y_size = self.stride as usize * self.height as usize;
         ImageView {
@@ -420,6 +449,7 @@ impl<'a> ImageView<'a, Nv12> {
         }
     }
 
+    /// Interleaved UV chroma plane as an `ImageView<Uv8>`.
     pub fn uv_plane(&self) -> ImageView<'a, Uv8> {
         let y_size = self.stride as usize * self.height as usize;
         ImageView {
@@ -466,6 +496,7 @@ impl<'a, P: LinearFormat> ImageView<'a, P> {
 /// Defined on the source format type, parameterized by the target.
 /// Implementations live in `image.rs` alongside `Image<P>`.
 pub trait ConvertTo<Q: PixelFormat>: PixelFormat + Sized {
+    /// Convert `src` to the target pixel format `Q`.
     fn convert(src: &Image<Self>) -> Image<Q>;
 }
 

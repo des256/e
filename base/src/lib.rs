@@ -40,6 +40,7 @@
 
 // -- async runtime --
 
+/// Logging macros and utilities.
 pub mod log;
 
 mod executor;
@@ -47,6 +48,9 @@ pub use executor::*;
 
 mod channel;
 pub use channel::*;
+
+mod epoch;
+pub use epoch::*;
 
 // -- math: algebraic identity traits --
 

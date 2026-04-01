@@ -26,14 +26,22 @@ use {
 /// [`from_line_equation`](MultiVec201::from_line_equation).
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MultiVec201<T> {
-    pub s: T,    // scalar
-    pub e0: T,   // ^2 = 0, line at infinity, line equation offset
-    pub e1: T,   // ^2 = 1, line perpendicular to X-axis, line X-factor
-    pub e2: T,   // ^2 = 1, line perpendicular to Y-axis, line Y-factor
-    pub e01: T,  // ^2 = 0, point Y-coordinate
-    pub e20: T,  // ^2 = 0, point X-coordinate
-    pub e12: T,  // ^2 = -1, point at origin
-    pub e012: T, // all surface pseudoscalar
+    /// Scalar (grade 0).
+    pub s: T,
+    /// `e0` basis vector (`e0² = 0`): line at infinity / line equation offset.
+    pub e0: T,
+    /// `e1` basis vector (`e1² = 1`): line perpendicular to the X-axis / line X-factor.
+    pub e1: T,
+    /// `e2` basis vector (`e2² = 1`): line perpendicular to the Y-axis / line Y-factor.
+    pub e2: T,
+    /// `e01` bivector (`e01² = 0`): point Y-coordinate.
+    pub e01: T,
+    /// `e20` bivector (`e20² = 0`): point X-coordinate.
+    pub e20: T,
+    /// `e12` bivector (`e12² = -1`): point at origin.
+    pub e12: T,
+    /// `e012` trivector: pseudoscalar (full surface element).
+    pub e012: T,
 }
 
 macro_rules! multivec201_impl {
