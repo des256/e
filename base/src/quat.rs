@@ -45,7 +45,7 @@ use {
 /// let v = q * vec3(0.0, 1.0, 0.0);
 /// assert!((v.z - 1.0).abs() < 1e-6);
 /// ```
-#[derive(Copy,Clone,Debug,PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Codec)]
 pub struct Quat<T> {
     /// Real (scalar) part.
     pub r: T,
@@ -553,5 +553,15 @@ mod tests {
     fn neg() {
         let result = -Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
         assert_eq!(result,Quat::<f32> { r: -2.0,i: -3.0,j: -4.0,k: -5.0, });
+    }
+
+    #[test]
+    fn test_codec_quat_roundtrip() {
+        let val = quat(1.0f32, 0.0, 0.0, 0.0);
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Quat::<f32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded, val);
     }
 }

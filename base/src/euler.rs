@@ -8,7 +8,7 @@ use {
 /// Stores rotation angles around X (pitch), Y (yaw), and Z (roll) axes.
 /// Primarily useful for human-readable orientation editing (e.g. editor UIs).
 /// For computation, convert to [`Quat`] or [`Mat3x3`] to avoid gimbal lock.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Codec)]
 pub struct Euler<T> {
     /// Rotation around the X axis (pitch) in radians.
     pub x: T,
@@ -124,5 +124,15 @@ mod tests {
         assert!((back.x - e.x).abs() < 1e-5);
         assert!(back.y.abs() < 1e-5);
         assert!(back.z.abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_codec_euler_roundtrip() {
+        let val = Euler { x: 0.1f32, y: 0.2, z: 0.3 };
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Euler::<f32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded, val);
     }
 }

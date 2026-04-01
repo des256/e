@@ -27,7 +27,7 @@ use {
 /// let c = a.cross(b);
 /// assert_eq!(c, vec3(0.0, 0.0, 1.0));
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Codec)]
 pub struct Vec3<T> {
     /// X component.
     pub x: T,
@@ -351,3 +351,18 @@ vec3_from_impl! { (i32,i64) (i32,i128) }
 vec3_from_impl! { (u64,u128) (u64,i128) }
 vec3_from_impl! { (i64,i128) }
 vec3_from_impl! { (f32,f64) (f64,f32) }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_codec_vec3_roundtrip() {
+        let val = vec3(1.0f64, 2.0, 3.0);
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Vec3::<f64>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded, val);
+    }
+}

@@ -27,7 +27,7 @@ use {
 /// assert_eq!(sum, vec2(4.0, 6.0));
 /// assert_eq!(a.dot(b), 11.0);
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Codec)]
 pub struct Vec2<T> {
     /// X component.
     pub x: T,
@@ -305,3 +305,30 @@ vec2_from_impl! { (i32,i64) (i32,i128) }
 vec2_from_impl! { (u64,u128) (u64,i128) }
 vec2_from_impl! { (i64,i128) }
 vec2_from_impl! { (f32,f64) (f64,f32) }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_codec_vec2_roundtrip() {
+        let val = vec2(1.0f32, 2.0);
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Vec2::<f32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn test_codec_vec2_wire_format() {
+        let mut buf = Vec::new();
+        vec2(1.0f32, 2.0).encode(&mut buf);
+        assert_eq!(buf, [0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x00, 0x40]);
+    }
+
+    #[test]
+    fn test_codec_vec2_truncated() {
+        assert!(Vec2::<f32>::decode(&[0x01, 0x02]).is_err());
+    }
+}

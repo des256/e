@@ -1,4 +1,7 @@
-use std::fmt::{Display, Formatter, Result};
+use {
+    codec::Codec,
+    std::fmt::{Display, Formatter, Result},
+};
 
 /// Asymmetric field-of-view specification in radians.
 ///
@@ -7,7 +10,7 @@ use std::fmt::{Display, Formatter, Result};
 /// projection matrices (e.g. for VR per-eye rendering).
 ///
 /// For a standard symmetric FOV, use [`Fov::symmetric`].
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Codec)]
 pub struct Fov<T> {
     /// Left half-angle (typically negative).
     pub l: T,
@@ -63,3 +66,21 @@ macro_rules! fov_impl {
 }
 
 fov_impl! { f32 f64 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_codec_fov_roundtrip() {
+        let val = fov(-1.0f32, 1.0, -0.75, 0.75);
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Fov::<f32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded.l, val.l);
+        assert_eq!(decoded.r, val.r);
+        assert_eq!(decoded.b, val.b);
+        assert_eq!(decoded.t, val.t);
+    }
+}

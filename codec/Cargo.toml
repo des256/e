@@ -1,8 +1,8 @@
 [package]
-name = "base"
+name = "codec"
 version.workspace = true
 authors.workspace = true
 edition = "2021"
 
 [dependencies]
-codec = { path = "../codec" }
+codec-derive = { path = "../codec-derive" }

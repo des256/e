@@ -1,0 +1,10 @@
+[package]
+name = "exploreui-backend"
+version.workspace = true
+authors.workspace = true
+edition = "2021"
+
+[dependencies]
+base = { path = "../../../base" }
+http = { path = "../../../http" }
+shared = { package = "exploreui-shared", path = "../shared" }

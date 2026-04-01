@@ -20,7 +20,7 @@ use {
 /// let b = aabb2(vec2(3.0, 3.0), vec2(8.0, 8.0));
 /// assert!(a.intersects(&b));
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Codec)]
 pub struct Aabb2<T> {
     /// Minimum corner.
     pub min: Vec2<T>,
@@ -166,5 +166,15 @@ mod tests {
         let expanded = bb.expand(vec2(10.0, -3.0));
         assert_eq!(expanded.min, vec2(0.0, -3.0));
         assert_eq!(expanded.max, vec2(10.0, 5.0));
+    }
+
+    #[test]
+    fn test_codec_aabb2_roundtrip() {
+        let val = Aabb2 { min: vec2(0.0f32, 0.0), max: vec2(10.0, 10.0) };
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Aabb2::<f32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded, val);
     }
 }

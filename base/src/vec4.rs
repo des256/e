@@ -25,7 +25,7 @@ use {
 /// assert_eq!(v.xyz(), vec3(1.0, 2.0, 3.0));
 /// assert_eq!(v.xy(), vec2(1.0, 2.0));
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Codec)]
 pub struct Vec4<T> {
     /// X component.
     pub x: T,
@@ -357,3 +357,18 @@ vec4_from_impl! { (i32,i64) (i32,i128) }
 vec4_from_impl! { (u64,u128) (u64,i128) }
 vec4_from_impl! { (i64,i128) }
 vec4_from_impl! { (f32,f64) (f64,f32) }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_codec_vec4_roundtrip() {
+        let val = Vec4 { x: 1i32, y: 2, z: 3, w: 4 };
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Vec4::<i32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded, val);
+    }
+}

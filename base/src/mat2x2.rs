@@ -25,7 +25,7 @@ use {
 /// let v = m * vec2(3.0, 4.0);
 /// assert_eq!(v, vec2(3.0, 4.0));
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Codec)]
 pub struct Mat2x2<T> {
     /// First column.
     pub x: Vec2<T>,
@@ -542,5 +542,15 @@ mod tests {
                 y: Vec2 { x: 2.0, y: -1.0 },
             }
         );
+    }
+
+    #[test]
+    fn test_codec_mat2x2_roundtrip() {
+        let val = Mat2x2 { x: vec2(1.0f32, 2.0), y: vec2(3.0, 4.0) };
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Mat2x2::<f32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded, val);
     }
 }

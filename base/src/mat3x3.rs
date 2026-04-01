@@ -25,7 +25,7 @@ use {
 /// let v = m * vec3(1.0, 0.0, 0.0);
 /// assert!((v.y - 1.0).abs() < 1e-6);
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Codec)]
 pub struct Mat3x3<T> {
     /// First column.
     pub x: Vec3<T>,
@@ -1266,5 +1266,19 @@ mod tests {
                 },
             }
         );
+    }
+
+    #[test]
+    fn test_codec_mat3x3_roundtrip() {
+        let val = Mat3x3 {
+            x: vec3(1.0f32, 2.0, 3.0),
+            y: vec3(4.0, 5.0, 6.0),
+            z: vec3(7.0, 8.0, 9.0),
+        };
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Mat3x3::<f32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded, val);
     }
 }

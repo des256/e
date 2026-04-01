@@ -1,8 +1,8 @@
 [package]
-name = "base"
+name = "codec-derive"
 version.workspace = true
 authors.workspace = true
 edition = "2021"
 
-[dependencies]
-codec = { path = "../codec" }
+[lib]
+proc-macro = true

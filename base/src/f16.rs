@@ -502,11 +502,51 @@ impl One for F16 {
     const ONE: Self = F16(0x3C00);
 }
 
+// -- codec --
+
+impl codec::Codec for F16 {
+    fn encode(&self, buf: &mut Vec<u8>) {
+        self.to_bits().encode(buf);
+    }
+
+    fn decode(buf: &[u8]) -> std::result::Result<(Self, usize), codec::CodecError> {
+        let (bits, n) = u16::decode(buf)?;
+        Ok((F16::from_bits(bits), n))
+    }
+}
+
 // -- Tests --
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {super::*, codec::Codec};
+
+    // -- Codec --
+
+    #[test]
+    fn test_codec_f16_roundtrip() {
+        for v in [0.0f32, 1.0, -1.0, 0.5, 65504.0] {
+            let val = F16::from_f32(v);
+            let mut buf = Vec::new();
+            val.encode(&mut buf);
+            let (decoded, len) = F16::decode(&buf).unwrap();
+            assert_eq!(buf.len(), len);
+            assert_eq!(decoded, val);
+        }
+    }
+
+    #[test]
+    fn test_codec_f16_encoding() {
+        let mut buf = Vec::new();
+        F16::from_f32(1.0).encode(&mut buf);
+        assert_eq!(buf.len(), 2);
+        assert_eq!(buf, F16::from_f32(1.0).to_bits().to_le_bytes());
+    }
+
+    #[test]
+    fn test_codec_f16_truncated() {
+        assert!(F16::decode(&[0x01]).is_err());
+    }
 
     // -- Conversion: known exact values --
 

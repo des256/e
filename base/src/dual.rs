@@ -25,7 +25,7 @@ use {
 /// assert_eq!(f.real, 9.0);   // f(3) = 9
 /// assert_eq!(f.dual, 6.0);   // f'(3) = 6
 /// ```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Codec)]
 pub struct Dual<T> {
     /// Real part (function value).
     pub real: T,
@@ -270,5 +270,16 @@ mod tests {
         let result = xp1 * xp1;
         assert_eq!(result.real, 9.0);
         assert_eq!(result.dual, 6.0);
+    }
+
+    #[test]
+    fn test_codec_dual_roundtrip() {
+        let val = Dual { real: 1.0f64, dual: 0.5 };
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Dual::<f64>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded.real, val.real);
+        assert_eq!(decoded.dual, val.dual);
     }
 }

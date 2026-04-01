@@ -33,7 +33,7 @@ use {
 /// let origin = view * vec4(0.0, 0.0, 0.0, 1.0);
 /// assert!((origin.z + 5.0).abs() < 1e-6);
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Codec)]
 pub struct Mat4x4<T> {
     /// First column.
     pub x: Vec4<T>,
@@ -1969,5 +1969,20 @@ mod tests {
                 },
             }
         );
+    }
+
+    #[test]
+    fn test_codec_mat4x4_roundtrip() {
+        let val = Mat4x4 {
+            x: Vec4 { x: 1.0f32, y: 0.0, z: 0.0, w: 0.0 },
+            y: Vec4 { x: 0.0, y: 1.0, z: 0.0, w: 0.0 },
+            z: Vec4 { x: 0.0, y: 0.0, z: 1.0, w: 0.0 },
+            w: Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
+        };
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Mat4x4::<f32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded, val);
     }
 }

@@ -26,7 +26,7 @@ use {
 /// assert_eq!(a.norm(), 5.0);
 /// assert_eq!(a.conj(), complex(3.0, -4.0));
 /// ```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Codec)]
 pub struct Complex<T> {
     /// Real part.
     pub r: T,
@@ -478,5 +478,16 @@ mod tests {
     fn neg() {
         let result = -Complex::<f32> { r: 5.0, i: 4.0 };
         assert_eq!(result, Complex::<f32> { r: -5.0, i: -4.0 })
+    }
+
+    #[test]
+    fn test_codec_complex_roundtrip() {
+        let val = Complex { r: 3.0f32, i: 4.0 };
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Complex::<f32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded.r, val.r);
+        assert_eq!(decoded.i, val.i);
     }
 }

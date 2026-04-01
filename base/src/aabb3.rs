@@ -17,7 +17,7 @@ use {
 /// assert!(bb.contains(vec3(0.5, 0.5, 0.5)));
 /// assert!(!bb.contains(vec3(2.0, 0.5, 0.5)));
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Codec)]
 pub struct Aabb3<T> {
     /// Minimum corner.
     pub min: Vec3<T>,
@@ -167,5 +167,18 @@ mod tests {
         let c = aabb3(vec3(6.0, 6.0, 6.0), vec3(10.0, 10.0, 10.0));
         assert!(a.intersects(&b));
         assert!(!a.intersects(&c));
+    }
+
+    #[test]
+    fn test_codec_aabb3_roundtrip() {
+        let val = Aabb3 {
+            min: vec3(0.0f32, 0.0, 0.0),
+            max: vec3(10.0, 10.0, 10.0),
+        };
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Aabb3::<f32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded, val);
     }
 }

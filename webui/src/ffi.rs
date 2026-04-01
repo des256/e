@@ -13,6 +13,7 @@ extern "C" {
     fn create_text_node(ptr: *const u8, len: usize) -> u32;
     fn create_comment(ptr: *const u8, len: usize) -> u32;
     fn document_head() -> u32;
+    fn document_body() -> u32;
     fn document_add_event_listener(name_ptr: *const u8, name_len: usize, cb_id: u32);
 
     // -- element --
@@ -27,6 +28,7 @@ extern "C" {
     fn class_list_add(handle: u32, cls_ptr: *const u8, cls_len: usize);
     fn add_event_listener(handle: u32, name_ptr: *const u8, name_len: usize, cb_id: u32);
     fn set_value(handle: u32, ptr: *const u8, len: usize);
+    fn get_value(handle: u32, buf_ptr: *mut u8, buf_len: usize) -> usize;
     fn append_text_content(handle: u32, ptr: *const u8, len: usize);
 
     // -- node tree --
@@ -124,6 +126,14 @@ impl Element {
         with_str(value, |p, l| unsafe { set_value(self.0, p, l) })
     }
 
+    /// Get the `value` property (for input elements).
+    pub fn get_value(&self) -> String {
+        let mut buf = [0u8; 256];
+        let len = unsafe { get_value(self.0, buf.as_mut_ptr(), buf.len()) };
+        let actual = len.min(buf.len());
+        String::from_utf8_lossy(&buf[..actual]).into_owned()
+    }
+
     /// Append text to `textContent` (for `<style>` elements).
     pub fn append_text_content(&self, text: &str) {
         with_str(text, |p, l| unsafe { append_text_content(self.0, p, l) })
@@ -187,6 +197,11 @@ pub fn create_comment_str(text: &str) -> JsHandle {
 /// Get the `<head>` element.
 pub fn head() -> Element {
     Element(unsafe { document_head() })
+}
+
+/// Get the `<body>` element.
+pub fn body() -> Element {
+    Element(unsafe { document_body() })
 }
 
 /// Attach an event listener to the document. `cb_id` is from

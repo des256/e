@@ -1,0 +1,9 @@
+[package]
+name = "exploreui-shared"
+version.workspace = true
+authors.workspace = true
+edition = "2021"
+
+[dependencies]
+base = { path = "../../../base" }
+codec = { path = "../../../codec" }

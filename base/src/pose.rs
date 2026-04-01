@@ -20,7 +20,7 @@ use {
 /// let v = p * vec3(0.0, 0.0, 0.0);
 /// assert_eq!(v, vec3(1.0, 0.0, 0.0));
 /// ```
-#[derive(Copy,Clone,Debug,PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Codec)]
 pub struct Pose<T> {
     /// Position (translation).
     pub p: Vec3<T>,
@@ -82,3 +82,18 @@ pose_impl! { f32 f64 }
 
 impl From<Pose<f32>> for Pose<f64> { fn from(value: Pose<f32>) -> Self { Pose { p: value.p.into(), o: value.o.into() } } }
 impl From<Pose<f64>> for Pose<f32> { fn from(value: Pose<f64>) -> Self { Pose { p: value.p.into(), o: value.o.into() } } }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_codec_pose_roundtrip() {
+        let val = pose(vec3(1.0f32, 2.0, 3.0), quat(1.0, 0.0, 0.0, 0.0));
+        let mut buf = Vec::new();
+        val.encode(&mut buf);
+        let (decoded, len) = Pose::<f32>::decode(&buf).unwrap();
+        assert_eq!(buf.len(), len);
+        assert_eq!(decoded, val);
+    }
+}
