@@ -10,7 +10,7 @@ fn main() -> Result<(), std::io::Error> {
     std::io::stdin().read_line(&mut input)?;
     let index = input.trim().parse::<usize>().unwrap();
     let path = &ports[index].path;
-    for baud_rate in [1000000, 500000, 250000, 128000, 115200, 76800, 57600, 38400] {
+    for baud_rate in [1000000, 500000, 115200, 57600, 38400] {
         println!("Trying baud rate: {}", baud_rate);
         let port = base::SerialPort::open(path, baud_rate)?;
         let mut bus = feetech::Bus::new(port)?;

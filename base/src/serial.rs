@@ -14,11 +14,9 @@
 //! # Ok::<(), std::io::Error>(())
 //! ```
 
-use {
-    std::{
-        io::{Error, ErrorKind},
-        os::fd::{AsRawFd, FromRawFd, OwnedFd},
-    },
+use std::{
+    io::{Error, ErrorKind},
+    os::fd::{AsRawFd, FromRawFd, OwnedFd},
 };
 
 // -- port enumeration --
@@ -193,15 +191,10 @@ impl SerialPort {
         let speed = baud_rate_to_speed(baud_rate)?;
 
         // Open the device
-        let c_path = CString::new(path)
-            .map_err(|_| Error::new(ErrorKind::InvalidInput, "invalid path"))?;
+        let c_path =
+            CString::new(path).map_err(|_| Error::new(ErrorKind::InvalidInput, "invalid path"))?;
 
-        let fd = unsafe {
-            libc::open(
-                c_path.as_ptr(),
-                libc::O_RDWR | libc::O_NOCTTY,
-            )
-        };
+        let fd = unsafe { libc::open(c_path.as_ptr(), libc::O_RDWR | libc::O_NOCTTY) };
 
         if fd < 0 {
             return Err(Error::last_os_error());
@@ -381,8 +374,8 @@ mod tests {
         // Standard baud rates should map correctly
         // We'll test this by verifying the mapping function works
         let standard_rates = [
-            9600, 19200, 38400, 57600, 115200, 230400, 460800, 500000, 576000,
-            921600, 1000000, 1500000, 2000000, 3000000, 4000000,
+            9600, 19200, 38400, 57600, 115200, 230400, 460800, 500000, 576000, 921600, 1000000,
+            1500000, 2000000, 3000000, 4000000,
         ];
 
         for &rate in &standard_rates {
