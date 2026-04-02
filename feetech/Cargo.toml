@@ -6,4 +6,3 @@ edition = "2021"
 
 [dependencies]
 base = { path = "../base" }
-serialport = "4.9.0"

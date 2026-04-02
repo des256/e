@@ -1,4 +1,10 @@
-use {serialport::SerialPort, std::collections::HashMap};
+use {
+    base::SerialPort,
+    std::{
+        collections::HashMap,
+        io::{Read, Write},
+    },
+};
 
 #[allow(dead_code)]
 #[repr(u8)]
@@ -275,12 +281,12 @@ pub struct Servo {
 }
 
 pub struct Bus {
-    port: Box<dyn SerialPort>,
+    port: SerialPort,
     servos: HashMap<usize, Servo>,
 }
 
 impl Bus {
-    pub fn new(port: Box<dyn SerialPort>) -> Result<Self, std::io::Error> {
+    pub fn new(port: SerialPort) -> Result<Self, std::io::Error> {
         Ok(Bus {
             port,
             servos: HashMap::new(),

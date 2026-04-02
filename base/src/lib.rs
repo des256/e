@@ -52,6 +52,11 @@ pub use channel::*;
 mod epoch;
 pub use epoch::*;
 
+// -- serial port --
+
+mod serial;
+pub use serial::*;
+
 // -- math: algebraic identity traits --
 
 mod zero;
