@@ -219,8 +219,8 @@ impl SerialPort {
             | libc::IXON);
         termios.c_oflag &= !libc::OPOST;
         termios.c_lflag &= !(libc::ECHO | libc::ECHONL | libc::ICANON | libc::ISIG | libc::IEXTEN);
-        termios.c_cflag &= !(libc::CSIZE | libc::PARENB);
-        termios.c_cflag |= libc::CS8; // 8 data bits
+        termios.c_cflag &= !(libc::CSIZE | libc::PARENB | libc::CRTSCTS);
+        termios.c_cflag |= libc::CS8 | libc::CLOCAL | libc::CREAD;
 
         // Set read timeout: VTIME=10 (1 second), VMIN=0 (return immediately with available data)
         termios.c_cc[libc::VTIME] = 10;
