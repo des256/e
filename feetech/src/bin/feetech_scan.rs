@@ -13,15 +13,11 @@ fn main() -> Result<(), std::io::Error> {
     for baud_rate in [1000000, 500000, 115200, 57600, 38400] {
         for rts_on_send in [true, false] {
             println!(
-                "Trying baud rate: {}, RS-485 rts_on_send: {}",
+                "Trying baud rate: {}, rts_on_send: {}",
                 baud_rate, rts_on_send
             );
             let port = base::SerialPort::open(path, baud_rate)?;
-            match port.enable_rs485(rts_on_send) {
-                Ok(()) => println!("  RS-485 mode enabled"),
-                Err(e) => println!("  RS-485 mode not supported: {}", e),
-            }
-            let mut bus = feetech::Bus::new(port)?;
+            let mut bus = feetech::Bus::new(port, rts_on_send)?;
             bus.send_ping_all()?;
             std::thread::sleep(Duration::from_secs(1));
             let ids = bus.recv_ping_all()?;

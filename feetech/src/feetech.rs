@@ -283,22 +283,29 @@ pub struct Servo {
 pub struct Bus {
     port: SerialPort,
     servos: HashMap<usize, Servo>,
+    rts_on_send: bool,
 }
 
 impl Bus {
-    pub fn new(port: SerialPort) -> Result<Self, std::io::Error> {
+    pub fn new(port: SerialPort, rts_on_send: bool) -> Result<Self, std::io::Error> {
+        // start in RX mode
+        port.set_rts(!rts_on_send)?;
         Ok(Bus {
             port,
             servos: HashMap::new(),
+            rts_on_send,
         })
     }
 
     /// Write a packet to the bus and wait for TX to complete.
     fn write_packet(&mut self, packet: &[u8]) -> Result<(), std::io::Error> {
         self.port.flush_input()?;
+        // switch transceiver to TX
+        self.port.set_rts(self.rts_on_send)?;
         base::debug!("TX {} bytes: {:02X?}", packet.len(), packet);
         let n = self.port.write(packet)?;
         if n != packet.len() {
+            self.port.set_rts(!self.rts_on_send)?;
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!(
@@ -310,6 +317,7 @@ impl Bus {
         }
         // wait for all bytes to leave the UART before switching to RX
         self.port.flush()?;
+        self.port.set_rts(!self.rts_on_send)?;
         Ok(())
     }
 

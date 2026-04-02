@@ -314,6 +314,21 @@ impl SerialPort {
             Ok(())
         }
     }
+
+    /// Assert RTS (set high).
+    pub fn set_rts(&self, active: bool) -> Result<(), Error> {
+        let bits: libc::c_int = libc::TIOCM_RTS;
+        let req = if active {
+            libc::TIOCMBIS
+        } else {
+            libc::TIOCMBIC
+        };
+        if unsafe { libc::ioctl(self.fd.as_raw_fd(), req, &bits) } != 0 {
+            Err(Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
 }
 
 // -- trait implementations --
