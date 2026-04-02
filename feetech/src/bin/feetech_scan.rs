@@ -10,7 +10,8 @@ fn main() -> Result<(), std::io::Error> {
     std::io::stdin().read_line(&mut input)?;
     let index = input.trim().parse::<usize>().unwrap();
     let path = &ports[index].path;
-    for baud_rate in [1000000, 500000, 115200, 57600, 38400] {
+    // all Feetech baud rates (register values 0..7)
+    for baud_rate in [1000000, 500000, 250000, 128000, 115200, 76800, 57600, 38400] {
         for rts_on_send in [true, false] {
             println!(
                 "Trying baud rate: {}, rts_on_send: {}",

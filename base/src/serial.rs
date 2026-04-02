@@ -187,9 +187,6 @@ impl SerialPort {
     pub fn open(path: &str, baud_rate: u32) -> Result<Self, Error> {
         use std::ffi::CString;
 
-        // Map baud rate to termios constant
-        let speed = baud_rate_to_speed(baud_rate)?;
-
         // Open the device
         let c_path =
             CString::new(path).map_err(|_| Error::new(ErrorKind::InvalidInput, "invalid path"))?;
@@ -226,17 +223,35 @@ impl SerialPort {
         termios.c_cc[libc::VTIME] = 10;
         termios.c_cc[libc::VMIN] = 0;
 
-        // Set baud rate
-        if unsafe { libc::cfsetispeed(&mut termios, speed) } != 0 {
-            return Err(Error::last_os_error());
-        }
-        if unsafe { libc::cfsetospeed(&mut termios, speed) } != 0 {
-            return Err(Error::last_os_error());
+        // Set baud rate via standard constants if possible
+        match baud_rate_to_speed(baud_rate) {
+            Ok(speed) => {
+                if unsafe { libc::cfsetispeed(&mut termios, speed) } != 0 {
+                    return Err(Error::last_os_error());
+                }
+                if unsafe { libc::cfsetospeed(&mut termios, speed) } != 0 {
+                    return Err(Error::last_os_error());
+                }
+            }
+            Err(_) => {
+                // Placeholder; will override with TCSETS2 below
+                if unsafe { libc::cfsetispeed(&mut termios, libc::B9600) } != 0 {
+                    return Err(Error::last_os_error());
+                }
+                if unsafe { libc::cfsetospeed(&mut termios, libc::B9600) } != 0 {
+                    return Err(Error::last_os_error());
+                }
+            }
         }
 
         // Apply settings
         if unsafe { libc::tcsetattr(fd.as_raw_fd(), libc::TCSANOW, &termios) } != 0 {
             return Err(Error::last_os_error());
+        }
+
+        // For non-standard baud rates, override with TCSETS2/BOTHER
+        if baud_rate_to_speed(baud_rate).is_err() {
+            set_custom_baud_rate(&fd, baud_rate)?;
         }
 
         Ok(Self { fd })
@@ -408,6 +423,42 @@ fn baud_rate_to_speed(rate: u32) -> Result<libc::speed_t, Error> {
     Ok(speed)
 }
 
+/// Set an arbitrary baud rate via `TCSETS2`/`BOTHER`.
+fn set_custom_baud_rate(fd: &OwnedFd, baud_rate: u32) -> Result<(), Error> {
+    const BOTHER: u32 = 0o010000;
+    const CBAUD: u32 = 0o010017;
+    const TCGETS2: libc::c_ulong = 0x802C542A;
+    const TCSETS2: libc::c_ulong = 0x402C542B;
+
+    #[repr(C)]
+    struct Termios2 {
+        c_iflag: u32,
+        c_oflag: u32,
+        c_cflag: u32,
+        c_lflag: u32,
+        c_line: u8,
+        c_cc: [u8; 19],
+        c_ispeed: u32,
+        c_ospeed: u32,
+    }
+
+    let mut t2: Termios2 = unsafe { std::mem::zeroed() };
+    if unsafe { libc::ioctl(fd.as_raw_fd(), TCGETS2, &mut t2) } != 0 {
+        return Err(Error::last_os_error());
+    }
+
+    t2.c_cflag &= !CBAUD;
+    t2.c_cflag |= BOTHER;
+    t2.c_ispeed = baud_rate;
+    t2.c_ospeed = baud_rate;
+
+    if unsafe { libc::ioctl(fd.as_raw_fd(), TCSETS2, &t2) } != 0 {
+        return Err(Error::last_os_error());
+    }
+
+    Ok(())
+}
+
 // -- tests --
 
 #[cfg(test)]
@@ -415,9 +466,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_open_rejects_unsupported_baud_rate() {
-        // Baud rate 999999 is not a standard termios constant
-        let result = SerialPort::open("/dev/null", 999999);
+    fn test_baud_rate_to_speed_rejects_nonstandard() {
+        // Non-standard rates are not in the B* constant table
+        let result = baud_rate_to_speed(999999);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind(), ErrorKind::InvalidInput);
