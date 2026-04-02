@@ -293,27 +293,33 @@ impl Bus {
         })
     }
 
+    /// Write a packet to the bus, wait for TX to complete, and discard the
+    /// RS-485 half-duplex echo.
+    fn write_packet(&mut self, packet: &[u8]) -> Result<(), std::io::Error> {
+        self.port.flush_input()?;
+        let n = self.port.write(packet)?;
+        if n != packet.len() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!(
+                    "Feetech: write failed (expected {} bytes, got {})",
+                    packet.len(),
+                    n
+                ),
+            ));
+        }
+        // wait for all bytes to leave the UART before switching to RX
+        self.port.flush()?;
+        // discard the half-duplex echo
+        let mut echo = vec![0u8; packet.len()];
+        self.port.read_exact(&mut echo)?;
+        Ok(())
+    }
+
     pub fn send_ping(&mut self, id: usize) -> Result<(), std::io::Error> {
         let mut request = [0xFF, 0xFF, id as u8, 2, Instruction::Ping as u8, 0];
         calculate_checksum(&mut request);
-        self.port.flush()?;
-        match self.port.write(&request) {
-            Ok(bytes_written) => {
-                if bytes_written != request.len() {
-                    Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!(
-                            "Feetech: ping write failed (expected {} bytes, got {})",
-                            request.len(),
-                            bytes_written
-                        ),
-                    ))
-                } else {
-                    Ok(())
-                }
-            }
-            Err(error) => Err(error),
-        }
+        self.write_packet(&request)
     }
 
     pub fn recv_ping(&mut self) -> Result<usize, std::io::Error> {
@@ -329,7 +335,7 @@ impl Bus {
                             bytes_read
                         ),
                     ))
-                } else if !verify_checksum(&response) {
+                } else if verify_checksum(&response) {
                     Ok(response[2] as usize)
                 } else {
                     Err(std::io::Error::new(
@@ -345,24 +351,7 @@ impl Bus {
     pub fn send_ping_all(&mut self) -> Result<(), std::io::Error> {
         let mut request = [0xFF, 0xFF, 0xFE, 2, Instruction::Ping as u8, 0];
         calculate_checksum(&mut request);
-        self.port.flush()?;
-        match self.port.write(&request) {
-            Ok(bytes_written) => {
-                if bytes_written != request.len() {
-                    Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!(
-                            "Feetech: ping all write failed (expected {} bytes, got {})",
-                            request.len(),
-                            bytes_written
-                        ),
-                    ))
-                } else {
-                    Ok(())
-                }
-            }
-            Err(error) => Err(error),
-        }
+        self.write_packet(&request)
     }
 
     pub fn recv_ping_all(&mut self) -> Result<Vec<usize>, std::io::Error> {
@@ -409,27 +398,7 @@ impl Bus {
         request.extend(data);
         request.push(0);
         calculate_checksum(&mut request);
-        self.port.flush()?;
-        match self.port.write(&request) {
-            Ok(bytes_written) => {
-                if bytes_written != request.len() {
-                    Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!(
-                            "Feetech: write failed (expected {} bytes, got {})",
-                            request.len(),
-                            bytes_written
-                        ),
-                    ))
-                } else {
-                    Ok(())
-                }
-            }
-            _ => Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Feetech: write failed",
-            )),
-        }
+        self.write_packet(&request)
     }
 
     pub fn send_read(
@@ -449,27 +418,7 @@ impl Bus {
             0,
         ];
         calculate_checksum(&mut request);
-        self.port.flush()?;
-        match self.port.write(&request) {
-            Ok(bytes_written) => {
-                if bytes_written != request.len() {
-                    Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!(
-                            "Feetech: read failed (expected {} bytes, got {})",
-                            request.len(),
-                            bytes_written
-                        ),
-                    ))
-                } else {
-                    Ok(())
-                }
-            }
-            _ => Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Feetech: read failed",
-            )),
-        }
+        self.write_packet(&request)
     }
 
     pub fn recv_read(&mut self, length: usize) -> Result<Vec<u8>, std::io::Error> {
@@ -532,27 +481,7 @@ impl Bus {
         }
         request.push(0);
         calculate_checksum(&mut request);
-        self.port.flush()?;
-        match self.port.write(&request) {
-            Ok(bytes_written) => {
-                if bytes_written != request.len() {
-                    Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!(
-                            "Feetech: sync write failed (expected {} bytes, got {})",
-                            request.len(),
-                            bytes_written
-                        ),
-                    ))
-                } else {
-                    Ok(())
-                }
-            }
-            _ => Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Feetech: sync write failed",
-            )),
-        }
+        self.write_packet(&request)
     }
 
     pub fn send_sync_read(
@@ -573,28 +502,7 @@ impl Bus {
         request.extend(ids.iter().map(|&id| id as u8));
         request.push(0);
         calculate_checksum(&mut request);
-        self.port.flush()?;
-        match self.port.write(&request) {
-            Ok(bytes_written) => {
-                if bytes_written != request.len() {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!(
-                            "Feetech: sync read failed (expected {} bytes, got {})",
-                            request.len(),
-                            bytes_written
-                        ),
-                    ));
-                }
-            }
-            _ => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Feetech: sync read failed",
-                ))
-            }
-        }
-        Ok(())
+        self.write_packet(&request)
     }
 
     pub async fn recv_sync_read(
