@@ -296,6 +296,7 @@ impl Bus {
     /// Write a packet to the bus and wait for TX to complete.
     fn write_packet(&mut self, packet: &[u8]) -> Result<(), std::io::Error> {
         self.port.flush_input()?;
+        base::debug!("TX {} bytes: {:02X?}", packet.len(), packet);
         let n = self.port.write(packet)?;
         if n != packet.len() {
             return Err(std::io::Error::new(
@@ -322,6 +323,7 @@ impl Bus {
         let mut response = [0u8; 6];
         match self.port.read(&mut response) {
             Ok(bytes_read) => {
+                base::debug!("recv_ping: {} bytes: {:02X?}", bytes_read, &response[..bytes_read]);
                 if bytes_read != response.len() {
                     Err(std::io::Error::new(
                         std::io::ErrorKind::Other,
@@ -354,13 +356,16 @@ impl Bus {
         let mut responses = [0u8; 6 * 32];
         match self.port.read(&mut responses) {
             Ok(bytes_read) => {
+                base::debug!("recv_ping_all: {} bytes: {:02X?}", bytes_read, &responses[..bytes_read]);
                 if bytes_read >= 6 {
                     let mut ids = Vec::<usize>::new();
                     let mut index = 0;
                     while index <= bytes_read - 6 {
                         if (responses[index] == 0xFF) && (responses[index + 1] == 0xFF) {
                             let response = &responses[index..index + 6];
-                            if verify_checksum(response) {
+                            let valid = verify_checksum(response);
+                            base::debug!("  packet at {}: {:02X?} checksum={}", index, response, valid);
+                            if valid {
                                 ids.push(response[2] as usize);
                             }
                             index += 6;
@@ -370,6 +375,7 @@ impl Bus {
                     }
                     Ok(ids)
                 } else {
+                    base::debug!("recv_ping_all: not enough data");
                     Ok(Vec::new())
                 }
             }
@@ -421,6 +427,7 @@ impl Bus {
         let mut response = vec![0u8; 6 + length];
         match self.port.read(&mut response) {
             Ok(bytes_read) => {
+                base::debug!("recv_read: {} bytes: {:02X?}", bytes_read, &response[..bytes_read]);
                 if bytes_read != response.len() {
                     Err(std::io::Error::new(
                         std::io::ErrorKind::Other,
