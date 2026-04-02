@@ -1,5 +1,14 @@
 [workspace]
-members = ["audio", "base", "codec", "codec-derive", "http", "webui", "experiments/exploreui/*"]
+members = [
+    "audio",
+    "base",
+    "codec",
+    "codec-derive",
+    "feetech",
+    "http",
+    "webui",
+    "experiments/exploreui/*",
+]
 resolver = "2"
 
 [workspace.package]
