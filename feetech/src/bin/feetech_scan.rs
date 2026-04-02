@@ -11,16 +11,25 @@ fn main() -> Result<(), std::io::Error> {
     let index = input.trim().parse::<usize>().unwrap();
     let path = &ports[index].path;
     for baud_rate in [1000000, 500000, 115200, 57600, 38400] {
-        println!("Trying baud rate: {}", baud_rate);
-        let port = base::SerialPort::open(path, baud_rate)?;
-        let mut bus = feetech::Bus::new(port)?;
-        bus.send_ping_all()?;
-        std::thread::sleep(Duration::from_secs(1));
-        let ids = bus.recv_ping_all()?;
-        if !ids.is_empty() {
-            println!("Found {} servos:", ids.len());
-            for id in ids {
-                println!("  ID: {}", id);
+        for rts_on_send in [true, false] {
+            println!(
+                "Trying baud rate: {}, RS-485 rts_on_send: {}",
+                baud_rate, rts_on_send
+            );
+            let port = base::SerialPort::open(path, baud_rate)?;
+            match port.enable_rs485(rts_on_send) {
+                Ok(()) => println!("  RS-485 mode enabled"),
+                Err(e) => println!("  RS-485 mode not supported: {}", e),
+            }
+            let mut bus = feetech::Bus::new(port)?;
+            bus.send_ping_all()?;
+            std::thread::sleep(Duration::from_secs(1));
+            let ids = bus.recv_ping_all()?;
+            if !ids.is_empty() {
+                println!("Found {} servos:", ids.len());
+                for id in ids {
+                    println!("  ID: {}", id);
+                }
             }
         }
     }

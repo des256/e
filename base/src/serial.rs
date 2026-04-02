@@ -274,6 +274,46 @@ impl SerialPort {
             Ok(())
         }
     }
+
+    /// Enable RS-485 mode with automatic direction control via RTS.
+    ///
+    /// The kernel driver toggles RTS to switch the transceiver between
+    /// transmit and receive. `rts_on_send` controls the RTS polarity
+    /// during transmission (true = RTS high while sending).
+    pub fn enable_rs485(&self, rts_on_send: bool) -> Result<(), Error> {
+        const SER_RS485_ENABLED: u32 = 1 << 0;
+        const SER_RS485_RTS_ON_SEND: u32 = 1 << 1;
+        const SER_RS485_RTS_AFTER_SEND: u32 = 1 << 2;
+        const TIOCSRS485: libc::c_ulong = 0x542F;
+
+        #[repr(C)]
+        struct SerialRs485 {
+            flags: u32,
+            delay_rts_before_send: u32,
+            delay_rts_after_send: u32,
+            padding: [u32; 5],
+        }
+
+        let flags = SER_RS485_ENABLED
+            | if rts_on_send {
+                SER_RS485_RTS_ON_SEND
+            } else {
+                SER_RS485_RTS_AFTER_SEND
+            };
+
+        let rs485 = SerialRs485 {
+            flags,
+            delay_rts_before_send: 0,
+            delay_rts_after_send: 0,
+            padding: [0; 5],
+        };
+
+        if unsafe { libc::ioctl(self.fd.as_raw_fd(), TIOCSRS485, &rs485) } != 0 {
+            Err(Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
 }
 
 // -- trait implementations --
