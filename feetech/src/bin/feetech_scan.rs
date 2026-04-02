@@ -12,21 +12,16 @@ fn main() -> Result<(), std::io::Error> {
     let path = &ports[index].path;
     // all Feetech baud rates (register values 0..7)
     for baud_rate in [1000000, 500000, 250000, 128000, 115200, 76800, 57600, 38400] {
-        for rts_on_send in [true, false] {
-            println!(
-                "Trying baud rate: {}, rts_on_send: {}",
-                baud_rate, rts_on_send
-            );
-            let port = base::SerialPort::open(path, baud_rate)?;
-            let mut bus = feetech::Bus::new(port, rts_on_send)?;
-            bus.send_ping_all()?;
-            std::thread::sleep(Duration::from_secs(1));
-            let ids = bus.recv_ping_all()?;
-            if !ids.is_empty() {
-                println!("Found {} servos:", ids.len());
-                for id in ids {
-                    println!("  ID: {}", id);
-                }
+        println!("Trying baud rate: {}", baud_rate);
+        let port = base::SerialPort::open(path, baud_rate)?;
+        let mut bus = feetech::Bus::new(port, libc::TIOCM_DTR)?;
+        bus.send_ping_all()?;
+        std::thread::sleep(Duration::from_secs(1));
+        let ids = bus.recv_ping_all()?;
+        if !ids.is_empty() {
+            println!("Found {} servos:", ids.len());
+            for id in ids {
+                println!("  ID: {}", id);
             }
         }
     }
