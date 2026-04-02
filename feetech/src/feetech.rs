@@ -293,8 +293,7 @@ impl Bus {
         })
     }
 
-    /// Write a packet to the bus, wait for TX to complete, and discard the
-    /// RS-485 half-duplex echo.
+    /// Write a packet to the bus and wait for TX to complete.
     fn write_packet(&mut self, packet: &[u8]) -> Result<(), std::io::Error> {
         self.port.flush_input()?;
         let n = self.port.write(packet)?;
@@ -310,9 +309,6 @@ impl Bus {
         }
         // wait for all bytes to leave the UART before switching to RX
         self.port.flush()?;
-        // discard the half-duplex echo
-        let mut echo = vec![0u8; packet.len()];
-        self.port.read_exact(&mut echo)?;
         Ok(())
     }
 
