@@ -286,16 +286,15 @@ pub struct Bus {
 }
 
 impl Bus {
-    /// Create a new bus with kernel-managed RS-485 direction control.
+    /// Create a new bus.
     ///
-    /// Enables RS-485 mode via `TIOCSRS485` so the driver handles
-    /// TNOW/DE/RE toggling automatically around each transmission.
-    pub fn new(port: SerialPort) -> Result<Self, std::io::Error> {
-        port.enable_rs485(true)?;
-        Ok(Bus {
+    /// RS-485 direction control is expected to be handled by the
+    /// hardware (e.g. CH344Q TNOW pin configured via EEPROM).
+    pub fn new(port: SerialPort) -> Self {
+        Bus {
             port,
             servos: HashMap::new(),
-        })
+        }
     }
 
     /// Write a packet to the bus and wait for TX to complete.

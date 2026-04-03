@@ -14,7 +14,7 @@ fn main() -> Result<(), std::io::Error> {
     for baud_rate in [1000000, 500000, 250000, 128000, 115200, 76800, 57600, 38400] {
         println!("Trying baud rate: {}", baud_rate);
         let port = base::SerialPort::open(path, baud_rate)?;
-        let mut bus = feetech::Bus::new(port)?;
+        let mut bus = feetech::Bus::new(port);
         bus.send_ping_all()?;
         std::thread::sleep(Duration::from_secs(1));
         let ids = bus.recv_ping_all()?;
