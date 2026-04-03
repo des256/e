@@ -1,5 +1,6 @@
 use {
     crate::*,
+    codec::*,
     std::{
         fmt::{Display, Formatter, Result},
         ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
@@ -214,11 +215,21 @@ macro_rules! dual_impl {
 dual_impl! { f32 f64 }
 
 impl From<Dual<f32>> for Dual<f64> {
-    fn from(value: Dual<f32>) -> Self { Dual { real: value.real as f64, dual: value.dual as f64 } }
+    fn from(value: Dual<f32>) -> Self {
+        Dual {
+            real: value.real as f64,
+            dual: value.dual as f64,
+        }
+    }
 }
 
 impl From<Dual<f64>> for Dual<f32> {
-    fn from(value: Dual<f64>) -> Self { Dual { real: value.real as f32, dual: value.dual as f32 } }
+    fn from(value: Dual<f64>) -> Self {
+        Dual {
+            real: value.real as f32,
+            dual: value.dual as f32,
+        }
+    }
 }
 
 /// Dual number built from `f32`s.
@@ -274,7 +285,10 @@ mod tests {
 
     #[test]
     fn test_codec_dual_roundtrip() {
-        let val = Dual { real: 1.0f64, dual: 0.5 };
+        let val = Dual {
+            real: 1.0f64,
+            dual: 0.5,
+        };
         let mut buf = Vec::new();
         val.encode(&mut buf);
         let (decoded, len) = Dual::<f64>::decode(&buf).unwrap();

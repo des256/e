@@ -143,17 +143,3 @@ pub use clamp::*;
 
 mod trig;
 pub use trig::*;
-
-// -- pixel formats --
-
-mod pixel;
-pub use pixel::*;
-
-// -- images --
-
-mod image;
-pub use image::*;
-
-// -- codec --
-
-pub use codec::{Codec, CodecError};

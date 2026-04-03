@@ -1,24 +1,10 @@
 use {
     crate::*,
+    codec::*,
     std::{
         cmp::PartialEq,
-        fmt::{
-            Display,
-            Debug,
-            Formatter,
-            Result,
-        },
-        ops::{
-            Add,
-            Sub,
-            Mul,
-            Div,
-            AddAssign,
-            SubAssign,
-            MulAssign,
-            DivAssign,
-            Neg,
-        },
+        fmt::{Debug, Display, Formatter, Result},
+        ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     },
 };
 
@@ -405,9 +391,26 @@ macro_rules! quat_impl {
 quat_impl! { f32 f64 }
 
 // if `T as U` exists, `Quat<U>::from(Quat<T>)` should also exist
-impl From<Quat<f32>> for Quat<f64> { fn from(value: Quat<f32>) -> Self { Quat { r: value.r as f64,i: value.i as f64,j: value.j as f64,k: value.k as f64, } } }
-impl From<Quat<f64>> for Quat<f32> { fn from(value: Quat<f64>) -> Self { Quat { r: value.r as f32,i: value.i as f32,j: value.j as f32,k: value.k as f32, } } }
-
+impl From<Quat<f32>> for Quat<f64> {
+    fn from(value: Quat<f32>) -> Self {
+        Quat {
+            r: value.r as f64,
+            i: value.i as f64,
+            j: value.j as f64,
+            k: value.k as f64,
+        }
+    }
+}
+impl From<Quat<f64>> for Quat<f32> {
+    fn from(value: Quat<f64>) -> Self {
+        Quat {
+            r: value.r as f32,
+            i: value.i as f32,
+            j: value.j as f32,
+            k: value.k as f32,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -417,142 +420,450 @@ mod tests {
     fn from_euler() {
         // 30 degrees around +X, then 45 degrees around +Y, then 60 degrees around +Z
         // verified from: https://www.andre-gaschler.com/rotationconverter
-        let result = Quat::<f32>::from_euler(0.523598776,0.785398163,1.047197551);
-        assert_eq!(result,Quat::<f32> { r: 0.7233174,i: 0.39190382,j: 0.20056215,k: 0.5319757, });
+        let result = Quat::<f32>::from_euler(0.523598776, 0.785398163, 1.047197551);
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 0.7233174,
+                i: 0.39190382,
+                j: 0.20056215,
+                k: 0.5319757,
+            }
+        );
     }
 
     #[test]
     fn from_axis_angle() {
         // 45 degrees around +X
-        let result = Quat::<f32>::from_axis_angle(Vec3 { x: 1.0,y: 0.0,z: 0.0, },0.785398163);
-        assert_eq!(result,Quat::<f32> { r: 0.9238795,i: 0.38268346,j: 0.0,k: 0.0, });
+        let result = Quat::<f32>::from_axis_angle(
+            Vec3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            0.785398163,
+        );
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 0.9238795,
+                i: 0.38268346,
+                j: 0.0,
+                k: 0.0,
+            }
+        );
     }
 
     #[test]
     fn conj() {
-        let result = Quat::<f32> { r: 1.0,i: 2.0,j: 3.0,k: 4.0, }.conj();
-        assert_eq!(result,Quat::<f32> { r: 1.0,i: -2.0,j: -3.0,k: -4.0, });
+        let result = Quat::<f32> {
+            r: 1.0,
+            i: 2.0,
+            j: 3.0,
+            k: 4.0,
+        }
+        .conj();
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 1.0,
+                i: -2.0,
+                j: -3.0,
+                k: -4.0,
+            }
+        );
     }
 
     #[test]
     fn inv() {
-        let result = Quat::<f32> { r: 1.0,i: 0.1,j: 0.2,k: 0.3, }.inv();
-        assert_eq!(result,Quat::<f32> { r: 0.877193,i: -0.0877193,j: -0.1754386,k: -0.2631579, });
+        let result = Quat::<f32> {
+            r: 1.0,
+            i: 0.1,
+            j: 0.2,
+            k: 0.3,
+        }
+        .inv();
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 0.877193,
+                i: -0.0877193,
+                j: -0.1754386,
+                k: -0.2631579,
+            }
+        );
     }
 
     #[test]
     fn add_sq() {
-        let result = 2.0 + Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
-        assert_eq!(result,Quat::<f32> { r: 4.0,i: 3.0,j: 4.0,k: 5.0, });
+        let result = 2.0
+            + Quat::<f32> {
+                r: 2.0,
+                i: 3.0,
+                j: 4.0,
+                k: 5.0,
+            };
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 4.0,
+                i: 3.0,
+                j: 4.0,
+                k: 5.0,
+            }
+        );
     }
 
     #[test]
     fn add_qs() {
-        let result = Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, } + 2.0;
-        assert_eq!(result,Quat::<f32> { r: 4.0,i: 3.0,j: 4.0,k: 5.0, });
+        let result = Quat::<f32> {
+            r: 2.0,
+            i: 3.0,
+            j: 4.0,
+            k: 5.0,
+        } + 2.0;
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 4.0,
+                i: 3.0,
+                j: 4.0,
+                k: 5.0,
+            }
+        );
     }
 
     #[test]
     fn add_assign_qs() {
-        let mut result = Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
+        let mut result = Quat::<f32> {
+            r: 2.0,
+            i: 3.0,
+            j: 4.0,
+            k: 5.0,
+        };
         result += 2.0;
-        assert_eq!(result,Quat::<f32> { r: 4.0,i: 3.0,j: 4.0,k: 5.0, });
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 4.0,
+                i: 3.0,
+                j: 4.0,
+                k: 5.0,
+            }
+        );
     }
 
     #[test]
     fn sub_sq() {
-        let result = 4.0 - Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
-        assert_eq!(result,Quat::<f32> { r: 2.0,i: -3.0,j: -4.0,k: -5.0, });
+        let result = 4.0
+            - Quat::<f32> {
+                r: 2.0,
+                i: 3.0,
+                j: 4.0,
+                k: 5.0,
+            };
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 2.0,
+                i: -3.0,
+                j: -4.0,
+                k: -5.0,
+            }
+        );
     }
 
     #[test]
     fn sub_qs() {
-        let result = Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, } - 2.0;
-        assert_eq!(result,Quat::<f32> { r: 0.0,i: 3.0,j: 4.0,k: 5.0, });
+        let result = Quat::<f32> {
+            r: 2.0,
+            i: 3.0,
+            j: 4.0,
+            k: 5.0,
+        } - 2.0;
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 0.0,
+                i: 3.0,
+                j: 4.0,
+                k: 5.0,
+            }
+        );
     }
 
     #[test]
     fn sub_assign_qs() {
-        let mut result = Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
+        let mut result = Quat::<f32> {
+            r: 2.0,
+            i: 3.0,
+            j: 4.0,
+            k: 5.0,
+        };
         result -= 2.0;
-        assert_eq!(result,Quat::<f32> { r: 0.0,i: 3.0,j: 4.0,k: 5.0, });
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 0.0,
+                i: 3.0,
+                j: 4.0,
+                k: 5.0,
+            }
+        );
     }
 
     #[test]
     fn mul_sq() {
-        let result = 2.0 * Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
-        assert_eq!(result,Quat::<f32> { r: 4.0,i: 6.0,j: 8.0,k: 10.0, });
+        let result = 2.0
+            * Quat::<f32> {
+                r: 2.0,
+                i: 3.0,
+                j: 4.0,
+                k: 5.0,
+            };
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 4.0,
+                i: 6.0,
+                j: 8.0,
+                k: 10.0,
+            }
+        );
     }
 
     #[test]
     fn mul_qs() {
-        let result = Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, } * 2.0;
-        assert_eq!(result,Quat::<f32> { r: 4.0,i: 6.0,j: 8.0,k: 10.0, });
+        let result = Quat::<f32> {
+            r: 2.0,
+            i: 3.0,
+            j: 4.0,
+            k: 5.0,
+        } * 2.0;
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 4.0,
+                i: 6.0,
+                j: 8.0,
+                k: 10.0,
+            }
+        );
     }
 
     #[test]
     fn mul_qq() {
-        let result = Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, } * Quat::<f32> { r: 6.0,i: 7.0,j: 8.0,k: 9.0, };
-        assert_eq!(result,Quat::<f32> { r: -86.0,i: 28.0,j: 48.0,k: 44.0, });
+        let result = Quat::<f32> {
+            r: 2.0,
+            i: 3.0,
+            j: 4.0,
+            k: 5.0,
+        } * Quat::<f32> {
+            r: 6.0,
+            i: 7.0,
+            j: 8.0,
+            k: 9.0,
+        };
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: -86.0,
+                i: 28.0,
+                j: 48.0,
+                k: 44.0,
+            }
+        );
     }
 
     #[test]
     fn mul_qv() {
         // rotate +Y 90 degrees around the X-axis
-        let result = Quat::<f32>::from_euler(1.570796327,0.0,0.0) * Vec3::<f32> { x: 0.0,y: 1.0,z: 0.0, };
-        assert_eq!(result,Vec3::<f32> { x: 0.0,y: 0.0,z: 0.99999994, });
+        let result = Quat::<f32>::from_euler(1.570796327, 0.0, 0.0)
+            * Vec3::<f32> {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            };
+        assert_eq!(
+            result,
+            Vec3::<f32> {
+                x: 0.0,
+                y: 0.0,
+                z: 0.99999994,
+            }
+        );
     }
 
     #[test]
     fn mul_assign_qs() {
-        let mut result = Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
+        let mut result = Quat::<f32> {
+            r: 2.0,
+            i: 3.0,
+            j: 4.0,
+            k: 5.0,
+        };
         result *= 2.0;
-        assert_eq!(result,Quat::<f32> { r: 4.0,i: 6.0,j: 8.0,k: 10.0, });
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 4.0,
+                i: 6.0,
+                j: 8.0,
+                k: 10.0,
+            }
+        );
     }
 
     #[test]
     fn mul_assign_qq() {
-        let mut result = Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
-        result *= Quat::<f32> { r: 6.0,i: 7.0,j: 8.0,k: 9.0, };
-        assert_eq!(result,Quat::<f32> { r: -86.0,i: 28.0,j: 48.0,k: 44.0, });
+        let mut result = Quat::<f32> {
+            r: 2.0,
+            i: 3.0,
+            j: 4.0,
+            k: 5.0,
+        };
+        result *= Quat::<f32> {
+            r: 6.0,
+            i: 7.0,
+            j: 8.0,
+            k: 9.0,
+        };
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: -86.0,
+                i: 28.0,
+                j: 48.0,
+                k: 44.0,
+            }
+        );
     }
 
     #[test]
     fn div_sq() {
-        let result = 10.0 / Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
-        assert_eq!(result,Quat::<f32> { r: 0.37037036,i: -0.5555556,j: -0.7407407,k: -0.9259259, })
+        let result = 10.0
+            / Quat::<f32> {
+                r: 2.0,
+                i: 3.0,
+                j: 4.0,
+                k: 5.0,
+            };
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 0.37037036,
+                i: -0.5555556,
+                j: -0.7407407,
+                k: -0.9259259,
+            }
+        )
     }
 
     #[test]
     fn div_qs() {
-        let result = Quat::<f32> { r: 4.0,i: 6.0,j: 8.0,k: 10.0, } / 2.0;
-        assert_eq!(result,Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, });
+        let result = Quat::<f32> {
+            r: 4.0,
+            i: 6.0,
+            j: 8.0,
+            k: 10.0,
+        } / 2.0;
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 2.0,
+                i: 3.0,
+                j: 4.0,
+                k: 5.0,
+            }
+        );
     }
 
     #[test]
     fn div_qq() {
-        let result = Quat::<f32> { r: 4.0,i: 6.0,j: 8.0,k: 10.0, } / Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
-        assert_eq!(result,Quat::<f32> { r: 2.0,i: 0.0,j: 0.0,k: 0.0, });
+        let result = Quat::<f32> {
+            r: 4.0,
+            i: 6.0,
+            j: 8.0,
+            k: 10.0,
+        } / Quat::<f32> {
+            r: 2.0,
+            i: 3.0,
+            j: 4.0,
+            k: 5.0,
+        };
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 2.0,
+                i: 0.0,
+                j: 0.0,
+                k: 0.0,
+            }
+        );
     }
 
     #[test]
     fn div_assign_qs() {
-        let mut result = Quat::<f32> { r: 4.0,i: 6.0,j: 8.0,k: 10.0, };
+        let mut result = Quat::<f32> {
+            r: 4.0,
+            i: 6.0,
+            j: 8.0,
+            k: 10.0,
+        };
         result /= 2.0;
-        assert_eq!(result,Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, });
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 2.0,
+                i: 3.0,
+                j: 4.0,
+                k: 5.0,
+            }
+        );
     }
 
     #[test]
     fn div_assign_qq() {
-        let mut result = Quat::<f32> { r: 4.0,i: 6.0,j: 8.0,k: 10.0, };
-        result /= Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
-        assert_eq!(result,Quat::<f32> { r: 2.0,i: 0.0,j: 0.0,k: 0.0, });
+        let mut result = Quat::<f32> {
+            r: 4.0,
+            i: 6.0,
+            j: 8.0,
+            k: 10.0,
+        };
+        result /= Quat::<f32> {
+            r: 2.0,
+            i: 3.0,
+            j: 4.0,
+            k: 5.0,
+        };
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: 2.0,
+                i: 0.0,
+                j: 0.0,
+                k: 0.0,
+            }
+        );
     }
 
     #[test]
     fn neg() {
-        let result = -Quat::<f32> { r: 2.0,i: 3.0,j: 4.0,k: 5.0, };
-        assert_eq!(result,Quat::<f32> { r: -2.0,i: -3.0,j: -4.0,k: -5.0, });
+        let result = -Quat::<f32> {
+            r: 2.0,
+            i: 3.0,
+            j: 4.0,
+            k: 5.0,
+        };
+        assert_eq!(
+            result,
+            Quat::<f32> {
+                r: -2.0,
+                i: -3.0,
+                j: -4.0,
+                k: -5.0,
+            }
+        );
     }
 
     #[test]

@@ -1,9 +1,13 @@
 use {
     crate::*,
+    codec::*,
     std::{
         cmp::PartialEq,
         fmt::{Display, Formatter, Result},
-        ops::{Add, AddAssign, BitOr, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
+        ops::{
+            Add, AddAssign, BitOr, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub,
+            SubAssign,
+        },
     },
 };
 
@@ -43,7 +47,11 @@ pub const fn vec2<T>(x: T, y: T) -> Vec2<T> {
 impl<T: Copy + Zero> Vec2<T> {
     /// Extend to [`Vec3`] by appending a Z component.
     pub fn extend(self, z: T) -> Vec3<T> {
-        Vec3 { x: self.x, y: self.y, z }
+        Vec3 {
+            x: self.x,
+            y: self.y,
+            z,
+        }
     }
 }
 

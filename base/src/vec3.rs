@@ -1,9 +1,13 @@
 use {
     crate::*,
+    codec::*,
     std::{
         cmp::PartialEq,
         fmt::{Display, Formatter, Result},
-        ops::{Add, AddAssign, BitOr, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
+        ops::{
+            Add, AddAssign, BitOr, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub,
+            SubAssign,
+        },
     },
 };
 
@@ -45,22 +49,36 @@ pub const fn vec3<T>(x: T, y: T, z: T) -> Vec3<T> {
 impl<T: Copy> Vec3<T> {
     /// Project to Vec2 (drop z).
     pub fn xy(self) -> Vec2<T> {
-        Vec2 { x: self.x, y: self.y }
+        Vec2 {
+            x: self.x,
+            y: self.y,
+        }
     }
 
     /// Swizzle xz.
     pub fn xz(self) -> Vec2<T> {
-        Vec2 { x: self.x, y: self.z }
+        Vec2 {
+            x: self.x,
+            y: self.z,
+        }
     }
 
     /// Swizzle yz.
     pub fn yz(self) -> Vec2<T> {
-        Vec2 { x: self.y, y: self.z }
+        Vec2 {
+            x: self.y,
+            y: self.z,
+        }
     }
 
     /// Extend to [`Vec4`] by appending a W component.
     pub fn extend(self, w: T) -> Vec4<T> {
-        Vec4 { x: self.x, y: self.y, z: self.z, w }
+        Vec4 {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+            w,
+        }
     }
 }
 

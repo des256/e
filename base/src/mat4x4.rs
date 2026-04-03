@@ -1,5 +1,6 @@
 use {
     crate::*,
+    codec::*,
     std::{
         cmp::PartialEq,
         fmt::{Display, Formatter, Result},
@@ -1974,10 +1975,30 @@ mod tests {
     #[test]
     fn test_codec_mat4x4_roundtrip() {
         let val = Mat4x4 {
-            x: Vec4 { x: 1.0f32, y: 0.0, z: 0.0, w: 0.0 },
-            y: Vec4 { x: 0.0, y: 1.0, z: 0.0, w: 0.0 },
-            z: Vec4 { x: 0.0, y: 0.0, z: 1.0, w: 0.0 },
-            w: Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
+            x: Vec4 {
+                x: 1.0f32,
+                y: 0.0,
+                z: 0.0,
+                w: 0.0,
+            },
+            y: Vec4 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+                w: 0.0,
+            },
+            z: Vec4 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+                w: 0.0,
+            },
+            w: Vec4 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                w: 1.0,
+            },
         };
         let mut buf = Vec::new();
         val.encode(&mut buf);

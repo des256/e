@@ -1,5 +1,6 @@
 use {
     crate::*,
+    codec::*,
     std::fmt::{Display, Formatter, Result},
 };
 
@@ -76,13 +77,21 @@ euler_impl! { f32 f64 }
 // Precision conversions
 impl From<Euler<f32>> for Euler<f64> {
     fn from(value: Euler<f32>) -> Self {
-        Euler { x: value.x as f64, y: value.y as f64, z: value.z as f64 }
+        Euler {
+            x: value.x as f64,
+            y: value.y as f64,
+            z: value.z as f64,
+        }
     }
 }
 
 impl From<Euler<f64>> for Euler<f32> {
     fn from(value: Euler<f64>) -> Self {
-        Euler { x: value.x as f32, y: value.y as f32, z: value.z as f32 }
+        Euler {
+            x: value.x as f32,
+            y: value.y as f32,
+            z: value.z as f32,
+        }
     }
 }
 
@@ -128,7 +137,11 @@ mod tests {
 
     #[test]
     fn test_codec_euler_roundtrip() {
-        let val = Euler { x: 0.1f32, y: 0.2, z: 0.3 };
+        let val = Euler {
+            x: 0.1f32,
+            y: 0.2,
+            z: 0.3,
+        };
         let mut buf = Vec::new();
         val.encode(&mut buf);
         let (decoded, len) = Euler::<f32>::decode(&buf).unwrap();

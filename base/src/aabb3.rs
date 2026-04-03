@@ -1,5 +1,6 @@
 use {
     crate::*,
+    codec::*,
     std::{
         fmt::{Display, Formatter, Result},
         ops::{Add, Div, Sub},
@@ -46,30 +47,68 @@ where
 {
     /// Test if point is inside the AABB.
     pub fn contains(&self, p: Vec3<T>) -> bool {
-        p.x >= self.min.x && p.x <= self.max.x
-            && p.y >= self.min.y && p.y <= self.max.y
-            && p.z >= self.min.z && p.z <= self.max.z
+        p.x >= self.min.x
+            && p.x <= self.max.x
+            && p.y >= self.min.y
+            && p.y <= self.max.y
+            && p.z >= self.min.z
+            && p.z <= self.max.z
     }
 
     /// Test if two AABBs overlap.
     pub fn intersects(&self, other: &Aabb3<T>) -> bool {
-        self.min.x <= other.max.x && self.max.x >= other.min.x
-            && self.min.y <= other.max.y && self.max.y >= other.min.y
-            && self.min.z <= other.max.z && self.max.z >= other.min.z
+        self.min.x <= other.max.x
+            && self.max.x >= other.min.x
+            && self.min.y <= other.max.y
+            && self.max.y >= other.min.y
+            && self.min.z <= other.max.z
+            && self.max.z >= other.min.z
     }
 
     /// Intersection of two AABBs (returns None if disjoint).
     pub fn intersection(&self, other: &Aabb3<T>) -> Option<Aabb3<T>> {
-        let min_x = if self.min.x > other.min.x { self.min.x } else { other.min.x };
-        let min_y = if self.min.y > other.min.y { self.min.y } else { other.min.y };
-        let min_z = if self.min.z > other.min.z { self.min.z } else { other.min.z };
-        let max_x = if self.max.x < other.max.x { self.max.x } else { other.max.x };
-        let max_y = if self.max.y < other.max.y { self.max.y } else { other.max.y };
-        let max_z = if self.max.z < other.max.z { self.max.z } else { other.max.z };
+        let min_x = if self.min.x > other.min.x {
+            self.min.x
+        } else {
+            other.min.x
+        };
+        let min_y = if self.min.y > other.min.y {
+            self.min.y
+        } else {
+            other.min.y
+        };
+        let min_z = if self.min.z > other.min.z {
+            self.min.z
+        } else {
+            other.min.z
+        };
+        let max_x = if self.max.x < other.max.x {
+            self.max.x
+        } else {
+            other.max.x
+        };
+        let max_y = if self.max.y < other.max.y {
+            self.max.y
+        } else {
+            other.max.y
+        };
+        let max_z = if self.max.z < other.max.z {
+            self.max.z
+        } else {
+            other.max.z
+        };
         if max_x >= min_x && max_y >= min_y && max_z >= min_z {
             Some(Aabb3 {
-                min: Vec3 { x: min_x, y: min_y, z: min_z },
-                max: Vec3 { x: max_x, y: max_y, z: max_z },
+                min: Vec3 {
+                    x: min_x,
+                    y: min_y,
+                    z: min_z,
+                },
+                max: Vec3 {
+                    x: max_x,
+                    y: max_y,
+                    z: max_z,
+                },
             })
         } else {
             None
@@ -80,14 +119,38 @@ where
     pub fn union(&self, other: &Aabb3<T>) -> Aabb3<T> {
         Aabb3 {
             min: Vec3 {
-                x: if self.min.x < other.min.x { self.min.x } else { other.min.x },
-                y: if self.min.y < other.min.y { self.min.y } else { other.min.y },
-                z: if self.min.z < other.min.z { self.min.z } else { other.min.z },
+                x: if self.min.x < other.min.x {
+                    self.min.x
+                } else {
+                    other.min.x
+                },
+                y: if self.min.y < other.min.y {
+                    self.min.y
+                } else {
+                    other.min.y
+                },
+                z: if self.min.z < other.min.z {
+                    self.min.z
+                } else {
+                    other.min.z
+                },
             },
             max: Vec3 {
-                x: if self.max.x > other.max.x { self.max.x } else { other.max.x },
-                y: if self.max.y > other.max.y { self.max.y } else { other.max.y },
-                z: if self.max.z > other.max.z { self.max.z } else { other.max.z },
+                x: if self.max.x > other.max.x {
+                    self.max.x
+                } else {
+                    other.max.x
+                },
+                y: if self.max.y > other.max.y {
+                    self.max.y
+                } else {
+                    other.max.y
+                },
+                z: if self.max.z > other.max.z {
+                    self.max.z
+                } else {
+                    other.max.z
+                },
             },
         }
     }

@@ -1,5 +1,6 @@
 use {
     crate::*,
+    codec::*,
     std::{
         fmt::{Display, Formatter, Result},
         ops::{Add, Div, Sub},
@@ -35,7 +36,11 @@ pub const fn aabb2<T>(min: Vec2<T>, max: Vec2<T>) -> Aabb2<T> {
 
 impl<T: Display> Display for Aabb2<T> {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "[({},{})..({},{})]", self.min.x, self.min.y, self.max.x, self.max.y)
+        write!(
+            f,
+            "[({},{})..({},{})]",
+            self.min.x, self.min.y, self.max.x, self.max.y
+        )
     }
 }
 
@@ -50,18 +55,39 @@ where
 
     /// Test if two AABBs overlap.
     pub fn intersects(&self, other: &Aabb2<T>) -> bool {
-        self.min.x <= other.max.x && self.max.x >= other.min.x
-            && self.min.y <= other.max.y && self.max.y >= other.min.y
+        self.min.x <= other.max.x
+            && self.max.x >= other.min.x
+            && self.min.y <= other.max.y
+            && self.max.y >= other.min.y
     }
 
     /// Intersection of two AABBs (returns None if disjoint).
     pub fn intersection(&self, other: &Aabb2<T>) -> Option<Aabb2<T>> {
-        let min_x = if self.min.x > other.min.x { self.min.x } else { other.min.x };
-        let min_y = if self.min.y > other.min.y { self.min.y } else { other.min.y };
-        let max_x = if self.max.x < other.max.x { self.max.x } else { other.max.x };
-        let max_y = if self.max.y < other.max.y { self.max.y } else { other.max.y };
+        let min_x = if self.min.x > other.min.x {
+            self.min.x
+        } else {
+            other.min.x
+        };
+        let min_y = if self.min.y > other.min.y {
+            self.min.y
+        } else {
+            other.min.y
+        };
+        let max_x = if self.max.x < other.max.x {
+            self.max.x
+        } else {
+            other.max.x
+        };
+        let max_y = if self.max.y < other.max.y {
+            self.max.y
+        } else {
+            other.max.y
+        };
         if max_x >= min_x && max_y >= min_y {
-            Some(Aabb2 { min: Vec2 { x: min_x, y: min_y }, max: Vec2 { x: max_x, y: max_y } })
+            Some(Aabb2 {
+                min: Vec2 { x: min_x, y: min_y },
+                max: Vec2 { x: max_x, y: max_y },
+            })
         } else {
             None
         }
@@ -71,12 +97,28 @@ where
     pub fn union(&self, other: &Aabb2<T>) -> Aabb2<T> {
         Aabb2 {
             min: Vec2 {
-                x: if self.min.x < other.min.x { self.min.x } else { other.min.x },
-                y: if self.min.y < other.min.y { self.min.y } else { other.min.y },
+                x: if self.min.x < other.min.x {
+                    self.min.x
+                } else {
+                    other.min.x
+                },
+                y: if self.min.y < other.min.y {
+                    self.min.y
+                } else {
+                    other.min.y
+                },
             },
             max: Vec2 {
-                x: if self.max.x > other.max.x { self.max.x } else { other.max.x },
-                y: if self.max.y > other.max.y { self.max.y } else { other.max.y },
+                x: if self.max.x > other.max.x {
+                    self.max.x
+                } else {
+                    other.max.x
+                },
+                y: if self.max.y > other.max.y {
+                    self.max.y
+                } else {
+                    other.max.y
+                },
             },
         }
     }
@@ -97,7 +139,10 @@ where
 
     /// Size of the AABB.
     pub fn size(&self) -> Vec2<T> {
-        Vec2 { x: self.max.x - self.min.x, y: self.max.y - self.min.y }
+        Vec2 {
+            x: self.max.x - self.min.x,
+            y: self.max.y - self.min.y,
+        }
     }
 }
 
@@ -170,7 +215,10 @@ mod tests {
 
     #[test]
     fn test_codec_aabb2_roundtrip() {
-        let val = Aabb2 { min: vec2(0.0f32, 0.0), max: vec2(10.0, 10.0) };
+        let val = Aabb2 {
+            min: vec2(0.0f32, 0.0),
+            max: vec2(10.0, 10.0),
+        };
         let mut buf = Vec::new();
         val.encode(&mut buf);
         let (decoded, len) = Aabb2::<f32>::decode(&buf).unwrap();

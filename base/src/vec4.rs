@@ -1,9 +1,13 @@
 use {
     crate::*,
+    codec::*,
     std::{
         cmp::PartialEq,
         fmt::{Display, Formatter, Result},
-        ops::{Add, AddAssign, BitOr, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
+        ops::{
+            Add, AddAssign, BitOr, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub,
+            SubAssign,
+        },
     },
 };
 
@@ -45,12 +49,19 @@ pub const fn vec4<T>(x: T, y: T, z: T, w: T) -> Vec4<T> {
 impl<T: Copy> Vec4<T> {
     /// Project to [`Vec3`] by dropping the W component.
     pub fn xyz(self) -> Vec3<T> {
-        Vec3 { x: self.x, y: self.y, z: self.z }
+        Vec3 {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+        }
     }
 
     /// Project to [`Vec2`] by dropping the Z and W components.
     pub fn xy(self) -> Vec2<T> {
-        Vec2 { x: self.x, y: self.y }
+        Vec2 {
+            x: self.x,
+            y: self.y,
+        }
     }
 }
 
@@ -364,7 +375,12 @@ mod tests {
 
     #[test]
     fn test_codec_vec4_roundtrip() {
-        let val = Vec4 { x: 1i32, y: 2, z: 3, w: 4 };
+        let val = Vec4 {
+            x: 1i32,
+            y: 2,
+            z: 3,
+            w: 4,
+        };
         let mut buf = Vec::new();
         val.encode(&mut buf);
         let (decoded, len) = Vec4::<i32>::decode(&buf).unwrap();

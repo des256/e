@@ -1,5 +1,6 @@
 use {
     crate::*,
+    codec::*,
     std::ops::{Add, Mul, MulAssign},
 };
 
@@ -80,8 +81,22 @@ macro_rules! pose_impl {
 
 pose_impl! { f32 f64 }
 
-impl From<Pose<f32>> for Pose<f64> { fn from(value: Pose<f32>) -> Self { Pose { p: value.p.into(), o: value.o.into() } } }
-impl From<Pose<f64>> for Pose<f32> { fn from(value: Pose<f64>) -> Self { Pose { p: value.p.into(), o: value.o.into() } } }
+impl From<Pose<f32>> for Pose<f64> {
+    fn from(value: Pose<f32>) -> Self {
+        Pose {
+            p: value.p.into(),
+            o: value.o.into(),
+        }
+    }
+}
+impl From<Pose<f64>> for Pose<f32> {
+    fn from(value: Pose<f64>) -> Self {
+        Pose {
+            p: value.p.into(),
+            o: value.o.into(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

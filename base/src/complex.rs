@@ -1,5 +1,6 @@
 use {
     crate::*,
+    codec::*,
     std::{
         fmt::{Display, Formatter, Result},
         ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},

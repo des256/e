@@ -1,5 +1,6 @@
 use {
     crate::*,
+    codec::*,
     std::{
         cmp::PartialEq,
         fmt::{Display, Formatter, Result},
@@ -546,7 +547,10 @@ mod tests {
 
     #[test]
     fn test_codec_mat2x2_roundtrip() {
-        let val = Mat2x2 { x: vec2(1.0f32, 2.0), y: vec2(3.0, 4.0) };
+        let val = Mat2x2 {
+            x: vec2(1.0f32, 2.0),
+            y: vec2(3.0, 4.0),
+        };
         let mut buf = Vec::new();
         val.encode(&mut buf);
         let (decoded, len) = Mat2x2::<f32>::decode(&buf).unwrap();
