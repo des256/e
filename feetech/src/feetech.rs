@@ -283,31 +283,29 @@ pub struct Servo {
 pub struct Bus {
     port: SerialPort,
     servos: HashMap<usize, Servo>,
-    de_line: libc::c_int,
 }
 
 impl Bus {
-    /// Create a new bus. `de_line` is the modem control line wired to
-    /// the RS-485 transceiver DE/RE (e.g. `libc::TIOCM_DTR`).
-    pub fn new(port: SerialPort, de_line: libc::c_int) -> Result<Self, std::io::Error> {
-        // start in RX mode (DE low)
-        port.set_modem_line(de_line, false)?;
+    /// Create a new bus with kernel-managed RS-485 direction control.
+    ///
+    /// Enables RS-485 mode via `TIOCSRS485` so the driver handles
+    /// TNOW/DE/RE toggling automatically around each transmission.
+    pub fn new(port: SerialPort) -> Result<Self, std::io::Error> {
+        port.enable_rs485(true)?;
         Ok(Bus {
             port,
             servos: HashMap::new(),
-            de_line,
         })
     }
 
     /// Write a packet to the bus and wait for TX to complete.
+    ///
+    /// RS-485 direction switching is handled by the kernel driver.
     fn write_packet(&mut self, packet: &[u8]) -> Result<(), std::io::Error> {
         self.port.flush_input()?;
-        // switch transceiver to TX
-        self.port.set_modem_line(self.de_line, true)?;
         base::debug!("TX {} bytes: {:02X?}", packet.len(), packet);
         let n = self.port.write(packet)?;
         if n != packet.len() {
-            self.port.set_modem_line(self.de_line, false)?;
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!(
@@ -317,9 +315,7 @@ impl Bus {
                 ),
             ));
         }
-        // wait for all bytes to leave the UART before switching to RX
         self.port.flush()?;
-        self.port.set_modem_line(self.de_line, false)?;
         Ok(())
     }
 
