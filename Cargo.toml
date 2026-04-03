@@ -6,6 +6,7 @@ members = [
     "codec-derive",
     "feetech",
     "http",
+    "image",
     "webui",
     "experiments/exploreui/*",
 ]

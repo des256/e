@@ -1,9 +1,4 @@
-use crate::{
-    Argb8, Bgra8, F16, LinearFormat, Nv12, PackedFormat, PixelFormat, Rgba8, Rgba8Pixel, RgbaF16,
-    RgbaF16Pixel, RgbaF32, RgbaF32Pixel, Srgba8, Srgba8Pixel, Tensor, UncompressedFormat, Uv8,
-    Uv8Pixel, Y8, Y8Pixel, Yuyv8,
-};
-use std::marker::PhantomData;
+use {crate::*, base::*, std::marker::PhantomData};
 
 // ============================================================
 // Image<P> — owned image buffer
@@ -47,7 +42,9 @@ impl<P: UncompressedFormat> Image<P> {
         assert!(
             stride >= P::min_stride(width),
             "stride {} < min_stride {} for {}",
-            stride, P::min_stride(width), P::NAME,
+            stride,
+            P::min_stride(width),
+            P::NAME,
         );
         let size = P::data_size(width, height, stride);
         Image {
@@ -70,7 +67,11 @@ impl<P: UncompressedFormat> Image<P> {
         assert!(
             data.len() >= size,
             "from_data: data.len() {} < required {} for {}x{} {}",
-            data.len(), size, width, height, P::NAME,
+            data.len(),
+            size,
+            width,
+            height,
+            P::NAME,
         );
         Image {
             width,
@@ -90,13 +91,19 @@ impl<P: UncompressedFormat> Image<P> {
         assert!(
             stride >= P::min_stride(width),
             "from_raw: stride {} < min_stride {} for {}",
-            stride, P::min_stride(width), P::NAME,
+            stride,
+            P::min_stride(width),
+            P::NAME,
         );
         let size = P::data_size(width, height, stride);
         assert!(
             data.len() >= size,
             "from_raw: data.len() {} < required {} for {}x{} {}",
-            data.len(), size, width, height, P::NAME,
+            data.len(),
+            size,
+            width,
+            height,
+            P::NAME,
         );
         Image {
             width,
@@ -112,18 +119,30 @@ impl<P: UncompressedFormat> Image<P> {
 
 impl<P: PixelFormat> Image<P> {
     /// Image width in pixels.
-    pub fn width(&self) -> u32 { self.width }
+    pub fn width(&self) -> u32 {
+        self.width
+    }
     /// Image height in pixels.
-    pub fn height(&self) -> u32 { self.height }
+    pub fn height(&self) -> u32 {
+        self.height
+    }
     /// Bytes per row (may exceed `width × bytes_per_pixel` due to padding).
-    pub fn stride(&self) -> u32 { self.stride }
+    pub fn stride(&self) -> u32 {
+        self.stride
+    }
 
     /// Raw byte buffer (read-only).
-    pub fn as_bytes(&self) -> &[u8] { &self.data }
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.data
+    }
     /// Raw byte buffer (mutable).
-    pub fn as_bytes_mut(&mut self) -> &mut [u8] { &mut self.data }
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+        &mut self.data
+    }
     /// Consume the image and return the underlying byte buffer.
-    pub fn into_bytes(self) -> Vec<u8> { self.data }
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.data
+    }
 }
 
 // -- row access --
@@ -142,7 +161,12 @@ impl<P: UncompressedFormat> Image<P> {
 
     /// Mutable byte slice for row `y` (stride-wide).
     pub fn row_mut(&mut self, y: u32) -> &mut [u8] {
-        assert!(y < self.height, "row_mut: y={} >= height={}", y, self.height);
+        assert!(
+            y < self.height,
+            "row_mut: y={} >= height={}",
+            y,
+            self.height
+        );
         let start = y as usize * self.stride as usize;
         &mut self.data[start..start + self.stride as usize]
     }
@@ -191,13 +215,21 @@ pub struct ImageView<'a, P: PixelFormat> {
 
 impl<'a, P: PixelFormat> ImageView<'a, P> {
     /// Image width in pixels.
-    pub fn width(&self) -> u32 { self.width }
+    pub fn width(&self) -> u32 {
+        self.width
+    }
     /// Image height in pixels.
-    pub fn height(&self) -> u32 { self.height }
+    pub fn height(&self) -> u32 {
+        self.height
+    }
     /// Bytes per row.
-    pub fn stride(&self) -> u32 { self.stride }
+    pub fn stride(&self) -> u32 {
+        self.stride
+    }
     /// Raw byte slice.
-    pub fn as_bytes(&self) -> &[u8] { self.data }
+    pub fn as_bytes(&self) -> &[u8] {
+        self.data
+    }
 }
 
 impl<'a, P: UncompressedFormat> ImageView<'a, P> {
@@ -207,19 +239,30 @@ impl<'a, P: UncompressedFormat> ImageView<'a, P> {
     ///
     /// Panics if stride or data size constraints are violated.
     pub fn from_raw(width: u32, height: u32, stride: u32, data: &'a [u8]) -> Self {
-
         assert!(
             stride >= P::min_stride(width),
             "ImageView::from_raw: stride {} < min_stride {} for {}",
-            stride, P::min_stride(width), P::NAME,
+            stride,
+            P::min_stride(width),
+            P::NAME,
         );
         let size = P::data_size(width, height, stride);
         assert!(
             data.len() >= size,
             "ImageView::from_raw: data.len() {} < required {} for {}x{} {}",
-            data.len(), size, width, height, P::NAME,
+            data.len(),
+            size,
+            width,
+            height,
+            P::NAME,
         );
-        ImageView { width, height, stride, data, _format: PhantomData }
+        ImageView {
+            width,
+            height,
+            stride,
+            data,
+            _format: PhantomData,
+        }
     }
 
     /// Byte slice for row `y` (stride-wide).
@@ -245,15 +288,25 @@ pub struct ImageViewMut<'a, P: PixelFormat> {
 
 impl<'a, P: PixelFormat> ImageViewMut<'a, P> {
     /// Image width in pixels.
-    pub fn width(&self) -> u32 { self.width }
+    pub fn width(&self) -> u32 {
+        self.width
+    }
     /// Image height in pixels.
-    pub fn height(&self) -> u32 { self.height }
+    pub fn height(&self) -> u32 {
+        self.height
+    }
     /// Bytes per row.
-    pub fn stride(&self) -> u32 { self.stride }
+    pub fn stride(&self) -> u32 {
+        self.stride
+    }
     /// Raw byte slice.
-    pub fn as_bytes(&self) -> &[u8] { self.data }
+    pub fn as_bytes(&self) -> &[u8] {
+        self.data
+    }
     /// Raw byte slice (mutable).
-    pub fn as_bytes_mut(&mut self) -> &mut [u8] { self.data }
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+        self.data
+    }
 }
 
 impl<'a, P: UncompressedFormat> ImageViewMut<'a, P> {
@@ -266,7 +319,12 @@ impl<'a, P: UncompressedFormat> ImageViewMut<'a, P> {
 
     /// Mutable byte slice for row `y` (stride-wide).
     pub fn row_mut(&mut self, y: u32) -> &mut [u8] {
-        assert!(y < self.height, "row_mut: y={} >= height={}", y, self.height);
+        assert!(
+            y < self.height,
+            "row_mut: y={} >= height={}",
+            y,
+            self.height
+        );
         let start = y as usize * self.stride as usize;
         &mut self.data[start..start + self.stride as usize]
     }
@@ -283,23 +341,41 @@ impl<P: LinearFormat> Image<P> {
     ///
     /// Panics if `x >= width` or `y >= height`.
     pub fn pixel(&self, x: u32, y: u32) -> &P::Pixel {
-        assert!(x < self.width && y < self.height,
-            "pixel: ({},{}) out of bounds for {}x{}", x, y, self.width, self.height);
+        assert!(
+            x < self.width && y < self.height,
+            "pixel: ({},{}) out of bounds for {}x{}",
+            x,
+            y,
+            self.width,
+            self.height
+        );
         let offset = y as usize * self.stride as usize + x as usize * P::BYTES_PER_PIXEL;
         let ptr = self.data[offset..].as_ptr();
-        debug_assert!(ptr as usize % std::mem::align_of::<P::Pixel>() == 0,
-            "pixel: unaligned pointer for {}", P::NAME);
+        debug_assert!(
+            ptr as usize % std::mem::align_of::<P::Pixel>() == 0,
+            "pixel: unaligned pointer for {}",
+            P::NAME
+        );
         unsafe { &*(ptr as *const P::Pixel) }
     }
 
     /// Write a pixel by (x, y) coordinate.
     pub fn pixel_mut(&mut self, x: u32, y: u32) -> &mut P::Pixel {
-        assert!(x < self.width && y < self.height,
-            "pixel_mut: ({},{}) out of bounds for {}x{}", x, y, self.width, self.height);
+        assert!(
+            x < self.width && y < self.height,
+            "pixel_mut: ({},{}) out of bounds for {}x{}",
+            x,
+            y,
+            self.width,
+            self.height
+        );
         let offset = y as usize * self.stride as usize + x as usize * P::BYTES_PER_PIXEL;
         let ptr = self.data[offset..].as_mut_ptr();
-        debug_assert!(ptr as usize % std::mem::align_of::<P::Pixel>() == 0,
-            "pixel_mut: unaligned pointer for {}", P::NAME);
+        debug_assert!(
+            ptr as usize % std::mem::align_of::<P::Pixel>() == 0,
+            "pixel_mut: unaligned pointer for {}",
+            P::NAME
+        );
         unsafe { &mut *(ptr as *mut P::Pixel) }
     }
 }
@@ -307,12 +383,21 @@ impl<P: LinearFormat> Image<P> {
 impl<'a, P: LinearFormat> ImageView<'a, P> {
     /// Read a pixel by (x, y) coordinate.
     pub fn pixel(&self, x: u32, y: u32) -> &P::Pixel {
-        assert!(x < self.width && y < self.height,
-            "pixel: ({},{}) out of bounds for {}x{}", x, y, self.width, self.height);
+        assert!(
+            x < self.width && y < self.height,
+            "pixel: ({},{}) out of bounds for {}x{}",
+            x,
+            y,
+            self.width,
+            self.height
+        );
         let offset = y as usize * self.stride as usize + x as usize * P::BYTES_PER_PIXEL;
         let ptr = self.data[offset..].as_ptr();
-        debug_assert!(ptr as usize % std::mem::align_of::<P::Pixel>() == 0,
-            "pixel: unaligned pointer for {}", P::NAME);
+        debug_assert!(
+            ptr as usize % std::mem::align_of::<P::Pixel>() == 0,
+            "pixel: unaligned pointer for {}",
+            P::NAME
+        );
         unsafe { &*(ptr as *const P::Pixel) }
     }
 }
@@ -320,23 +405,41 @@ impl<'a, P: LinearFormat> ImageView<'a, P> {
 impl<'a, P: LinearFormat> ImageViewMut<'a, P> {
     /// Read a pixel by (x, y) coordinate.
     pub fn pixel(&self, x: u32, y: u32) -> &P::Pixel {
-        assert!(x < self.width && y < self.height,
-            "pixel: ({},{}) out of bounds for {}x{}", x, y, self.width, self.height);
+        assert!(
+            x < self.width && y < self.height,
+            "pixel: ({},{}) out of bounds for {}x{}",
+            x,
+            y,
+            self.width,
+            self.height
+        );
         let offset = y as usize * self.stride as usize + x as usize * P::BYTES_PER_PIXEL;
         let ptr = self.data[offset..].as_ptr();
-        debug_assert!(ptr as usize % std::mem::align_of::<P::Pixel>() == 0,
-            "pixel: unaligned pointer for {}", P::NAME);
+        debug_assert!(
+            ptr as usize % std::mem::align_of::<P::Pixel>() == 0,
+            "pixel: unaligned pointer for {}",
+            P::NAME
+        );
         unsafe { &*(ptr as *const P::Pixel) }
     }
 
     /// Write a pixel by (x, y) coordinate.
     pub fn pixel_mut(&mut self, x: u32, y: u32) -> &mut P::Pixel {
-        assert!(x < self.width && y < self.height,
-            "pixel_mut: ({},{}) out of bounds for {}x{}", x, y, self.width, self.height);
+        assert!(
+            x < self.width && y < self.height,
+            "pixel_mut: ({},{}) out of bounds for {}x{}",
+            x,
+            y,
+            self.width,
+            self.height
+        );
         let offset = y as usize * self.stride as usize + x as usize * P::BYTES_PER_PIXEL;
         let ptr = self.data[offset..].as_mut_ptr();
-        debug_assert!(ptr as usize % std::mem::align_of::<P::Pixel>() == 0,
-            "pixel_mut: unaligned pointer for {}", P::NAME);
+        debug_assert!(
+            ptr as usize % std::mem::align_of::<P::Pixel>() == 0,
+            "pixel_mut: unaligned pointer for {}",
+            P::NAME
+        );
         unsafe { &mut *(ptr as *mut P::Pixel) }
     }
 }
@@ -349,8 +452,14 @@ impl<P: PackedFormat> Image<P> {
     /// Read a macropixel by (mx, y) where mx is the macropixel index.
     pub fn macropixel(&self, mx: u32, y: u32) -> &P::Macropixel {
         let max_mx = self.width / P::PIXELS_PER_MACROPIXEL as u32;
-        assert!(mx < max_mx && y < self.height,
-            "macropixel: ({},{}) out of bounds for {}x{}", mx, y, max_mx, self.height);
+        assert!(
+            mx < max_mx && y < self.height,
+            "macropixel: ({},{}) out of bounds for {}x{}",
+            mx,
+            y,
+            max_mx,
+            self.height
+        );
         let offset = y as usize * self.stride as usize + mx as usize * P::BYTES_PER_MACROPIXEL;
         unsafe { &*(self.data[offset..].as_ptr() as *const P::Macropixel) }
     }
@@ -358,8 +467,14 @@ impl<P: PackedFormat> Image<P> {
     /// Write a macropixel by (mx, y) where mx is the macropixel index.
     pub fn macropixel_mut(&mut self, mx: u32, y: u32) -> &mut P::Macropixel {
         let max_mx = self.width / P::PIXELS_PER_MACROPIXEL as u32;
-        assert!(mx < max_mx && y < self.height,
-            "macropixel_mut: ({},{}) out of bounds for {}x{}", mx, y, max_mx, self.height);
+        assert!(
+            mx < max_mx && y < self.height,
+            "macropixel_mut: ({},{}) out of bounds for {}x{}",
+            mx,
+            y,
+            max_mx,
+            self.height
+        );
         let offset = y as usize * self.stride as usize + mx as usize * P::BYTES_PER_MACROPIXEL;
         unsafe { &mut *(self.data[offset..].as_mut_ptr() as *mut P::Macropixel) }
     }
@@ -369,8 +484,14 @@ impl<'a, P: PackedFormat> ImageView<'a, P> {
     /// Read a macropixel by (mx, y) where mx is the macropixel index.
     pub fn macropixel(&self, mx: u32, y: u32) -> &P::Macropixel {
         let max_mx = self.width / P::PIXELS_PER_MACROPIXEL as u32;
-        assert!(mx < max_mx && y < self.height,
-            "macropixel: ({},{}) out of bounds for {}x{}", mx, y, max_mx, self.height);
+        assert!(
+            mx < max_mx && y < self.height,
+            "macropixel: ({},{}) out of bounds for {}x{}",
+            mx,
+            y,
+            max_mx,
+            self.height
+        );
         let offset = y as usize * self.stride as usize + mx as usize * P::BYTES_PER_MACROPIXEL;
         unsafe { &*(self.data[offset..].as_ptr() as *const P::Macropixel) }
     }
@@ -473,9 +594,16 @@ impl<'a, P: LinearFormat> ImageView<'a, P> {
     ///
     /// Panics if the sub-region exceeds the image bounds.
     pub fn sub_image(&self, x: u32, y: u32, width: u32, height: u32) -> ImageView<'a, P> {
-        assert!(x + width <= self.width && y + height <= self.height,
+        assert!(
+            x + width <= self.width && y + height <= self.height,
             "sub_image: region ({},{})..({},{}) exceeds {}x{}",
-            x, y, x + width, y + height, self.width, self.height);
+            x,
+            y,
+            x + width,
+            y + height,
+            self.width,
+            self.height
+        );
         let offset = y as usize * self.stride as usize + x as usize * P::BYTES_PER_PIXEL;
         ImageView {
             width,
@@ -723,8 +851,18 @@ impl ConvertTo<Rgba8> for Yuyv8 {
                 let m = src.macropixel(mx, y);
                 let (r0, g0, b0) = yuv_to_rgb(m.y0, m.u, m.v);
                 let (r1, g1, b1) = yuv_to_rgb(m.y1, m.u, m.v);
-                *dst.pixel_mut(mx * 2, y) = Rgba8Pixel { r: r0, g: g0, b: b0, a: 255 };
-                *dst.pixel_mut(mx * 2 + 1, y) = Rgba8Pixel { r: r1, g: g1, b: b1, a: 255 };
+                *dst.pixel_mut(mx * 2, y) = Rgba8Pixel {
+                    r: r0,
+                    g: g0,
+                    b: b0,
+                    a: 255,
+                };
+                *dst.pixel_mut(mx * 2 + 1, y) = Rgba8Pixel {
+                    r: r1,
+                    g: g1,
+                    b: b1,
+                    a: 255,
+                };
             }
         }
         dst
@@ -811,7 +949,12 @@ impl TensorConvertible for RgbaF32 {
         out[3] = p.a;
     }
     fn channels_to_pixel(c: &[f32]) -> RgbaF32Pixel {
-        RgbaF32Pixel { r: c[0], g: c[1], b: c[2], a: c[3] }
+        RgbaF32Pixel {
+            r: c[0],
+            g: c[1],
+            b: c[2],
+            a: c[3],
+        }
     }
 }
 
@@ -895,9 +1038,14 @@ impl<P: TensorConvertible> Image<P> {
                 other,
             ),
         };
-        assert_eq!(c, P::CHANNELS,
+        assert_eq!(
+            c,
+            P::CHANNELS,
             "from_tensor_nchw: channel mismatch, tensor has {} but {} expects {}",
-            c, P::NAME, P::CHANNELS);
+            c,
+            P::NAME,
+            P::CHANNELS
+        );
         let mut img = Image::<P>::new(w as u32, h as u32);
         let mut channels = vec![0.0f32; c];
         let data = tensor.as_slice();
@@ -1092,7 +1240,12 @@ mod tests {
     #[test]
     fn test_pixel_write_read_rgba8() {
         let mut img = Image::<Rgba8>::new(4, 4);
-        *img.pixel_mut(2, 1) = Rgba8Pixel { r: 10, g: 20, b: 30, a: 40 };
+        *img.pixel_mut(2, 1) = Rgba8Pixel {
+            r: 10,
+            g: 20,
+            b: 30,
+            a: 40,
+        };
         let p = img.pixel(2, 1);
         assert_eq!(p.r, 10);
         assert_eq!(p.g, 20);
@@ -1105,7 +1258,12 @@ mod tests {
     #[test]
     fn test_pixel_write_read_rgbaf32() {
         let mut img = Image::<RgbaF32>::new(2, 2);
-        *img.pixel_mut(1, 0) = RgbaF32Pixel { r: 0.5, g: 0.25, b: 0.125, a: 1.0 };
+        *img.pixel_mut(1, 0) = RgbaF32Pixel {
+            r: 0.5,
+            g: 0.25,
+            b: 0.125,
+            a: 1.0,
+        };
         let p = img.pixel(1, 0);
         assert_eq!(p.r, 0.5);
         assert_eq!(p.a, 1.0);
@@ -1114,7 +1272,12 @@ mod tests {
     #[test]
     fn test_pixel_view_access() {
         let mut img = Image::<Rgba8>::new(4, 4);
-        *img.pixel_mut(1, 2) = Rgba8Pixel { r: 99, g: 0, b: 0, a: 255 };
+        *img.pixel_mut(1, 2) = Rgba8Pixel {
+            r: 99,
+            g: 0,
+            b: 0,
+            a: 255,
+        };
         let view = img.view();
         assert_eq!(view.pixel(1, 2).r, 99);
     }
@@ -1124,7 +1287,12 @@ mod tests {
         let mut img = Image::<Rgba8>::new(4, 4);
         {
             let mut view = img.view_mut();
-            *view.pixel_mut(3, 3) = Rgba8Pixel { r: 1, g: 2, b: 3, a: 4 };
+            *view.pixel_mut(3, 3) = Rgba8Pixel {
+                r: 1,
+                g: 2,
+                b: 3,
+                a: 4,
+            };
             assert_eq!(view.pixel(3, 3).r, 1);
         }
         assert_eq!(img.pixel(3, 3).b, 3);
@@ -1142,7 +1310,12 @@ mod tests {
     #[test]
     fn test_macropixel_write_read_yuyv8() {
         let mut img = Image::<Yuyv8>::new(4, 2);
-        *img.macropixel_mut(0, 0) = Yuyv8Macropixel { y0: 100, u: 128, y1: 110, v: 130 };
+        *img.macropixel_mut(0, 0) = Yuyv8Macropixel {
+            y0: 100,
+            u: 128,
+            y1: 110,
+            v: 130,
+        };
         let m = img.macropixel(0, 0);
         assert_eq!(m.y0, 100);
         assert_eq!(m.u, 128);
@@ -1153,7 +1326,12 @@ mod tests {
     #[test]
     fn test_macropixel_view() {
         let mut img = Image::<Yuyv8>::new(4, 2);
-        *img.macropixel_mut(1, 1) = Yuyv8Macropixel { y0: 50, u: 60, y1: 70, v: 80 };
+        *img.macropixel_mut(1, 1) = Yuyv8Macropixel {
+            y0: 50,
+            u: 60,
+            y1: 70,
+            v: 80,
+        };
         let view = img.view();
         assert_eq!(view.macropixel(1, 1).y0, 50);
     }
@@ -1231,7 +1409,12 @@ mod tests {
     #[test]
     fn test_sub_image_reads_correct_pixels() {
         let mut img = Image::<Rgba8>::new(8, 8);
-        *img.pixel_mut(3, 4) = Rgba8Pixel { r: 77, g: 88, b: 99, a: 255 };
+        *img.pixel_mut(3, 4) = Rgba8Pixel {
+            r: 77,
+            g: 88,
+            b: 99,
+            a: 255,
+        };
         let view = img.view();
         let sub = view.sub_image(2, 3, 4, 4);
         // Pixel (3,4) in parent = (1,1) in sub (offset by 2,3)
@@ -1252,10 +1435,28 @@ mod tests {
     #[test]
     fn test_rgba8_to_argb8_round_trip() {
         let mut img = Image::<Rgba8>::new(2, 2);
-        *img.pixel_mut(0, 0) = Rgba8Pixel { r: 10, g: 20, b: 30, a: 40 };
-        *img.pixel_mut(1, 0) = Rgba8Pixel { r: 100, g: 150, b: 200, a: 255 };
+        *img.pixel_mut(0, 0) = Rgba8Pixel {
+            r: 10,
+            g: 20,
+            b: 30,
+            a: 40,
+        };
+        *img.pixel_mut(1, 0) = Rgba8Pixel {
+            r: 100,
+            g: 150,
+            b: 200,
+            a: 255,
+        };
         let argb: Image<Argb8> = img.convert();
-        assert_eq!(argb.pixel(0, 0), &Argb8Pixel { a: 40, r: 10, g: 20, b: 30 });
+        assert_eq!(
+            argb.pixel(0, 0),
+            &Argb8Pixel {
+                a: 40,
+                r: 10,
+                g: 20,
+                b: 30
+            }
+        );
         let back: Image<Rgba8> = argb.convert();
         assert_eq!(back.pixel(0, 0), img.pixel(0, 0));
         assert_eq!(back.pixel(1, 0), img.pixel(1, 0));
@@ -1264,19 +1465,45 @@ mod tests {
     #[test]
     fn test_rgba8_argb8_bgra8_round_trip() {
         let mut img = Image::<Rgba8>::new(1, 1);
-        *img.pixel_mut(0, 0) = Rgba8Pixel { r: 11, g: 22, b: 33, a: 44 };
+        *img.pixel_mut(0, 0) = Rgba8Pixel {
+            r: 11,
+            g: 22,
+            b: 33,
+            a: 44,
+        };
         let argb: Image<Argb8> = img.convert();
         let bgra: Image<Bgra8> = argb.convert();
         let back: Image<Rgba8> = bgra.convert();
-        assert_eq!(back.pixel(0, 0), &Rgba8Pixel { r: 11, g: 22, b: 33, a: 44 });
+        assert_eq!(
+            back.pixel(0, 0),
+            &Rgba8Pixel {
+                r: 11,
+                g: 22,
+                b: 33,
+                a: 44
+            }
+        );
     }
 
     #[test]
     fn test_rgba8_to_bgra8() {
         let mut img = Image::<Rgba8>::new(1, 1);
-        *img.pixel_mut(0, 0) = Rgba8Pixel { r: 10, g: 20, b: 30, a: 40 };
+        *img.pixel_mut(0, 0) = Rgba8Pixel {
+            r: 10,
+            g: 20,
+            b: 30,
+            a: 40,
+        };
         let bgra: Image<Bgra8> = img.convert();
-        assert_eq!(bgra.pixel(0, 0), &Bgra8Pixel { b: 30, g: 20, r: 10, a: 40 });
+        assert_eq!(
+            bgra.pixel(0, 0),
+            &Bgra8Pixel {
+                b: 30,
+                g: 20,
+                r: 10,
+                a: 40
+            }
+        );
     }
 
     // -- sRGB ↔ linear --
@@ -1301,7 +1528,12 @@ mod tests {
     #[test]
     fn test_srgba8_to_rgbaf32_and_back() {
         let mut img = Image::<Srgba8>::new(1, 1);
-        *img.pixel_mut(0, 0) = Srgba8Pixel { r: 128, g: 64, b: 192, a: 255 };
+        *img.pixel_mut(0, 0) = Srgba8Pixel {
+            r: 128,
+            g: 64,
+            b: 192,
+            a: 255,
+        };
         let linear: Image<RgbaF32> = img.convert();
         let back: Image<Srgba8> = linear.convert();
         // Round-trip should be within ±1 u8 step
@@ -1318,13 +1550,26 @@ mod tests {
     #[test]
     fn test_rgba8_to_rgbaf32_round_trip() {
         let mut img = Image::<Rgba8>::new(1, 1);
-        *img.pixel_mut(0, 0) = Rgba8Pixel { r: 128, g: 64, b: 32, a: 255 };
+        *img.pixel_mut(0, 0) = Rgba8Pixel {
+            r: 128,
+            g: 64,
+            b: 32,
+            a: 255,
+        };
         let f32img: Image<RgbaF32> = img.convert();
         let p = f32img.pixel(0, 0);
         assert!((p.r - 128.0 / 255.0).abs() < 0.001);
         assert!((p.g - 64.0 / 255.0).abs() < 0.001);
         let back: Image<Rgba8> = f32img.convert();
-        assert_eq!(back.pixel(0, 0), &Rgba8Pixel { r: 128, g: 64, b: 32, a: 255 });
+        assert_eq!(
+            back.pixel(0, 0),
+            &Rgba8Pixel {
+                r: 128,
+                g: 64,
+                b: 32,
+                a: 255
+            }
+        );
     }
 
     // -- precision: RgbaF16 ↔ RgbaF32 --
@@ -1353,7 +1598,12 @@ mod tests {
     fn test_yuyv8_to_rgba8() {
         let mut img = Image::<Yuyv8>::new(2, 1);
         // Pure white in YUV: Y=235, U=128, V=128 → R≈235, G≈235, B≈235
-        *img.macropixel_mut(0, 0) = Yuyv8Macropixel { y0: 235, u: 128, y1: 235, v: 128 };
+        *img.macropixel_mut(0, 0) = Yuyv8Macropixel {
+            y0: 235,
+            u: 128,
+            y1: 235,
+            v: 128,
+        };
         let rgba: Image<Rgba8> = img.convert();
         let p0 = rgba.pixel(0, 0);
         let p1 = rgba.pixel(1, 0);
@@ -1369,7 +1619,12 @@ mod tests {
     fn test_yuyv8_to_rgba8_colored() {
         let mut img = Image::<Yuyv8>::new(2, 1);
         // Known BT.601 test: Y=180, U=100, V=200
-        *img.macropixel_mut(0, 0) = Yuyv8Macropixel { y0: 180, u: 100, y1: 180, v: 200 };
+        *img.macropixel_mut(0, 0) = Yuyv8Macropixel {
+            y0: 180,
+            u: 100,
+            y1: 180,
+            v: 200,
+        };
         let rgba: Image<Rgba8> = img.convert();
         let p = rgba.pixel(0, 0);
         // R = 180 + 1.402*(200-128) = 180 + 100.944 = 280.944 → clamped 255
@@ -1408,7 +1663,13 @@ mod tests {
         for py in 0..2u32 {
             for px in 0..4u32 {
                 let p = rgba.pixel(px, py);
-                assert!((p.r as i16 - 200).abs() <= 1, "pixel ({},{}) r={}", px, py, p.r);
+                assert!(
+                    (p.r as i16 - 200).abs() <= 1,
+                    "pixel ({},{}) r={}",
+                    px,
+                    py,
+                    p.r
+                );
                 assert!((p.g as i16 - 200).abs() <= 1);
                 assert!((p.b as i16 - 200).abs() <= 1);
                 assert_eq!(p.a, 255);
@@ -1428,7 +1689,12 @@ mod tests {
     #[test]
     fn test_rgba8_to_tensor_values() {
         let mut img = Image::<Rgba8>::new(2, 1);
-        *img.pixel_mut(0, 0) = Rgba8Pixel { r: 255, g: 0, b: 128, a: 255 };
+        *img.pixel_mut(0, 0) = Rgba8Pixel {
+            r: 255,
+            g: 0,
+            b: 128,
+            a: 255,
+        };
         let t = img.to_tensor_nchw();
         // NCHW: channel 0 (R), row 0, col 0
         assert!((t.get(&[0, 0, 0, 0]) - 1.0).abs() < 0.001); // R=255 → 1.0
@@ -1440,8 +1706,18 @@ mod tests {
     #[test]
     fn test_rgba8_tensor_round_trip() {
         let mut img = Image::<Rgba8>::new(3, 2);
-        *img.pixel_mut(0, 0) = Rgba8Pixel { r: 128, g: 64, b: 32, a: 255 };
-        *img.pixel_mut(2, 1) = Rgba8Pixel { r: 10, g: 20, b: 30, a: 40 };
+        *img.pixel_mut(0, 0) = Rgba8Pixel {
+            r: 128,
+            g: 64,
+            b: 32,
+            a: 255,
+        };
+        *img.pixel_mut(2, 1) = Rgba8Pixel {
+            r: 10,
+            g: 20,
+            b: 30,
+            a: 40,
+        };
         let t = img.to_tensor_nchw();
         let back = Image::<Rgba8>::from_tensor_nchw(&t);
         assert_eq!(back.width(), 3);
@@ -1461,13 +1737,39 @@ mod tests {
     #[test]
     fn test_rgbaf32_tensor_round_trip_exact() {
         let mut img = Image::<RgbaF32>::new(2, 2);
-        *img.pixel_mut(0, 0) = RgbaF32Pixel { r: 0.1, g: 0.2, b: 0.3, a: 0.4 };
-        *img.pixel_mut(1, 1) = RgbaF32Pixel { r: 0.9, g: 0.8, b: 0.7, a: 0.6 };
+        *img.pixel_mut(0, 0) = RgbaF32Pixel {
+            r: 0.1,
+            g: 0.2,
+            b: 0.3,
+            a: 0.4,
+        };
+        *img.pixel_mut(1, 1) = RgbaF32Pixel {
+            r: 0.9,
+            g: 0.8,
+            b: 0.7,
+            a: 0.6,
+        };
         let t = img.to_tensor_nchw();
         let back = Image::<RgbaF32>::from_tensor_nchw(&t);
         // f32 round-trip should be exact
-        assert_eq!(back.pixel(0, 0), &RgbaF32Pixel { r: 0.1, g: 0.2, b: 0.3, a: 0.4 });
-        assert_eq!(back.pixel(1, 1), &RgbaF32Pixel { r: 0.9, g: 0.8, b: 0.7, a: 0.6 });
+        assert_eq!(
+            back.pixel(0, 0),
+            &RgbaF32Pixel {
+                r: 0.1,
+                g: 0.2,
+                b: 0.3,
+                a: 0.4
+            }
+        );
+        assert_eq!(
+            back.pixel(1, 1),
+            &RgbaF32Pixel {
+                r: 0.9,
+                g: 0.8,
+                b: 0.7,
+                a: 0.6
+            }
+        );
     }
 
     #[test]

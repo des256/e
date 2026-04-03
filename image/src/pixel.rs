@@ -1,4 +1,4 @@
-use crate::F16;
+use base::*;
 
 // -- GPU format enum --
 
@@ -108,7 +108,9 @@ impl PixelFormat for Rgba8 {
 }
 
 impl UncompressedFormat for Rgba8 {
-    fn min_stride(width: u32) -> u32 { width * 4 }
+    fn min_stride(width: u32) -> u32 {
+        width * 4
+    }
     fn data_size(_width: u32, height: u32, stride: u32) -> usize {
         stride as usize * height as usize
     }
@@ -144,7 +146,9 @@ impl PixelFormat for Argb8 {
 }
 
 impl UncompressedFormat for Argb8 {
-    fn min_stride(width: u32) -> u32 { width * 4 }
+    fn min_stride(width: u32) -> u32 {
+        width * 4
+    }
     fn data_size(_width: u32, height: u32, stride: u32) -> usize {
         stride as usize * height as usize
     }
@@ -180,7 +184,9 @@ impl PixelFormat for Bgra8 {
 }
 
 impl UncompressedFormat for Bgra8 {
-    fn min_stride(width: u32) -> u32 { width * 4 }
+    fn min_stride(width: u32) -> u32 {
+        width * 4
+    }
     fn data_size(_width: u32, height: u32, stride: u32) -> usize {
         stride as usize * height as usize
     }
@@ -218,7 +224,9 @@ impl PixelFormat for Srgba8 {
 }
 
 impl UncompressedFormat for Srgba8 {
-    fn min_stride(width: u32) -> u32 { width * 4 }
+    fn min_stride(width: u32) -> u32 {
+        width * 4
+    }
     fn data_size(_width: u32, height: u32, stride: u32) -> usize {
         stride as usize * height as usize
     }
@@ -254,7 +262,9 @@ impl PixelFormat for RgbaF16 {
 }
 
 impl UncompressedFormat for RgbaF16 {
-    fn min_stride(width: u32) -> u32 { width * 8 }
+    fn min_stride(width: u32) -> u32 {
+        width * 8
+    }
     fn data_size(_width: u32, height: u32, stride: u32) -> usize {
         stride as usize * height as usize
     }
@@ -290,7 +300,9 @@ impl PixelFormat for RgbaF32 {
 }
 
 impl UncompressedFormat for RgbaF32 {
-    fn min_stride(width: u32) -> u32 { width * 16 }
+    fn min_stride(width: u32) -> u32 {
+        width * 16
+    }
     fn data_size(_width: u32, height: u32, stride: u32) -> usize {
         stride as usize * height as usize
     }
@@ -324,7 +336,9 @@ impl PixelFormat for Y8 {
 }
 
 impl UncompressedFormat for Y8 {
-    fn min_stride(width: u32) -> u32 { width }
+    fn min_stride(width: u32) -> u32 {
+        width
+    }
     fn data_size(_width: u32, height: u32, stride: u32) -> usize {
         stride as usize * height as usize
     }
@@ -356,7 +370,9 @@ impl PixelFormat for Uv8 {
 }
 
 impl UncompressedFormat for Uv8 {
-    fn min_stride(width: u32) -> u32 { width * 2 }
+    fn min_stride(width: u32) -> u32 {
+        width * 2
+    }
     fn data_size(_width: u32, height: u32, stride: u32) -> usize {
         stride as usize * height as usize
     }
@@ -401,7 +417,9 @@ impl PixelFormat for Yuyv8 {
 }
 
 impl UncompressedFormat for Yuyv8 {
-    fn min_stride(width: u32) -> u32 { width * 2 }
+    fn min_stride(width: u32) -> u32 {
+        width * 2
+    }
     fn data_size(_width: u32, height: u32, stride: u32) -> usize {
         stride as usize * height as usize
     }
@@ -434,7 +452,9 @@ impl PixelFormat for Nv12 {
 }
 
 impl UncompressedFormat for Nv12 {
-    fn min_stride(width: u32) -> u32 { width }
+    fn min_stride(width: u32) -> u32 {
+        width
+    }
     fn data_size(_width: u32, height: u32, stride: u32) -> usize {
         stride as usize * height as usize + stride as usize * (height as usize / 2)
     }
@@ -471,10 +491,14 @@ mod tests {
         assert_eq!(GpuFormat::Rgba8Unorm, GpuFormat::Rgba8Unorm);
         assert_ne!(GpuFormat::Rgba8Unorm, GpuFormat::Rgba8Srgb);
         let _all = [
-            GpuFormat::Rgba8Unorm, GpuFormat::Rgba8Srgb,
-            GpuFormat::Bgra8Unorm, GpuFormat::Bgra8Srgb,
-            GpuFormat::Rgba16Float, GpuFormat::Rgba32Float,
-            GpuFormat::R8Unorm, GpuFormat::Rg8Unorm,
+            GpuFormat::Rgba8Unorm,
+            GpuFormat::Rgba8Srgb,
+            GpuFormat::Bgra8Unorm,
+            GpuFormat::Bgra8Srgb,
+            GpuFormat::Rgba16Float,
+            GpuFormat::Rgba32Float,
+            GpuFormat::R8Unorm,
+            GpuFormat::Rg8Unorm,
         ];
     }
 
@@ -482,7 +506,12 @@ mod tests {
 
     #[test]
     fn test_rgba8_pixel() {
-        let p = Rgba8Pixel { r: 255, g: 128, b: 64, a: 32 };
+        let p = Rgba8Pixel {
+            r: 255,
+            g: 128,
+            b: 64,
+            a: 32,
+        };
         assert_eq!(p.r, 255);
         assert_eq!(p.g, 128);
         assert_eq!(p.b, 64);
@@ -492,7 +521,12 @@ mod tests {
 
     #[test]
     fn test_argb8_pixel() {
-        let p = Argb8Pixel { a: 255, r: 128, g: 64, b: 32 };
+        let p = Argb8Pixel {
+            a: 255,
+            r: 128,
+            g: 64,
+            b: 32,
+        };
         assert_eq!(p.a, 255);
         assert_eq!(p.r, 128);
         assert_eq!(std::mem::size_of::<Argb8Pixel>(), 4);
@@ -500,7 +534,12 @@ mod tests {
 
     #[test]
     fn test_bgra8_pixel() {
-        let p = Bgra8Pixel { b: 10, g: 20, r: 30, a: 40 };
+        let p = Bgra8Pixel {
+            b: 10,
+            g: 20,
+            r: 30,
+            a: 40,
+        };
         assert_eq!(p.b, 10);
         assert_eq!(p.r, 30);
         assert_eq!(std::mem::size_of::<Bgra8Pixel>(), 4);
@@ -508,7 +547,12 @@ mod tests {
 
     #[test]
     fn test_srgba8_pixel() {
-        let p = Srgba8Pixel { r: 1, g: 2, b: 3, a: 4 };
+        let p = Srgba8Pixel {
+            r: 1,
+            g: 2,
+            b: 3,
+            a: 4,
+        };
         assert_eq!(p.r, 1);
         assert_eq!(std::mem::size_of::<Srgba8Pixel>(), 4);
     }
@@ -528,7 +572,12 @@ mod tests {
 
     #[test]
     fn test_rgba_f32_pixel() {
-        let p = RgbaF32Pixel { r: 1.0, g: 0.5, b: 0.25, a: 1.0 };
+        let p = RgbaF32Pixel {
+            r: 1.0,
+            g: 0.5,
+            b: 0.25,
+            a: 1.0,
+        };
         assert_eq!(p.r, 1.0);
         assert_eq!(p.g, 0.5);
         assert_eq!(std::mem::size_of::<RgbaF32Pixel>(), 16);
@@ -576,7 +625,12 @@ mod tests {
 
     #[test]
     fn test_yuyv8_macropixel() {
-        let m = Yuyv8Macropixel { y0: 100, u: 128, y1: 120, v: 130 };
+        let m = Yuyv8Macropixel {
+            y0: 100,
+            u: 128,
+            y1: 120,
+            v: 130,
+        };
         assert_eq!(m.y0, 100);
         assert_eq!(m.u, 128);
         assert_eq!(m.y1, 120);
@@ -627,28 +681,48 @@ mod tests {
 
     #[test]
     fn test_rgba8_pixel_byte_layout() {
-        let p = Rgba8Pixel { r: 0xAA, g: 0xBB, b: 0xCC, a: 0xDD };
+        let p = Rgba8Pixel {
+            r: 0xAA,
+            g: 0xBB,
+            b: 0xCC,
+            a: 0xDD,
+        };
         let bytes: &[u8; 4] = unsafe { &*(&p as *const Rgba8Pixel as *const [u8; 4]) };
         assert_eq!(bytes, &[0xAA, 0xBB, 0xCC, 0xDD]);
     }
 
     #[test]
     fn test_argb8_pixel_byte_layout() {
-        let p = Argb8Pixel { a: 0xAA, r: 0xBB, g: 0xCC, b: 0xDD };
+        let p = Argb8Pixel {
+            a: 0xAA,
+            r: 0xBB,
+            g: 0xCC,
+            b: 0xDD,
+        };
         let bytes: &[u8; 4] = unsafe { &*(&p as *const Argb8Pixel as *const [u8; 4]) };
         assert_eq!(bytes, &[0xAA, 0xBB, 0xCC, 0xDD]);
     }
 
     #[test]
     fn test_bgra8_pixel_byte_layout() {
-        let p = Bgra8Pixel { b: 0xAA, g: 0xBB, r: 0xCC, a: 0xDD };
+        let p = Bgra8Pixel {
+            b: 0xAA,
+            g: 0xBB,
+            r: 0xCC,
+            a: 0xDD,
+        };
         let bytes: &[u8; 4] = unsafe { &*(&p as *const Bgra8Pixel as *const [u8; 4]) };
         assert_eq!(bytes, &[0xAA, 0xBB, 0xCC, 0xDD]);
     }
 
     #[test]
     fn test_yuyv8_macropixel_byte_layout() {
-        let m = Yuyv8Macropixel { y0: 0x11, u: 0x22, y1: 0x33, v: 0x44 };
+        let m = Yuyv8Macropixel {
+            y0: 0x11,
+            u: 0x22,
+            y1: 0x33,
+            v: 0x44,
+        };
         let bytes: &[u8; 4] = unsafe { &*(&m as *const Yuyv8Macropixel as *const [u8; 4]) };
         assert_eq!(bytes, &[0x11, 0x22, 0x33, 0x44]);
     }
