@@ -5,6 +5,6 @@ authors.workspace = true
 edition = "2021"
 
 [dependencies]
-base = { path = "../../../base" }
 http = { path = "../../../http" }
+math = { path = "../../../math" }
 shared = { package = "exploreui-shared", path = "../shared" }

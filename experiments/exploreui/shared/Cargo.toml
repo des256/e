@@ -5,5 +5,5 @@ authors.workspace = true
 edition = "2021"
 
 [dependencies]
-base = { path = "../../../base" }
 codec = { path = "../../../codec" }
+math = { path = "../../../math" }

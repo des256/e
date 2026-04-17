@@ -4,7 +4,7 @@
 //! synchronizes the value with the backend via binary WebSocket.
 
 use {
-    base::{vec3, Vec3},
+    math::{vec3, Vec3},
     shared::{Codec, Message},
     std::cell::Cell,
     webui::*,

@@ -3,7 +3,7 @@
 //! Defines the [`Message`] enum exchanged between frontend and backend
 //! over WebSocket as binary via [`Codec`].
 
-pub use base::Vec3;
+pub use math::Vec3;
 pub use codec::{Codec, CodecError};
 
 // -- messages --

@@ -1,8 +1,8 @@
 [package]
-name = "base"
+name = "math"
 version.workspace = true
 authors.workspace = true
 edition = "2021"
 
 [dependencies]
-libc = "0.2"
+codec = { path = "../codec" }

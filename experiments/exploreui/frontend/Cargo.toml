@@ -8,6 +8,6 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-base = { path = "../../../base" }
+math = { path = "../../../math" }
 webui = { path = "../../../webui" }
 shared = { package = "exploreui-shared", path = "../shared" }

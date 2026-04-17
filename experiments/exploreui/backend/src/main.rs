@@ -3,7 +3,7 @@ use {
         websocket::{Message as WsMessage, WebSocket},
         *,
     },
-    base::vec3,
+    math::vec3,
     shared::{Codec, Message},
     std::sync::{Arc, Mutex},
 };
@@ -11,7 +11,7 @@ use {
 // -- state --
 
 struct State {
-    value: base::Vec3<f32>,
+    value: math::Vec3<f32>,
     clients: Vec<WebSocket>,
 }
 

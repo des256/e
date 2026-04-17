@@ -1,4 +1,4 @@
-use {crate::*, base::*, std::marker::PhantomData};
+use {crate::*, math::*, std::marker::PhantomData};
 
 // ============================================================
 // Image<P> — owned image buffer
