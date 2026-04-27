@@ -14,10 +14,10 @@
 //! # Ok::<(), std::io::Error>(())
 //! ```
 
-use std::{
-    io::{Error, ErrorKind},
-    os::fd::{AsRawFd, FromRawFd, OwnedFd},
-};
+use std::io::{Error, ErrorKind};
+
+#[cfg(unix)]
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 
 // -- port enumeration --
 
@@ -62,6 +62,7 @@ impl std::fmt::Display for PortInfo {
 ///     println!("{}", port);
 /// }
 /// ```
+#[cfg(unix)]
 pub fn available_ports() -> Vec<PortInfo> {
     use std::fs;
     use std::path::Path;
@@ -122,6 +123,7 @@ pub fn available_ports() -> Vec<PortInfo> {
 }
 
 /// Walk up the sysfs tree to find USB vendor and product IDs.
+#[cfg(unix)]
 fn find_usb_ids(start: &std::path::Path) -> (Option<u16>, Option<u16>) {
     use std::fs;
 
@@ -160,11 +162,13 @@ fn find_usb_ids(start: &std::path::Path) -> (Option<u16>, Option<u16>) {
 ///
 /// Implements [`std::io::Read`] and [`std::io::Write`] for compatibility with
 /// existing code using the `serialport` crate.
+#[cfg(unix)]
 #[derive(Debug)]
 pub struct SerialPort {
     fd: OwnedFd,
 }
 
+#[cfg(unix)]
 impl SerialPort {
     /// Open a serial port at the given path with the specified baud rate.
     ///
@@ -307,6 +311,7 @@ impl SerialPort {
 
 // -- trait implementations --
 
+#[cfg(unix)]
 impl std::io::Read for SerialPort {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let n = unsafe {
@@ -325,6 +330,7 @@ impl std::io::Read for SerialPort {
     }
 }
 
+#[cfg(unix)]
 impl std::io::Write for SerialPort {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let n = unsafe {
@@ -355,6 +361,7 @@ impl std::io::Write for SerialPort {
 // -- helpers --
 
 /// Map a baud rate (u32) to a termios speed_t constant.
+#[cfg(unix)]
 fn baud_rate_to_speed(rate: u32) -> Result<libc::speed_t, Error> {
     let speed = match rate {
         9600 => libc::B9600,
@@ -383,6 +390,7 @@ fn baud_rate_to_speed(rate: u32) -> Result<libc::speed_t, Error> {
 }
 
 /// Set an arbitrary baud rate via `TCSETS2`/`BOTHER`.
+#[cfg(unix)]
 fn set_custom_baud_rate(fd: &OwnedFd, baud_rate: u32) -> Result<(), Error> {
     const BOTHER: u32 = 0o010000;
     const CBAUD: u32 = 0o010017;
@@ -424,6 +432,7 @@ fn set_custom_baud_rate(fd: &OwnedFd, baud_rate: u32) -> Result<(), Error> {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
     #[test]
     fn test_baud_rate_to_speed_rejects_nonstandard() {
         // Non-standard rates are not in the B* constant table
@@ -434,6 +443,7 @@ mod tests {
         assert!(err.to_string().contains("unsupported baud rate"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_baud_rate_mapping() {
         // Standard baud rates should map correctly
@@ -449,6 +459,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_read_write_traits_compile() {
         // Compile-time verification that Read and Write traits are implemented
@@ -461,6 +472,7 @@ mod tests {
         // We don't need to actually call it or construct a SerialPort
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_portinfo_display() {
         let port = PortInfo {
@@ -488,6 +500,7 @@ mod tests {
         assert_eq!(port_minimal.to_string(), "/dev/ttyS0");
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_available_ports_returns_vec() {
         // Basic sanity check - available_ports should return a Vec (possibly empty)
