@@ -131,6 +131,15 @@ export function webui_imports() {
             return write_str(val, buf_ptr, buf_len);
         },
 
+        element_bounding_rect(handle, out_ptr) {
+            const rect = handles[handle].getBoundingClientRect();
+            const view = new Float32Array(wasm.exports.memory.buffer, out_ptr, 4);
+            view[0] = rect.x;
+            view[1] = rect.y;
+            view[2] = rect.width;
+            view[3] = rect.height;
+        },
+
         append_text_content(handle, ptr, len) {
             handles[handle].textContent += read_str(ptr, len);
         },

@@ -30,6 +30,7 @@ extern "C" {
     fn set_value(handle: u32, ptr: *const u8, len: usize);
     fn get_value(handle: u32, buf_ptr: *mut u8, buf_len: usize) -> usize;
     fn append_text_content(handle: u32, ptr: *const u8, len: usize);
+    fn element_bounding_rect(handle: u32, out_ptr: *mut f32);
 
     // -- node tree --
 
@@ -132,6 +133,13 @@ impl Element {
         let len = unsafe { get_value(self.0, buf.as_mut_ptr(), buf.len()) };
         let actual = len.min(buf.len());
         String::from_utf8_lossy(&buf[..actual]).into_owned()
+    }
+
+    /// Returns `(x, y, width, height)` from `getBoundingClientRect()`.
+    pub fn bounding_rect(&self) -> (f32, f32, f32, f32) {
+        let mut buf = [0f32; 4];
+        unsafe { element_bounding_rect(self.0, buf.as_mut_ptr()) };
+        (buf[0], buf[1], buf[2], buf[3])
     }
 
     /// Append text to `textContent` (for `<style>` elements).

@@ -94,28 +94,34 @@ fn mount_element(data: ElementData, parent: Element) {
 
 // -- reactive mounting --
 
-/// Mount a reactive node: place a comment marker, then create an effect
-/// that rebuilds the subtree whenever dependencies change.
+/// Mount a reactive node: place start/end comment markers, then create an
+/// effect that rebuilds only the content between them when dependencies change.
 fn mount_reactive(f: Box<dyn Fn(&Context) -> Node>, parent: Element) {
-    let marker = ffi::create_comment_str("reactive");
-    parent.append_child(marker);
+    let start = ffi::create_comment_str("reactive");
+    let end = ffi::create_comment_str("/reactive");
+    parent.append_child(start);
+    parent.append_child(end);
 
     Context::new().effect(move |context| {
-        clear_after_marker(marker);
+        clear_between(start, end);
         let node = f(context);
         let tmp = Element::create("div");
         mount(node, tmp);
         while let Some(child) = tmp.first_child() {
-            parent.insert_before(child, marker.next_sibling());
+            parent.insert_before(child, Some(end));
         }
     });
 }
 
-/// Remove all sibling nodes after a comment marker.
-fn clear_after_marker(marker: JsHandle) {
-    let parent = marker.parent_element();
-    while let Some(sibling) = marker.next_sibling() {
-        parent.remove_child(sibling);
+/// Remove all nodes strictly between two sibling markers.
+fn clear_between(start: JsHandle, end: JsHandle) {
+    let parent = start.parent_element();
+    loop {
+        match start.next_sibling() {
+            Some(sibling) if sibling == end => break,
+            Some(sibling) => parent.remove_child(sibling),
+            None => break,
+        }
     }
 }
 
