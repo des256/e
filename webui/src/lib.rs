@@ -51,7 +51,7 @@ pub mod patcher;
 
 pub use runtime::{Context, Signal, with_context};
 pub use color::Color;
-pub use ffi::Element;
+pub use ffi::{Element, MouseEvent};
 pub use node::Node;
 pub use builder::{ElementBuilder, div, span, element, text, reactive, empty};
 pub use style::{CssDef, css, EASE, EASE_IN, EASE_OUT, LINEAR};

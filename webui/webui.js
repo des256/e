@@ -126,6 +126,10 @@ export function webui_imports() {
             handles[handle].value = read_str(ptr, len);
         },
 
+        set_checked(handle, checked) {
+            handles[handle].checked = !!checked;
+        },
+
         get_value(handle, buf_ptr, buf_len) {
             const val = handles[handle].value || "";
             return write_str(val, buf_ptr, buf_len);
@@ -169,6 +173,17 @@ export function webui_imports() {
 
         parent_node(handle) {
             return handle_for(handles[handle].parentNode);
+        },
+
+        // -- element geometry --
+
+        element_bounding_rect(handle, out_ptr) {
+            const rect = handles[handle].getBoundingClientRect();
+            const view = new Float32Array(wasm.exports.memory.buffer, out_ptr, 4);
+            view[0] = rect.x;
+            view[1] = rect.y;
+            view[2] = rect.width;
+            view[3] = rect.height;
         },
 
         // -- event properties --

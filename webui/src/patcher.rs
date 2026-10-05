@@ -1,5 +1,5 @@
 use crate::{
-    ffi::{self, Element, Event, JsHandle, MouseEvent, KeyboardEvent},
+    ffi::{self, Element, Event, JsHandle, KeyboardEvent, MouseEvent},
     node::{ElementData, Node},
     runtime::Context,
 };
@@ -29,7 +29,9 @@ fn mount_element(data: ElementData, parent: Element) {
 
     // Static inline styles.
     if !data.styles.is_empty() {
-        let s: String = data.styles.iter()
+        let s: String = data
+            .styles
+            .iter()
             .map(|(k, v)| format!("{k}:{v}"))
             .collect::<Vec<_>>()
             .join(";");
@@ -71,22 +73,25 @@ fn mount_element(data: ElementData, parent: Element) {
         });
     }
 
-    // Reactive attribute bindings.
+    // Children — mounted before reactive attrs so that <select> elements
+    // have their <option> children when set_value runs.
+    for child in data.children {
+        mount(child, el);
+    }
+
+    // Reactive attribute bindings (after children).
     for (name, f) in data.reactive_attrs {
         let el2 = el;
         Context::new().effect(move |context| {
             let val = f(context);
             if name == "value" {
                 el2.set_value(&val);
+            } else if name == "checked" {
+                el2.set_checked(!val.is_empty());
             } else {
                 el2.set_attribute(name, &val);
             }
         });
-    }
-
-    // Children.
-    for child in data.children {
-        mount(child, el);
     }
 
     parent.append_child_element(el);
@@ -131,11 +136,7 @@ impl Context {
     /// Register a document-level mouse event listener.
     ///
     /// Useful for drag handling and click-outside detection.
-    pub fn on_document_mouse(
-        &self,
-        event: &str,
-        handler: impl Fn(&Context, MouseEvent) + 'static,
-    ) {
+    pub fn on_document_mouse(&self, event: &str, handler: impl Fn(&Context, MouseEvent) + 'static) {
         let cb_id = ffi::register_callback(move |event_handle| {
             handler(&Context::new(), MouseEvent(event_handle));
         });

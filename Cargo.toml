@@ -8,6 +8,8 @@ members = [
     "http",
     "image",
     "math",
+    "onnx",
+    "tensorrt",
     "webui",
     "experiments/exploreui/*",
 ]

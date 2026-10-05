@@ -94,11 +94,6 @@ pub use aabb2::*;
 mod aabb3;
 pub use aabb3::*;
 
-// -- tensors --
-
-mod tensor;
-pub use tensor::*;
-
 // -- utilities --
 
 mod interp;

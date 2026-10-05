@@ -28,6 +28,7 @@ extern "C" {
     fn class_list_add(handle: u32, cls_ptr: *const u8, cls_len: usize);
     fn add_event_listener(handle: u32, name_ptr: *const u8, name_len: usize, cb_id: u32);
     fn set_value(handle: u32, ptr: *const u8, len: usize);
+    fn set_checked(handle: u32, checked: u32);
     fn get_value(handle: u32, buf_ptr: *mut u8, buf_len: usize) -> usize;
     fn append_text_content(handle: u32, ptr: *const u8, len: usize);
     fn element_bounding_rect(handle: u32, out_ptr: *mut f32);
@@ -40,6 +41,10 @@ extern "C" {
     fn first_child(handle: u32) -> u32;
     fn next_sibling(handle: u32) -> u32;
     fn parent_node(handle: u32) -> u32;
+
+    // -- element geometry --
+
+    fn element_bounding_rect(handle: u32, out_ptr: *mut f32);
 
     // -- event properties --
 
@@ -80,11 +85,15 @@ pub struct KeyboardEvent(pub(crate) u32);
 // -- conversions --
 
 impl From<Element> for JsHandle {
-    fn from(el: Element) -> Self { JsHandle(el.0) }
+    fn from(el: Element) -> Self {
+        JsHandle(el.0)
+    }
 }
 
 impl From<JsHandle> for Element {
-    fn from(h: JsHandle) -> Self { Element(h.0) }
+    fn from(h: JsHandle) -> Self {
+        Element(h.0)
+    }
 }
 
 // -- string helper --
@@ -119,12 +128,19 @@ impl Element {
 
     /// Attach an event listener. `cb_id` is from [`register_callback`].
     pub fn add_event_listener(&self, name: &str, cb_id: u32) {
-        with_str(name, |p, l| unsafe { add_event_listener(self.0, p, l, cb_id) })
+        with_str(name, |p, l| unsafe {
+            add_event_listener(self.0, p, l, cb_id)
+        })
     }
 
     /// Set the `value` property (for input elements).
     pub fn set_value(&self, value: &str) {
         with_str(value, |p, l| unsafe { set_value(self.0, p, l) })
+    }
+
+    /// Set the `checked` property (for checkbox/radio elements).
+    pub fn set_checked(&self, checked: bool) {
+        unsafe { set_checked(self.0, checked as u32) }
     }
 
     /// Get the `value` property (for input elements).
@@ -171,7 +187,11 @@ impl Element {
     /// First child node, or `None`.
     pub fn first_child(&self) -> Option<JsHandle> {
         let h = unsafe { first_child(self.0) };
-        if h == 0 { None } else { Some(JsHandle(h)) }
+        if h == 0 {
+            None
+        } else {
+            Some(JsHandle(h))
+        }
     }
 }
 
@@ -181,7 +201,11 @@ impl JsHandle {
     /// Next sibling node, or `None`.
     pub fn next_sibling(&self) -> Option<JsHandle> {
         let h = unsafe { next_sibling(self.0) };
-        if h == 0 { None } else { Some(JsHandle(h)) }
+        if h == 0 {
+            None
+        } else {
+            Some(JsHandle(h))
+        }
     }
 
     /// Parent node as an [`Element`].
@@ -215,7 +239,9 @@ pub fn body() -> Element {
 /// Attach an event listener to the document. `cb_id` is from
 /// [`register_callback`].
 pub fn document_add_event_listener_str(name: &str, cb_id: u32) {
-    with_str(name, |p, l| unsafe { document_add_event_listener(p, l, cb_id) })
+    with_str(name, |p, l| unsafe {
+        document_add_event_listener(p, l, cb_id)
+    })
 }
 
 // -- event property accessors --
@@ -367,7 +393,9 @@ mod tests {
         CALLBACKS.with(|cbs| cbs.borrow_mut().clear());
         let called = std::rc::Rc::new(std::cell::Cell::new(0u32));
         let called2 = called.clone();
-        let id = test_register(move |handle| { called2.set(handle); });
+        let id = test_register(move |handle| {
+            called2.set(handle);
+        });
         callback_dispatch(id, 42);
         assert_eq!(called.get(), 42);
         callback_dispatch(id, 99);
@@ -385,7 +413,9 @@ mod tests {
         let id = test_register(move |_handle| {
             outer_ran2.set(true);
             let inner = inner_ran2.clone();
-            let _new_id = test_register(move |_| { inner.set(true); });
+            let _new_id = test_register(move |_| {
+                inner.set(true);
+            });
         });
         // Should not panic (no re-entrancy borrow conflict).
         callback_dispatch(id, 0);
