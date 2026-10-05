@@ -18,16 +18,38 @@
 // Index 0 is permanently null (represents None/missing).
 const handles = [null];
 
+// Released ids, reused by handle_alloc. A handle is valid only for the
+// lifetime of the effect run that created it; the Rust patcher releases
+// every node it creates when the owning effect is torn down.
+const free_handles = [];
+
 // Reverse lookup: reuse existing handle for objects already tracked.
 const obj_to_handle = new WeakMap();
 
 function handle_alloc(obj) {
-    const id = handles.length;
-    handles.push(obj);
+    let id;
+    if (free_handles.length > 0) {
+        id = free_handles.pop();
+        handles[id] = obj;
+    } else {
+        id = handles.length;
+        handles.push(obj);
+    }
     if (typeof obj === "object" && obj !== null) {
         obj_to_handle.set(obj, id);
     }
     return id;
+}
+
+function handle_release(id) {
+    if (id === 0 || id >= handles.length) return;
+    const obj = handles[id];
+    if (obj === null) return;
+    if (typeof obj === "object") {
+        obj_to_handle.delete(obj);
+    }
+    handles[id] = null;
+    free_handles.push(id);
 }
 
 // Return existing handle for an object if one exists, otherwise allocate.
@@ -175,6 +197,31 @@ export function webui_imports() {
             return handle_for(handles[handle].parentNode);
         },
 
+        // -- handle lifetime --
+
+        release_handle(handle) {
+            handle_release(handle);
+        },
+
+        create_fragment() {
+            return handle_alloc(document.createDocumentFragment());
+        },
+
+        // Remove every node strictly between two sibling markers. Walks
+        // the DOM directly so no handles are allocated for the removed
+        // nodes; the owning effect has already released theirs.
+        remove_between(start, end) {
+            const s = handles[start];
+            const e = handles[end];
+            if (!s || !e) return;
+            let node = s.nextSibling;
+            while (node && node !== e) {
+                const next = node.nextSibling;
+                node.remove();
+                node = next;
+            }
+        },
+
         // -- element geometry --
 
         element_bounding_rect(handle, out_ptr) {
@@ -223,4 +270,14 @@ export function webui_imports() {
 
 export function webui_init(instance) {
     wasm = instance;
+}
+
+// -- diagnostics --
+
+// Handle table occupancy: total slots, live (non-null) entries and the
+// free list length. Live should return to its baseline after UI churn.
+export function webui_stats() {
+    let live = 0;
+    for (const h of handles) if (h !== null) live++;
+    return { handles: handles.length, live, free: free_handles.length };
 }

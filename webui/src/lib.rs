@@ -6,6 +6,13 @@
 //! [`Runtime`](runtime). Effects ([`Context::effect`]) auto-track which
 //! signals they read and re-run when those signals change.
 //!
+//! Effects also form an owner tree. An effect created while another
+//! effect runs belongs to it, as do the signals it creates and the
+//! cleanups it registers with [`Context::on_cleanup`]. Before an effect
+//! re-runs, and when it is disposed, everything from its previous run is
+//! disposed first. Code run through [`with_context`] outside any effect
+//! is the root scope and lives for the rest of the program.
+//!
 //! # View Description
 //!
 //! Views are functions that return [`Node`] values built with the
@@ -22,7 +29,8 @@
 //! # DOM Patcher
 //!
 //! [`mount`] turns a [`Node`] tree into real DOM elements. Reactive
-//! nodes re-evaluate only their subtree when signals change.
+//! nodes re-evaluate only their subtree when signals change; the nodes,
+//! listeners and effects of the previous evaluation are released first.
 
 // -- reactive core --
 
@@ -49,7 +57,7 @@ pub mod style;
 
 pub mod patcher;
 
-pub use runtime::{Context, Signal, with_context};
+pub use runtime::{stats, Context, Signal, Stats, with_context};
 pub use color::Color;
 pub use ffi::{Element, MouseEvent};
 pub use node::Node;

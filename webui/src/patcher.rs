@@ -1,20 +1,32 @@
 use crate::{
-    ffi::{self, Element, Event, JsHandle, KeyboardEvent, MouseEvent},
+    ffi::{self, Element, Event, JsHandle, MouseEvent, KeyboardEvent},
     node::{ElementData, Node},
     runtime::Context,
 };
+
+// -- ownership --
+
+/// Release `handle` when the running effect is torn down. At root scope
+/// there is no owner and the node lives for the rest of the program.
+fn owned(handle: JsHandle) {
+    Context::new().on_cleanup(move || handle.release());
+}
 
 // -- mount --
 
 /// Mount a [`Node`] tree into a parent DOM element.
 ///
-/// Recursively creates real DOM nodes from the tree. Reactive nodes
-/// set up effects that re-patch only their subtree when signals change.
+/// Recursively creates real DOM nodes from the tree. Every node, event
+/// callback and effect created here belongs to the running effect and is
+/// released when that effect re-runs or is disposed; a mount at root
+/// scope lives for the rest of the program. Reactive nodes set up effects
+/// that rebuild only their own subtree when signals change.
 pub fn mount(node: Node, parent: Element) {
     match node {
         Node::Element(data) => mount_element(data, parent),
         Node::Text(t) => {
             let text_node = ffi::create_text_node_str(&t);
+            owned(text_node);
             parent.append_child(text_node);
         }
         Node::Reactive(f) => mount_reactive(f, parent),
@@ -26,21 +38,22 @@ pub fn mount(node: Node, parent: Element) {
 
 fn mount_element(data: ElementData, parent: Element) {
     let el = Element::create(data.tag);
+    owned(el.into());
 
     // Static inline styles.
     if !data.styles.is_empty() {
-        let s: String = data
-            .styles
-            .iter()
+        let s: String = data.styles.iter()
             .map(|(k, v)| format!("{k}:{v}"))
             .collect::<Vec<_>>()
             .join(";");
         el.set_attribute("style", &s);
     }
 
-    // Static classes.
+    // Static classes; a class string may hold several tokens.
     for cls in &data.classes {
-        el.class_list_add(cls);
+        for token in cls.split_whitespace() {
+            el.class_list_add(token);
+        }
     }
 
     // Static attributes.
@@ -48,12 +61,13 @@ fn mount_element(data: ElementData, parent: Element) {
         el.set_attribute(name, value);
     }
 
-    // Event listeners.
+    // Event listeners, freed with the element.
     for binding in &data.events {
         let handler = binding.handler.clone();
         let cb_id = ffi::register_callback(move |event_handle| {
             handler(&Context::new(), Event(event_handle));
         });
+        Context::new().on_cleanup(move || ffi::unregister_callback(cb_id));
         el.add_event_listener(binding.name, cb_id);
     }
 
@@ -99,35 +113,31 @@ fn mount_element(data: ElementData, parent: Element) {
 
 // -- reactive mounting --
 
-/// Mount a reactive node: place start/end comment markers, then create an
-/// effect that rebuilds only the content between them when dependencies change.
+/// Mount a reactive node: place start/end comment markers, then create
+/// an effect that rebuilds the subtree between them when deps change.
+///
+/// The markers belong to the enclosing scope. Everything between them
+/// belongs to the effect: before each rebuild the runtime tears the
+/// previous run down (nested effects, listeners, handles), and the body
+/// then removes the old nodes and mounts the new ones in their place.
 fn mount_reactive(f: Box<dyn Fn(&Context) -> Node>, parent: Element) {
     let start = ffi::create_comment_str("reactive");
     let end = ffi::create_comment_str("/reactive");
+    owned(start);
+    owned(end);
     parent.append_child(start);
     parent.append_child(end);
 
     Context::new().effect(move |context| {
-        clear_between(start, end);
-        let node = f(context);
-        let tmp = Element::create("div");
-        mount(node, tmp);
-        while let Some(child) = tmp.first_child() {
-            parent.insert_before(child, Some(end));
-        }
+        ffi::remove_siblings_between(start, end);
+        // The parent is read here, not captured: a block mounted into a
+        // fragment is moved into the document afterwards.
+        let parent = end.parent_element();
+        let fragment = ffi::create_fragment_node();
+        mount(f(context), fragment);
+        parent.insert_before(fragment.into(), Some(end));
+        fragment.release();
     });
-}
-
-/// Remove all nodes strictly between two sibling markers.
-fn clear_between(start: JsHandle, end: JsHandle) {
-    let parent = start.parent_element();
-    loop {
-        match start.next_sibling() {
-            Some(sibling) if sibling == end => break,
-            Some(sibling) => parent.remove_child(sibling),
-            None => break,
-        }
-    }
 }
 
 // -- document-level events --
@@ -135,15 +145,22 @@ fn clear_between(start: JsHandle, end: JsHandle) {
 impl Context {
     /// Register a document-level mouse event listener.
     ///
-    /// Useful for drag handling and click-outside detection.
-    pub fn on_document_mouse(&self, event: &str, handler: impl Fn(&Context, MouseEvent) + 'static) {
+    /// Useful for drag handling and click-outside detection. Document
+    /// listeners live for the rest of the program; register them at root
+    /// scope, not inside a reactive block.
+    pub fn on_document_mouse(
+        &self,
+        event: &str,
+        handler: impl Fn(&Context, MouseEvent) + 'static,
+    ) {
         let cb_id = ffi::register_callback(move |event_handle| {
             handler(&Context::new(), MouseEvent(event_handle));
         });
         ffi::document_add_event_listener_str(event, cb_id);
     }
 
-    /// Register a document-level keyboard event listener.
+    /// Register a document-level keyboard event listener. Lives for the
+    /// rest of the program, like [`on_document_mouse`](Self::on_document_mouse).
     pub fn on_document_keyboard(
         &self,
         event: &str,

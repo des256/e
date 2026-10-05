@@ -31,7 +31,6 @@ extern "C" {
     fn set_checked(handle: u32, checked: u32);
     fn get_value(handle: u32, buf_ptr: *mut u8, buf_len: usize) -> usize;
     fn append_text_content(handle: u32, ptr: *const u8, len: usize);
-    fn element_bounding_rect(handle: u32, out_ptr: *mut f32);
 
     // -- node tree --
 
@@ -41,6 +40,12 @@ extern "C" {
     fn first_child(handle: u32) -> u32;
     fn next_sibling(handle: u32) -> u32;
     fn parent_node(handle: u32) -> u32;
+
+    // -- handle lifetime --
+
+    fn release_handle(handle: u32);
+    fn create_fragment() -> u32;
+    fn remove_between(start: u32, end: u32);
 
     // -- element geometry --
 
@@ -184,6 +189,11 @@ impl Element {
         unsafe { remove_child(self.0, child.0) }
     }
 
+    /// Release the handle; see [`JsHandle::release`].
+    pub fn release(self) {
+        unsafe { release_handle(self.0) }
+    }
+
     /// First child node, or `None`.
     pub fn first_child(&self) -> Option<JsHandle> {
         let h = unsafe { first_child(self.0) };
@@ -198,6 +208,15 @@ impl Element {
 // -- JsHandle node operations --
 
 impl JsHandle {
+    /// Release the handle so JS can drop its reference and reuse the id.
+    ///
+    /// Handles are valid only for the lifetime of the effect run that
+    /// created them; the patcher releases every node it creates when the
+    /// owning effect is torn down. Never use a handle after this.
+    pub fn release(self) {
+        unsafe { release_handle(self.0) }
+    }
+
     /// Next sibling node, or `None`.
     pub fn next_sibling(&self) -> Option<JsHandle> {
         let h = unsafe { next_sibling(self.0) };
@@ -224,6 +243,17 @@ pub fn create_text_node_str(text: &str) -> JsHandle {
 /// Create a comment node.
 pub fn create_comment_str(text: &str) -> JsHandle {
     JsHandle(with_str(text, |p, l| unsafe { create_comment(p, l) }))
+}
+
+/// Create a document fragment. Mount into it, insert it, then release it.
+pub fn create_fragment_node() -> Element {
+    Element(unsafe { create_fragment() })
+}
+
+/// Remove every node strictly between two sibling markers. Runs in JS
+/// without allocating handles for the removed nodes.
+pub fn remove_siblings_between(start: JsHandle, end: JsHandle) {
+    unsafe { remove_between(start.0, end.0) }
 }
 
 /// Get the `<head>` element.
@@ -297,56 +327,118 @@ impl KeyboardEvent {
 
 // -- callback registry --
 
+/// One callback slot.
+enum CbSlot {
+    /// Free; the id is on the free list.
+    Empty,
+    /// Registered and idle.
+    Live(Box<dyn FnMut(u32)>),
+    /// Taken out for a dispatch in progress.
+    Dispatching,
+    /// Unregistered during its own dispatch; freed when the dispatch ends.
+    Dead,
+}
+
+struct Callbacks {
+    slots: Vec<CbSlot>,
+    free: Vec<u32>,
+}
+
 thread_local! {
-    static CALLBACKS: RefCell<Vec<Option<Box<dyn FnMut(u32)>>>> =
-        RefCell::new(Vec::new());
+    static CALLBACKS: RefCell<Callbacks> =
+        RefCell::new(Callbacks { slots: Vec::new(), free: Vec::new() });
+}
+
+/// Put a closure in a free slot or a new one. Returns the id and whether
+/// the slot is new and so still needs its JS event slot.
+fn alloc_callback(f: Box<dyn FnMut(u32)>) -> (u32, bool) {
+    CALLBACKS.with(|cbs| {
+        let mut cbs = cbs.borrow_mut();
+        match cbs.free.pop() {
+            Some(id) => {
+                cbs.slots[id as usize] = CbSlot::Live(f);
+                (id, false)
+            }
+            None => {
+                cbs.slots.push(CbSlot::Live(f));
+                ((cbs.slots.len() - 1) as u32, true)
+            }
+        }
+    })
 }
 
 /// Register a callback closure. Returns an integer ID that can be
 /// passed to [`Element::add_event_listener`] or
-/// [`document_add_event_listener_str`].
+/// [`document_add_event_listener_str`]. Free it with
+/// [`unregister_callback`]; the patcher does so when the element's
+/// owning effect is torn down.
 ///
-/// The JS glue pre-allocates a handle slot for each callback's event
-/// argument, reusing it on every dispatch.
+/// The JS glue pre-allocates a handle slot for each new id's event
+/// argument. The slot is reused on every dispatch and survives reuse of
+/// the id.
 pub fn register_callback(f: impl FnMut(u32) + 'static) -> u32 {
+    let (id, fresh) = alloc_callback(Box::new(f));
+    if fresh {
+        unsafe { register_event_slot(id) };
+    }
+    id
+}
+
+/// Drop a callback and return its id to the free list. A callback that
+/// unregisters itself while being dispatched is freed once the dispatch
+/// returns. Unknown or already free ids are ignored.
+pub fn unregister_callback(cb_id: u32) {
     CALLBACKS.with(|cbs| {
         let mut cbs = cbs.borrow_mut();
-        let id = cbs.len() as u32;
-        cbs.push(Some(Box::new(f)));
-        // Tell JS to allocate a reusable event handle slot for this ID.
-        unsafe { register_event_slot(id) };
-        id
-    })
+        let Callbacks { slots, free } = &mut *cbs;
+        let Some(slot) = slots.get_mut(cb_id as usize) else { return };
+        match slot {
+            CbSlot::Live(_) => {
+                *slot = CbSlot::Empty;
+                free.push(cb_id);
+            }
+            CbSlot::Dispatching => *slot = CbSlot::Dead,
+            CbSlot::Empty | CbSlot::Dead => {}
+        }
+    });
 }
 
 /// Entry point called by JS when an event fires.
 ///
 /// JS passes the callback ID and the handle of the event object
-/// (stored in the pre-allocated slot). The closure is temporarily
-/// taken out of the registry so the borrow is released before
-/// calling user code (avoids re-entrancy panics if a handler
-/// calls [`register_callback`]).
+/// (stored in the pre-allocated slot). The closure is taken out of the
+/// registry for the call so the borrow is released before user code
+/// runs; user code may register and unregister callbacks, including
+/// this one.
 #[no_mangle]
 pub extern "C" fn callback_dispatch(cb_id: u32, event_handle: u32) {
-    let mut f = CALLBACKS.with(|cbs| {
-        cbs.borrow_mut()
-            .get_mut(cb_id as usize)
-            .and_then(|slot| slot.take())
-    });
-    if let Some(ref mut f) = f {
-        f(event_handle);
-    }
-    // Put it back (unless a nested register_callback overwrote the slot).
-    if let Some(f) = f {
-        CALLBACKS.with(|cbs| {
-            let mut cbs = cbs.borrow_mut();
-            if let Some(slot) = cbs.get_mut(cb_id as usize) {
-                if slot.is_none() {
-                    *slot = Some(f);
+    let f = CALLBACKS.with(|cbs| {
+        let mut cbs = cbs.borrow_mut();
+        match cbs.slots.get_mut(cb_id as usize) {
+            Some(slot) if matches!(slot, CbSlot::Live(_)) => {
+                match std::mem::replace(slot, CbSlot::Dispatching) {
+                    CbSlot::Live(f) => Some(f),
+                    _ => None,
                 }
             }
-        });
-    }
+            _ => None,
+        }
+    });
+    let Some(mut f) = f else { return };
+    f(event_handle);
+    CALLBACKS.with(|cbs| {
+        let mut cbs = cbs.borrow_mut();
+        let Callbacks { slots, free } = &mut *cbs;
+        let slot = &mut slots[cb_id as usize];
+        match slot {
+            CbSlot::Dispatching => *slot = CbSlot::Live(f),
+            CbSlot::Dead => {
+                *slot = CbSlot::Empty;
+                free.push(cb_id);
+            }
+            CbSlot::Empty | CbSlot::Live(_) => {}
+        }
+    });
 }
 
 // -- memory exports --
@@ -377,25 +469,23 @@ pub extern "C" fn dealloc(ptr: *mut u8, len: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{cell::Cell, rc::Rc};
 
-    /// Helper: register a callback bypassing register_event_slot (extern).
+    fn reset() {
+        CALLBACKS.with(|cbs| *cbs.borrow_mut() = Callbacks { slots: Vec::new(), free: Vec::new() });
+    }
+
+    /// Register bypassing the JS event slot (an extern in native tests).
     fn test_register(f: impl FnMut(u32) + 'static) -> u32 {
-        CALLBACKS.with(|cbs| {
-            let mut cbs = cbs.borrow_mut();
-            let id = cbs.len() as u32;
-            cbs.push(Some(Box::new(f)));
-            id
-        })
+        alloc_callback(Box::new(f)).0
     }
 
     #[test]
     fn callback_dispatch_invokes_closure() {
-        CALLBACKS.with(|cbs| cbs.borrow_mut().clear());
-        let called = std::rc::Rc::new(std::cell::Cell::new(0u32));
+        reset();
+        let called = Rc::new(Cell::new(0u32));
         let called2 = called.clone();
-        let id = test_register(move |handle| {
-            called2.set(handle);
-        });
+        let id = test_register(move |handle| { called2.set(handle); });
         callback_dispatch(id, 42);
         assert_eq!(called.get(), 42);
         callback_dispatch(id, 99);
@@ -404,21 +494,58 @@ mod tests {
 
     #[test]
     fn callback_dispatch_reentrant_register() {
-        CALLBACKS.with(|cbs| cbs.borrow_mut().clear());
-        let outer_ran = std::rc::Rc::new(std::cell::Cell::new(false));
+        reset();
+        let outer_ran = Rc::new(Cell::new(false));
         let outer_ran2 = outer_ran.clone();
-        let inner_ran = std::rc::Rc::new(std::cell::Cell::new(false));
+        let inner_ran = Rc::new(Cell::new(false));
         let inner_ran2 = inner_ran.clone();
         // Outer callback registers a new callback during dispatch.
         let id = test_register(move |_handle| {
             outer_ran2.set(true);
             let inner = inner_ran2.clone();
-            let _new_id = test_register(move |_| {
-                inner.set(true);
-            });
+            let _new_id = test_register(move |_| { inner.set(true); });
         });
         // Should not panic (no re-entrancy borrow conflict).
         callback_dispatch(id, 0);
         assert!(outer_ran.get());
+    }
+
+    #[test]
+    fn unregister_frees_id_for_reuse() {
+        reset();
+        let a = test_register(|_| {});
+        let b = test_register(|_| {});
+        unregister_callback(a);
+        assert_eq!(test_register(|_| {}), a);
+        assert_eq!(test_register(|_| {}), b + 1);
+    }
+
+    #[test]
+    fn unregister_during_own_dispatch_is_deferred_not_resurrected() {
+        reset();
+        let calls = Rc::new(Cell::new(0u32));
+        let calls2 = calls.clone();
+        let own_id = Rc::new(Cell::new(0u32));
+        let own_id2 = own_id.clone();
+        let id = test_register(move |_| {
+            calls2.set(calls2.get() + 1);
+            unregister_callback(own_id2.get());
+        });
+        own_id.set(id);
+        callback_dispatch(id, 0);
+        assert_eq!(calls.get(), 1);
+        callback_dispatch(id, 0);
+        assert_eq!(calls.get(), 1, "unregistered callback was resurrected");
+        assert_eq!(test_register(|_| {}), id, "id not freed after dispatch");
+    }
+
+    #[test]
+    fn dispatch_on_free_slot_is_noop() {
+        reset();
+        let id = test_register(|_| panic!("must not run"));
+        unregister_callback(id);
+        callback_dispatch(id, 0);
+        unregister_callback(id);
+        assert_eq!(test_register(|_| {}), id);
     }
 }

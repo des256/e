@@ -20,7 +20,8 @@ pub enum Node {
     /// A text node.
     Text(String),
     /// A reactive subtree. The closure re-evaluates when its signal
-    /// dependencies change; only this subtree is re-patched.
+    /// dependencies change; only this subtree is re-patched, and
+    /// everything the previous evaluation created is disposed first.
     Reactive(Box<dyn Fn(&Context) -> Node>),
     /// Produces no DOM output.
     Empty,
